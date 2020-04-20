@@ -1,0 +1,11 @@
+{
+  "image": {
+    "image_size_pixel": 256,
+    "pixel_size_meter_per_pixel": 0.2
+  },
+  "sampler": {
+    "input_file": "../tests/data/sampler_test.shp",
+    "output_pattern": "../../odeon_test/*_regularsampling.csv",
+    "shift": 0
+  }
+}
