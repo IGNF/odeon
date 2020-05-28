@@ -119,6 +119,9 @@ class JsonInterpreter:
         if "sampler" in self.__dict__:
             return self.__dict__["sampler"]
 
+    def get_dict(self):
+        return self.__dict__
+
     def check_content(self, tag_names):
         try:
             for name in tag_names:
