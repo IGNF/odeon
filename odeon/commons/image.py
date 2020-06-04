@@ -2,6 +2,8 @@ import gdal
 import numpy as np
 import logging
 
+logger = logging.getLogger(__package__)
+
 def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
     """Load and transform an image into a ndarray according to parameters:
     - center-cropping to fit width, height
@@ -27,21 +29,22 @@ def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
     # load full image at a specific resolution
     ds = gdal.Open(image_file, gdal.GA_ReadOnly)
     if ds is None:
-        logging.error(f"File {image_file} not valid.")
+        logger.error(f"File {image_file} not valid.")
 
     # center crop with width and height
     img = ds.ReadAsArray()
     dims = len(img.shape)  # one channel or many
 
-    if width is None:
-        width = img.shape[0]
-    if height is None:
-        height = width
-
     if dims == 3:
         img = img.swapaxes(0, 2).swapaxes(0, 1)
     else:
         img = img[..., np.newaxis]
+    # image shape is now W x H x B
+
+    if width is None:
+        width = img.shape[0]
+    if height is None:
+        height = width
 
     # cropping
     crop_size_x = img.shape[0] - width

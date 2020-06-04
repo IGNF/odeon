@@ -6,6 +6,7 @@ from pprint import pformat
 from odeon.commons.json_interpreter import JsonInterpreter
 from odeon.scripts.train import train
 
+logger = logging.getLogger(__package__)
 
 def parse_arguments():
     """
@@ -22,7 +23,7 @@ def parse_arguments():
     args = parser.parse_args()
 
     if args.config is None or not os.path.exists(args.config):
-        logging.error("ERROR: Sampling config file not found (check path)")
+        logger.error("ERROR: Sampling config file not found (check path)")
         exit(1)
 
     try:
@@ -32,19 +33,53 @@ def parse_arguments():
 
             return args.tool, json_dict.get_dict(), args.verbosity
     except IOError:
-        logging.exception("JSON file incorrectly formatted")
+        logger.exception("JSON file incorrectly formatted")
         exit(1)
+
+def customize_logger():
+
+    class CustomFormatter(logging.Formatter):
+        """Logging Formatter to add colors and count warning / errors"""
+
+        FORMATS = {
+            logging.ERROR: "ERROR: %(msg)s",
+            logging.WARNING: "WARNING: %(msg)s",
+            logging.DEBUG: "%(asctime)s: %(levelname)s - %(message)s",
+            "DEFAULT": "%(msg)s",
+        }
+
+        def format(self, record):
+            log_fmt = self.FORMATS.get(record.levelno, self.FORMATS['DEFAULT'])
+            formatter = logging.Formatter(log_fmt)
+            return formatter.format(record)
+
+    INFO_LEVELV_NUM = 19
+    logging.Logger.INFOV = INFO_LEVELV_NUM
+    logging.addLevelName(INFO_LEVELV_NUM, "INFOV")
+
+    def infov(self, msg, *args, **kwargs):
+        if self.isEnabledFor(INFO_LEVELV_NUM):
+            self._log(INFO_LEVELV_NUM, msg, args, **kwargs)
+    logging.Logger.infov = infov
+
+    # handler
+    handler = logging.StreamHandler()
+    formatter = CustomFormatter()
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 def main():
 
     tool, conf, verbosity = parse_arguments()
 
-    if verbosity:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    customize_logger()
 
-    logging.debug(f"Loaded configuration: \n{pformat(conf, indent=4)}")
+    if verbosity:
+        logger.setLevel('INFOV')
+    else:
+        logger.setLevel('INFO')
+
+    logger.infov(f"Loaded configuration: \n{pformat(conf, indent=4)}")
 
     if tool == "train":
         train(conf)

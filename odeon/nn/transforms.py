@@ -19,7 +19,7 @@ from skimage.util import random_noise
 class Rotation90(object):
     """Apply rotation (0, 90, 180 or 270) to image and mask, this is the default minimum transformation."""
 
-    def __call__(self, sample):
+    def __call__(self, **sample):
         image, mask = sample['image'], sample['mask']
 
         k = random.randint(0, 3)  # number of rotations
@@ -28,13 +28,13 @@ class Rotation90(object):
         image = np.rot90(image, k, (0, 1))
         mask = np.rot90(mask, k, (0, 1))
 
-        return image, mask
+        return {'image': image, 'mask': mask}
 
 
 class Rotation(object):
     """Apply any rotation to image and mask"""
 
-    def __call__(self, sample):
+    def __call__(self, **sample):
         image, mask = sample['image'], sample['mask']
 
         # rotation angle in degrees in counter-clockwise direction.
@@ -43,14 +43,14 @@ class Rotation(object):
         image = rotate(image, angle)
         mask = rotate(mask, angle)
 
-        return image, mask
+        return {'image': image, 'mask': mask}
 
 
 class Radiometry(object):
     """Apply gamma, hue variation and noise to image and mask
        There is a 50% that each effect is applied"""
 
-    def __call__(self, sample):
+    def __call__(self, **sample):
         image, mask = sample['image'], sample['mask']
 
         if random.randint(0, 1):
@@ -73,30 +73,46 @@ class Radiometry(object):
             var = random.uniform(0.001, 0.01)
             image[:, :, 0:4] = random_noise(image[:, :, 0:4], var=var)
 
-        return image, mask
+        return {'image': image, 'mask': mask}
 
 
 class ToDoubleTensor(object):
     """Convert ndarrays of sample(image, mask) into Tensors"""
 
-    def __call__(self, sample):
+    def __call__(self, **sample):
         image, mask = sample['image'], sample['mask']
-
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
         image = image.transpose((2, 0, 1)).copy()
         mask = mask.transpose((2, 0, 1)).copy()
-        return torch.from_numpy(image).float(), torch.from_numpy(mask).float()
+
+        return {
+            'image': torch.from_numpy(image).float(),
+            'mask': torch.from_numpy(mask).float()
+        }
 
 
 class ToSingleTensor(object):
     """Convert ndarrays of image into Tensors"""
 
-    def __call__(self, sample):
+    def __call__(self, **sample):
         image = sample['image']
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
         image = image.transpose((2, 0, 1)).copy()
         return torch.from_numpy(image).float()
+
+class Compose(object):
+    """Compose function differs from torchvision Compose as sample argument is passed unpacked to match albumentation
+    behaviour.
+    """
+
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, **sample):
+        for t in self.transforms:
+            sample = t(**sample)
+        return sample
