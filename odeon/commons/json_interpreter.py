@@ -13,7 +13,8 @@ Notes
 
 import json
 from jsonschema import Draft7Validator, validators, exceptions
-import logging
+from commons import LOGGER
+import sys
 
 
 class JsonInterpreter:
@@ -64,14 +65,13 @@ class JsonInterpreter:
             validator_class, {"properties": set_defaults},
         )
 
-    def __init__(self, json_file: json, logger: logging):
+    def __init__(self, json_file: json):
         """
 
         :param json_file: string , path to a json file with an image and a sampler section
         """
         self.__dict__ = json.load(json_file)
         self._path = json_file
-        self._logger = logger
         # use of last json schema draft, the 7 (https://json-schema.org)
         self.DefaultValidatingDraft7Validator = JsonInterpreter.extend_with_default(Draft7Validator)
 
@@ -86,7 +86,7 @@ class JsonInterpreter:
             self.DefaultValidatingDraft7Validator(json_schema).validate(self.__dict__)
             return True
         except exceptions.ValidationError as ve:
-            self._logger.error("validation error with  you json file {} \n detail: {}".format(self._path, ve))
+            LOGGER.error("validation error with  you json file {} \n detail: {}".format(self._path, ve))
             return False
 
     def get_section(self, section):
@@ -96,6 +96,12 @@ class JsonInterpreter:
         """
         if section in self.__dict__:
             return self.__dict__[section]
+
+#######################################################################
+#
+#   OLD FUNCTIONS
+#
+#######################################################################
 
     def get_image(self):
         """
@@ -119,5 +125,5 @@ class JsonInterpreter:
                 if name not in self.__dict__:
                     raise ValueError(f"'{name}' section is missing in json")
         except ValueError as ve:
-            print(f"[ERROR] {ve}")
-            exit(1)
+            LOGGER.error(f"[ERROR] {ve}")
+            sys.exit(1)

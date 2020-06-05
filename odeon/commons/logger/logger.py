@@ -1,52 +1,87 @@
+""" OdeonLogger
+Logger class in an individual module with singleton pattern: one instance
+
+
+"""
 import logging
 import os
 import datetime
-
-""" OdeonLogger
-Logger class in an individual module to be called once and only once
-
-"""
+from commons.folder_manager import create_folder
 
 
-class OdeonLogger(object):
+class ColoredFormatter(logging.Formatter):
     """
-    Logger class to log event in the Odeon App
-    ...
-
-    Attributes
-    ----------
-    _logger : logger object
-
-        list of (parameters, values).
-
-    Methods
-    -------
-    get_logger()
-        return the logging instance
-
+    Logging Formatter to add colors and count warning / errors
     """
-    _logger = None
 
-    def __init__(self):
+    grey = "\x1b[38;21m"
+    magenta = "\x1b[35;1m"
+    yellow = "\x1b[33;21m"
+    red = "\x1b[31;21m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "'%(asctime)s \t %(name)s  \t [%(levelname)s | ''%(filename)s:%(lineno)s] > %(message)s'"
 
-        self._logger = logging.getLogger("crumbs")
-        self._logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s \t [%(levelname)s | %(filename)s:%(lineno)s] > %(message)s')
+    FORMATS = {
+        logging.DEBUG: magenta + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
 
-        now = datetime.datetime.now()
-        dir_name = "./log"
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
 
-        if not os.path.isdir(dir_name):
-            os.mkdir(dir_name)
-        file_handler = logging.FileHandler(dir_name + "/log_" + now.strftime("%Y-%m-%d")+".log")
 
-        stream_handler = logging.StreamHandler()
+def get_new_logger(name):
+    """
 
-        file_handler.setFormatter(formatter)
-        stream_handler.setFormatter(formatter)
+    :param name: str name of your new logger
+    :return: logging.Logger your new logger
+    """
 
-        self._logger.addHandler(file_handler)
-        self._logger.addHandler(stream_handler)
+    if name in logging.root.manager.loggerDict:
 
-    def get_logger(self):
-        return self._logger
+        raise Exception("{} exists already".format(name))
+
+    else:
+        log = logging.getLogger(name)
+        log.setLevel(logging.DEBUG)
+        return log
+
+
+def get_stream_handler(level=logging.DEBUG):
+        """
+        Set a stream handler to your Logger instance
+        :return StreamHandler
+        """
+
+        ch = logging.StreamHandler()
+        ch.setLevel(level)
+        ch.setFormatter(ColoredFormatter())
+        return ch
+
+
+def get_file_handler(logger: logging.Logger, dir_name, level=logging.WARNING):
+    """
+
+    :param logger:
+    :param dir_name:
+    :param level: min level to log in default: WARNING
+    :return: logging.FileHandler
+    """
+    formatter = logging.Formatter('%(asctime)s \t %(name)s  \t [%(levelname)s | '
+                                  '%(filename)s:%(lineno)s] > %(message)s')
+    now = datetime.datetime.now()
+    if not os.path.isdir(dir_name):
+        create_folder(dir_name)
+
+    fh = logging.FileHandler(
+        os.path.join(dir_name, "_".join(["log", logger.name, now.strftime("%Y-%m-%d")]) + ".log")
+    )
+    fh.setLevel(level)
+    fh.setFormatter(formatter)
+    return fh

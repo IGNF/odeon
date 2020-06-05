@@ -1,0 +1,11 @@
+{
+  "image": {
+    "image_size_pixel": 256,
+    "pixel_size_meter_per_pixel": 0.2
+  },
+  "sampler": {
+    "input_file": "/home/dlsupport/data/odeon_data/learning_zones/zone_33_1_crs.shp",
+    "output_pattern": "/home/dlsupport/data/odeon_data/odeon_sample/zone_33_1.csv",
+    "shift": 0
+  }
+}

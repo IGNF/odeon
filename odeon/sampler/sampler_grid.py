@@ -22,23 +22,19 @@ Example
 
 Notes
 -----
-    * [Todo] implement default values for "image_size_pixel" and "pixel_size_meter_per_pixel" so they can be
     skipped in json (see json_interpreter)
 
 """
 
-import argparse
 import os
-from sys import exit
 from typing import Tuple, List, Dict
 import fiona
 from numpy import linspace
 from shapely.geometry import shape, box, mapping, Point
 from tqdm import tqdm
 import commons.folder_manager as fm
-from commons.json_interpreter import JsonInterpreter
-from commons.timer import Timer
-from commons.logger.logger import OdeonLogger
+from commons.logger.logger import get_file_handler
+from sampler import LOGGER
 
 SAMPLER_SCHEMA = {
     "type": "object",
@@ -62,45 +58,6 @@ SAMPLER_SCHEMA = {
                    "required": ["image", "sampler"]
                    }
 }
-
-LOGGER = OdeonLogger().get_logger()
-
-
-def main() -> None:
-    with Timer("Sampling"):
-
-        image_conf, sampler_conf, verbosity = parse_arguments()
-        LOGGER.info("Sampling started")
-        # if image_conf is not None and sampler_conf is not None:  # TODO simplify
-        grid_sample(verbosity, **sampler_conf, **image_conf)
-
-
-def parse_arguments() -> Tuple:
-    """
-    Argument parsing
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", action='store', type=str, help="json configuration file (required)",
-                        required=True)
-    parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity", default=0)
-    args = parser.parse_args()
-
-    if args.config is None or not os.path.exists(args.config):
-        LOGGER.error("ERROR: Sampling config file not found (check path)")
-        exit(1)
-
-    try:
-        with open(args.config, 'r') as json_file:
-            json_dict = JsonInterpreter(json_file, LOGGER)
-            # json_dict.check_content(["image", "sampler"])
-            if json_dict.is_valid(SAMPLER_SCHEMA):
-                return json_dict.get_image(), json_dict.get_sampler(), args.verbosity
-            else:
-                LOGGER.fatal("the sampling has stopped due to a bad json configuration file")
-                exit(1)
-    except IOError as ioe:
-        LOGGER.error("JSON file incorrectly formatted \n detail {}".format(str(ioe)))
-        exit(1)
 
 
 def setup_output(output_pattern):
@@ -159,7 +116,7 @@ def generate_filename(output_pattern, no_of_samples) -> List:
     if "*" not in pattern:
         pattern = "*_" + pattern
 
-    for i in tqdm(range(no_of_samples)):
+    for i in range(no_of_samples):
         filename = os.path.join(path, pattern.replace("*", "zone" + str(i + 1)))
         filename_list.append(filename)
 
@@ -231,6 +188,7 @@ def save_output(coordinates, filename, side, crs, verbose):
     verbose : bool
         verbose level
     """
+
     # Save into a csv file
     csv_file = open(filename, 'w', encoding='utf-8', errors='ignore')
     for (x, y) in coordinates:
@@ -278,6 +236,8 @@ def grid_sample(verbose, input_file, output_pattern, image_size_pixel, pixel_siz
     shift : boolean
         True to shift samples by half the size of a tile
     """
+
+    LOGGER.addHandler(get_file_handler(LOGGER, os.path.split(output_pattern)[0]))
     if verbose:
         LOGGER.debug("Configuration :")
         LOGGER.debug(f"\tinput shapefile: {input_file}")
@@ -304,7 +264,3 @@ def grid_sample(verbose, input_file, output_pattern, image_size_pixel, pixel_siz
     generate_csv(geometry_list, filename_list, side, crs, strict_inclusion, shift, verbose)
 
     return
-
-
-if __name__ == "__main__":
-    main()
