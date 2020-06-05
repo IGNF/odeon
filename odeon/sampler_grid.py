@@ -30,18 +30,52 @@ Notes
 import argparse
 import os
 from sys import exit
-from typing import Tuple
-
+from typing import Tuple, List, Dict
 import fiona
 from numpy import linspace
 from shapely.geometry import shape, box, mapping, Point
-
+from tqdm import tqdm
 import commons.folder_manager as fm
 from commons.json_interpreter import JsonInterpreter
 from commons.timer import Timer
+from commons.logger.logger import OdeonLogger
+
+SAMPLER_SCHEMA = {
+    "type": "object",
+    "properties": {"image": {"type": "object",
+                             "properties":
+                             {"image_size_pixel": {"type": "integer", "default": 256},
+                              "pixel_size_meter_per_pixel": {"type": "number", "default": 0.2}
+                              }
+                             },
+                   "sampler": {"type": "object",
+                               "properties":
+                               {"input_file":
+                                {"type": "string",
+                                 "default": "/media/ssd/datasets/ocsge/odeon_data/learning_zones/zone_33_1_crs.shp"},
+                                "output_pattern":
+                                    {"type": "string",
+                                     "default": "/media/ssd/datasets/ocsge/odeon_data/data/odeon_sample/zone_33_1.csv"},
+                                "shift": {"enum": [0, 1], "default": 0}
+                                }
+                               },
+                   "required": ["image", "sampler"]
+                   }
+}
+
+LOGGER = OdeonLogger().get_logger()
 
 
-def parse_arguments():
+def main() -> None:
+    with Timer("Sampling"):
+
+        image_conf, sampler_conf, verbosity = parse_arguments()
+        LOGGER.info("Sampling started")
+        # if image_conf is not None and sampler_conf is not None:  # TODO simplify
+        grid_sample(verbosity, **sampler_conf, **image_conf)
+
+
+def parse_arguments() -> Tuple:
     """
     Argument parsing
     """
@@ -52,17 +86,20 @@ def parse_arguments():
     args = parser.parse_args()
 
     if args.config is None or not os.path.exists(args.config):
-        print("ERROR: Sampling config file not found (check path)")
+        LOGGER.error("ERROR: Sampling config file not found (check path)")
         exit(1)
 
     try:
         with open(args.config, 'r') as json_file:
-            json_dict = JsonInterpreter(json_file)
-            json_dict.check_content(["image", "sampler"])
-
-            return json_dict.get_image(), json_dict.get_sampler(), args.verbosity
-    except IOError:
-        print("JSON file incorrectly formatted")
+            json_dict = JsonInterpreter(json_file, LOGGER)
+            # json_dict.check_content(["image", "sampler"])
+            if json_dict.is_valid(SAMPLER_SCHEMA):
+                return json_dict.get_image(), json_dict.get_sampler(), args.verbosity
+            else:
+                LOGGER.fatal("the sampling has stopped due to a bad json configuration file")
+                exit(1)
+    except IOError as ioe:
+        LOGGER.error("JSON file incorrectly formatted \n detail {}".format(str(ioe)))
         exit(1)
 
 
@@ -75,7 +112,7 @@ def setup_output(output_pattern):
     fm.create_folder(path)
 
 
-def get_geometries_from_shp(shapefile) -> Tuple[list, dict]:
+def get_geometries_from_shp(shapefile) -> Tuple[List, Dict]:
     """
     Returns a list of geometries ordered by x, then y
     Parameters
@@ -93,15 +130,16 @@ def get_geometries_from_shp(shapefile) -> Tuple[list, dict]:
     """
     geometry_list = []
     with fiona.open(shapefile, 'r') as layer:
+
         crs = layer.crs
-        for feature in layer:
+        for feature in tqdm(layer):
             geometry = shape(feature['geometry'])
             geometry_list.append(geometry)
 
     return geometry_list, crs
 
 
-def generate_filename(output_pattern, no_of_samples) -> list:
+def generate_filename(output_pattern, no_of_samples) -> List:
     """
     Returns a list of filenames with complete path
     Parameters
@@ -121,7 +159,7 @@ def generate_filename(output_pattern, no_of_samples) -> list:
     if "*" not in pattern:
         pattern = "*_" + pattern
 
-    for i in range(no_of_samples):
+    for i in tqdm(range(no_of_samples)):
         filename = os.path.join(path, pattern.replace("*", "zone" + str(i + 1)))
         filename_list.append(filename)
 
@@ -152,20 +190,23 @@ def generate_csv(geometry_list, filename_list, side, crs, strict_inclusion, shif
     bounding_box_list = [geometry.bounds for geometry in geometry_list]  # bbox: (x1, y1 (SW Point) x2, y2 (NE Point))
     # TODO ? bounding_box_list.sort(key=lambda x: (x[0], x[1]))  # sort by x1 then y2
     data = zip(filename_list, bounding_box_list, geometry_list)
-    for filename, bounding_box, geometry in data:
+    for filename, bounding_box, geometry in tqdm(data):
         # find limits
         x1, y1, x2, y2 = bounding_box
         if shift:
             x1, y1, x2, y2 = x1 + side / 2, y1 + side / 2, x2 - side / 2, y2 - side / 2
         x_num, y_num = (x2 - x1) / side, (y2 - y1) / side  # number of samples
+
         coordinates = [[(x, y) for x in linspace(x1 + side / 2, x2 - side / 2, int(x_num))] for y in
                        linspace(y1 + side / 2, y2 - side / 2, int(y_num))]
+
         coordinates = [j for sub in coordinates for j in sub]  # transform into a list of tuple (x, y)
+
         if strict_inclusion:
             coordinates = [c for c in coordinates if included(c[0], c[1], side, geometry)]
         save_output(coordinates, filename, side, crs, verbose)
         if verbose:
-            print(f"[{filename}]: {len(coordinates)} points")
+            LOGGER.debug(f"[{filename}]: {len(coordinates)} points")
 
 
 def included(x, y, side, geometry):
@@ -217,7 +258,7 @@ def save_output(coordinates, filename, side, crs, verbose):
 
 
 def grid_sample(verbose, input_file, output_pattern, image_size_pixel, pixel_size_meter_per_pixel,
-                strict_inclusion=True, shift=False):
+                strict_inclusion=False, shift=False):
     """
 
     Parameters
@@ -238,35 +279,32 @@ def grid_sample(verbose, input_file, output_pattern, image_size_pixel, pixel_siz
         True to shift samples by half the size of a tile
     """
     if verbose:
-        print("Configuration :")
-        print(f"\tinput shapefile: {input_file}")
-        print(f"\toutput pattern: {output_pattern}")
-        print(f"\timage size (pixel): {image_size_pixel}")
-        print(f"\tpixel size (meter per pixel): {pixel_size_meter_per_pixel}")
-        print(f"\tstrict_inclusion: {strict_inclusion}")
-        print(f"\tshift (1 to shift centers): {shift}")
+        LOGGER.debug("Configuration :")
+        LOGGER.debug(f"\tinput shapefile: {input_file}")
+        LOGGER.debug(f"\toutput pattern: {output_pattern}")
+        LOGGER.debug(f"\timage size (pixel): {image_size_pixel}")
+        LOGGER.debug(f"\tpixel size (meter per pixel): {pixel_size_meter_per_pixel}")
+        LOGGER.debug(f"\tstrict_inclusion: {strict_inclusion}")
+        LOGGER.debug(f"\tshift (1 to shift centers): {shift}")
 
     if not os.path.isfile(input_file):
-        print(f"ERROR: file nor found: {input_file}")
+        LOGGER.debug(f"ERROR: file nor found: {input_file}")
     fm.create_folder(os.path.dirname(output_pattern))
 
     # read shape file and count shapes, order them by x
+    LOGGER.info("retrieve geometry")
     geometry_list, crs = get_geometries_from_shp(input_file)
     # build output filename and create if necessary the output folder
+    LOGGER.info("generate filename")
     filename_list = generate_filename(output_pattern, len(geometry_list))
     # get side of the expected images
     side = image_size_pixel * pixel_size_meter_per_pixel
     # generate csv
+    LOGGER.info("generate csv")
     generate_csv(geometry_list, filename_list, side, crs, strict_inclusion, shift, verbose)
 
     return
 
 
 if __name__ == "__main__":
-    with Timer("Sampling"):
-        image_conf, sampler_conf, verbosity = parse_arguments()
-
-        if image_conf is not None and sampler_conf is not None:  # TODO simplify
-            grid_sample(verbosity, **sampler_conf, **image_conf)
-        else:
-            print("Configuration is invalid")
+    main()
