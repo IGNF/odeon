@@ -54,15 +54,15 @@ def get_new_logger(name):
 
 
 def get_stream_handler(level=logging.DEBUG):
-        """
-        Set a stream handler to your Logger instance
-        :return StreamHandler
-        """
+    """
+    Set a stream handler to your Logger instance
+    :return StreamHandler
+    """
 
-        ch = logging.StreamHandler()
-        ch.setLevel(level)
-        ch.setFormatter(ColoredFormatter())
-        return ch
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    ch.setFormatter(ColoredFormatter())
+    return ch
 
 
 def get_file_handler(logger: logging.Logger, dir_name, level=logging.WARNING):

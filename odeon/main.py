@@ -1,22 +1,23 @@
 import argparse
 import os
-import logging
+from typing import Tuple
 from pprint import pformat
 import pathlib
 import json
 
+from odeon.commons.timer import Timer
 from odeon.commons.json_interpreter import JsonInterpreter
-from odeon.scripts.train import train
+from odeon.scripts.sampler_grid import grid_sample
+from odeon.scripts.trainer import train
 
-logger = logging.getLogger(__package__)
+from odeon import LOGGER
 
-
-def parse_arguments():
+def parse_arguments() -> Tuple:
     """
     Argument parsing
     """
 
-    available_tools = ['trainer']
+    available_tools = ['sampler_grid', 'trainer']
 
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
@@ -31,7 +32,7 @@ def parse_arguments():
         SCHEMA = json.load(schema_file)
 
     if args.config is None or not os.path.exists(args.config):
-        logger.error("ERROR: Sampling config file not found (check path)")
+        LOGGER.error("ERROR: Sampling config file not found (check path)")
         exit(1)
 
     try:
@@ -43,56 +44,29 @@ def parse_arguments():
 
             # return args.tool, json_dict.get_dict(), args.verbosity
     except IOError:
-        logger.exception("JSON file incorrectly formatted")
+        LOGGER.exception("JSON file incorrectly formatted")
         exit(1)
 
-def customize_logger():
-
-    class CustomFormatter(logging.Formatter):
-        """Logging Formatter to add colors and count warning / errors"""
-
-        FORMATS = {
-            logging.ERROR: "ERROR: %(msg)s",
-            logging.WARNING: "WARNING: %(msg)s",
-            logging.DEBUG: "%(asctime)s: %(levelname)s - %(message)s",
-            "DEFAULT": "%(msg)s",
-        }
-
-        def format(self, record):
-            log_fmt = self.FORMATS.get(record.levelno, self.FORMATS['DEFAULT'])
-            formatter = logging.Formatter(log_fmt)
-            return formatter.format(record)
-
-    INFO_LEVELV_NUM = 19
-    logging.Logger.INFOV = INFO_LEVELV_NUM
-    logging.addLevelName(INFO_LEVELV_NUM, "INFOV")
-
-    def infov(self, msg, *args, **kwargs):
-        if self.isEnabledFor(INFO_LEVELV_NUM):
-            self._log(INFO_LEVELV_NUM, msg, args, **kwargs)
-    logging.Logger.infov = infov
-
-    # handler
-    handler = logging.StreamHandler()
-    formatter = CustomFormatter()
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-def main():
+def main() -> int:
 
     tool, conf, verbosity = parse_arguments()
 
-    customize_logger()
-
     if verbosity:
-        logger.setLevel('INFOV')
+        LOGGER.setLevel('DEBUG')
     else:
-        logger.setLevel('INFO')
+        LOGGER.setLevel('INFO')
 
-    logger.infov(f"Loaded configuration: \n{pformat(conf, indent=4)}")
+    LOGGER.debug(f"Loaded configuration: \n{pformat(conf, indent=4)}")
 
-    if tool == "trainer":
-        train(conf, verbosity)
+    if tool == "sampler_grid":
+        with Timer("Sampling"):
+            image_conf, sampler_conf = conf['image'], conf['sampler']
+            grid_sample(verbosity, **sampler_conf, **image_conf)
+        return 0
+    elif tool == "trainer":
+        with Timer("Training"):
+            train(conf, verbosity)
+        return 0
 
 
 if __name__ == '__main__':

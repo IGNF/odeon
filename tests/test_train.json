@@ -1,0 +1,12 @@
+{
+    "data_sources": {
+        "train": "/media/data/ISPRS_article/generation/zone1_train.csv",
+        "percentage_val": 0.3
+    },
+    "model_setup": {
+        "name": "unet",
+        "output_folder": "/tmp",
+        "filename": "unet.pth"
+    }, 
+    "train_setup": {}
+}

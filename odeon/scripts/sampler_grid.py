@@ -32,32 +32,9 @@ import fiona
 from numpy import linspace
 from shapely.geometry import shape, box, mapping, Point
 from tqdm import tqdm
-import commons.folder_manager as fm
-from commons.logger.logger import get_file_handler
-from sampler import LOGGER
-
-SAMPLER_SCHEMA = {
-    "type": "object",
-    "properties": {"image": {"type": "object",
-                             "properties":
-                             {"image_size_pixel": {"type": "integer", "default": 256},
-                              "pixel_size_meter_per_pixel": {"type": "number", "default": 0.2}
-                              }
-                             },
-                   "sampler": {"type": "object",
-                               "properties":
-                               {"input_file":
-                                {"type": "string",
-                                 "default": "/media/ssd/datasets/ocsge/odeon_data/learning_zones/zone_33_1_crs.shp"},
-                                "output_pattern":
-                                    {"type": "string",
-                                     "default": "/media/ssd/datasets/ocsge/odeon_data/data/odeon_sample/zone_33_1.csv"},
-                                "shift": {"enum": [0, 1], "default": 0}
-                                }
-                               },
-                   "required": ["image", "sampler"]
-                   }
-}
+import odeon.commons.folder_manager as fm
+from odeon.commons.logger.logger import get_file_handler
+from odeon import LOGGER
 
 
 def setup_output(output_pattern):

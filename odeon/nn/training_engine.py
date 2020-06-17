@@ -1,4 +1,3 @@
-import logging
 import os
 from collections import OrderedDict
 from tqdm import tqdm
@@ -6,11 +5,10 @@ import numpy as np
 
 import torch
 
-from nn.history import History
+from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_metrics
 
-logger = logging.getLogger(__package__)
-
+from odeon import LOGGER
 
 class TrainingEngine:
     """TrainingEngine class
@@ -58,7 +56,7 @@ class TrainingEngine:
 
     def train(self, train_loader, val_loader):
 
-        logger.info(f'''Training:
+        LOGGER.info(f'''Training:
             Model: {type(self.net).__name__}
             Batch size: {self.batch_size}
             Loss function: {type(self.loss).__name__}
@@ -95,11 +93,11 @@ class TrainingEngine:
 
             self.lr_scheduler.step(val_loss)
 
-            logger.info(f"train_loss = {train_loss:03f}, val_loss = {val_loss:03f}")
+            LOGGER.info(f"train_loss = {train_loss:03f}, val_loss = {val_loss:03f}")
             if self.train_iou:
-                logger.info(f"train_miou = {train_miou:03f}, val_miou = {val_miou:03f}")
+                LOGGER.info(f"train_miou = {train_miou:03f}, val_miou = {val_miou:03f}")
             else:
-                logger.info(f"val_miou = {val_miou:03f}")
+                LOGGER.info(f"val_miou = {val_miou:03f}")
 
             # update history
             history.update(epoch, avg_time, train_loss, val_loss,
@@ -107,7 +105,7 @@ class TrainingEngine:
 
             # save model if val_loss has decreased
             if prec_val_loss > val_loss:
-                logger.info(f"Saving {model_filepath}")
+                LOGGER.info(f"Saving {model_filepath}")
                 torch.save(self.net.state_dict(), model_filepath)
 
                 if self.save_history:
@@ -121,7 +119,7 @@ class TrainingEngine:
 
             # stop training if patience is reached
             if patience_counter == self.patience:
-                logger.info(f"Model has not improved since {self.patience} epochs, train stopped.")
+                LOGGER.info(f"Model has not improved since {self.patience} epochs, train stopped.")
                 break
 
     def _train_epoch(self, loader):

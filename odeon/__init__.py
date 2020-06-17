@@ -1,5 +1,7 @@
-import os
-import sys
-
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from commons.logger.logger import get_new_logger, get_stream_handler
+try:
+    LOGGER = get_new_logger(__name__)
+    LOGGER.addHandler(get_stream_handler())
+except Exception as e:
+    print(e)
+    raise e

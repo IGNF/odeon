@@ -1,0 +1,11 @@
+{
+    "image": {
+      "image_size_pixel": 256,
+      "pixel_size_meter_per_pixel": 0.2
+    },
+    "sampler": {
+      "input_file": "/media/data/ISPRS_article/generation/zone1.gpkg",
+      "output_pattern": "/tmp/zone_33_1.csv",
+      "shift": 0
+    }
+  }

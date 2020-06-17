@@ -2,9 +2,9 @@ import os
 import json
 import numpy as np
 import matplotlib
+import matplotlib.pyplot as plt
 
 matplotlib.use('agg')
-import matplotlib.pyplot as plt
 
 class History:
     """History class to manage metrics storage during training, export to json file and plots
