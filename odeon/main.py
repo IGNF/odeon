@@ -2,18 +2,21 @@ import argparse
 import os
 import logging
 from pprint import pformat
+import pathlib
+import json
 
 from odeon.commons.json_interpreter import JsonInterpreter
 from odeon.scripts.train import train
 
 logger = logging.getLogger(__package__)
 
+
 def parse_arguments():
     """
     Argument parsing
     """
 
-    available_tools = ['train']
+    available_tools = ['trainer']
 
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
@@ -22,6 +25,11 @@ def parse_arguments():
     parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity", default=0)
     args = parser.parse_args()
 
+    schema_path = os.path.join(pathlib.Path().absolute(), *["odeon", "scripts", "json_defaults",
+                               f"{args.tool}_schema.json"])
+    with open(schema_path) as schema_file:
+        SCHEMA = json.load(schema_file)
+
     if args.config is None or not os.path.exists(args.config):
         logger.error("ERROR: Sampling config file not found (check path)")
         exit(1)
@@ -29,9 +37,11 @@ def parse_arguments():
     try:
         with open(args.config, 'r') as json_file:
             json_dict = JsonInterpreter(json_file)
-            json_dict.check_content(["data_sources", "model_setup"])
+            # json_dict.check_content(["data_sources", "model_setup"])
+            if json_dict.is_valid(SCHEMA):
+                return args.tool, json_dict.__dict__, args.verbosity
 
-            return args.tool, json_dict.get_dict(), args.verbosity
+            # return args.tool, json_dict.get_dict(), args.verbosity
     except IOError:
         logger.exception("JSON file incorrectly formatted")
         exit(1)
@@ -81,8 +91,8 @@ def main():
 
     logger.infov(f"Loaded configuration: \n{pformat(conf, indent=4)}")
 
-    if tool == "train":
-        train(conf)
+    if tool == "trainer":
+        train(conf, verbosity)
 
 
 if __name__ == '__main__':

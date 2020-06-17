@@ -37,7 +37,7 @@ from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDou
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
 from odeon.nn.models import build_model
-from odeon.nn.losses import FocalLoss2d, ComboLoss
+from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 logger = logging.getLogger(__package__)
 
@@ -69,7 +69,6 @@ def get_optimizer(optimizer_name, model, lr):
     -------
         torch.Optimizer
     """
-
     if optimizer_name == 'adam':
         return optim.Adam(model.parameters(), lr=lr)
     elif optimizer_name == 'SGD':
@@ -100,9 +99,9 @@ def get_loss(loss_name, class_weight=None, use_cuda=False):
             weight = torch.FloatTensor(class_weight)
             if use_cuda:
                 weight = weight.cuda()
-            return nn.CrossEntropyLoss(weight=weight)
+            return CrossEntropyWithLogitsLoss(weight=weight)
         else:
-            return nn.CrossEntropyLoss()
+            return CrossEntropyWithLogitsLoss()
     elif loss_name == "bce":
         return nn.BCEWithLogitsLoss()
     elif loss_name == "focal":
@@ -128,11 +127,11 @@ def get_sample_shape(dataset):
     return {'image': sample['image'].shape, 'mask': sample['mask'].shape}
 
 
-def train(conf):
+def train(conf, verbose=False):
     with Timer("Training"):
 
         # reproducibility
-        if conf.get('train_setup', {}).get('reproducible', False):
+        if conf.get('train_setup').get('reproducible'):
             random_seed = 2020
         else:
             random_seed = None
@@ -143,9 +142,9 @@ def train(conf):
             "rotation": Rotation(),
             "radiometry": Radiometry()
         }
-        transformation_keys = ["rotation90"]
-        for trans in conf.get('train_setup', {}).get('data_augmentation', []):
-            transformation_keys.append(trans)
+        transformation_conf = conf.get('train_setup').get('data_augmentation')
+        transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
+
         transformation_functions = list({
             value for key, value in transformation_dict.items() if key in transformation_keys
         })
@@ -154,13 +153,13 @@ def train(conf):
 
         # datasets & dataloaders
         #   read csv file with columns: image, mask
-        train_csv_file = conf.get('data_sources').get('train', None)
+        train_csv_file = conf.get('data_sources').get('train')
         train_image_files, train_mask_files = read_csv_sample_file(train_csv_file)
         val_csv_file = conf.get('data_sources').get('val', None)
         if val_csv_file:
             val_image_files, val_mask_files = read_csv_sample_file(val_csv_file)
         else:
-            percentage_val = conf.get('data_sources').get('percentage_val', 0.2)
+            percentage_val = conf.get('data_sources').get('percentage_val')
             train_image_files, val_image_files, train_mask_files, val_mask_files = train_test_split(
                 train_image_files, train_mask_files, test_size=percentage_val, random_state=random_seed)
 
@@ -168,20 +167,22 @@ def train(conf):
             f"Selection of {len(train_image_files)} files for training and {len(val_image_files)} for model validation")
 
         #    get parameters for dataset initialisation
+        batch_size = conf.get('train_setup').get('batch_size')
         dataset_optional_args = {}
         for key in ['width', 'height', 'image_bands', 'mask_bands']:
-            dataset_optional_args[key] = conf.get('train_setup', {}).get(key, None)
+            dataset_optional_args[key] = conf.get('train_setup').get(key)
 
         train_dataset = PatchDataset(train_image_files, train_mask_files,
                                      transform=Compose(transformation_functions), **dataset_optional_args)
-        train_dataloader = DataLoader(train_dataset)
+        train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
         val_dataset = PatchDataset(val_image_files, val_mask_files,
                                    transform=Compose(transformation_functions), **dataset_optional_args)
-        val_dataloader = DataLoader(val_dataset)
+        val_dataloader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=8)
 
         # training
-        epochs = conf.get('train_setup', {}).get('epochs', 300)
-        training_optional_args = conf.get('train_setup', {})
+        training_optional_args = {}
+        for key in ['epochs', 'batch_size', 'patience', 'save_history', 'continue_training']:
+            training_optional_args[key] = conf.get('train_setup').get(key)
 
         #    model generation
         if dataset_optional_args['image_bands'] is not None:
@@ -195,24 +196,23 @@ def train(conf):
         model_name = conf.get('model_setup').get('name')
         model = build_model(model_name, n_channels, n_classes)
         #    optimizer
-        optimizer_name = conf.get('model_setup').get('optimizer', 'adam')
-        lr = conf.get('model_setup').get('lr', 0.001)
+        optimizer_name = conf.get('train_setup').get('optimizer')
+        lr = conf.get('train_setup').get('lr')
         optimizer = get_optimizer(optimizer_name, model, lr)
         #    loss
-        loss_name = conf.get('model_setup').get('loss', 'ce')
+        loss_name = conf.get('train_setup').get('loss')
         loss_function = get_loss(loss_name)
         #    learning rate scheduler
-        lr_scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=True, cooldown=4,
+        lr_scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=verbose, cooldown=4,
                                          min_lr=1e-7)
 
         #    training engine instanciation
         output_folder = conf.get('model_setup').get('output_folder')
-        training_engine = TrainingEngine(model, loss_function, optimizer, lr_scheduler, output_folder, epochs=epochs,
-                                         **training_optional_args)
+        training_engine = TrainingEngine(model, loss_function, optimizer, lr_scheduler, output_folder,
+                                         output_filename=f'{model_name}.pth', verbose=verbose, **training_optional_args)
 
         net_params = sum(p.numel() for p in model.parameters())
-        net_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        logger.info(f"Model parameters (trainable/total) : {net_params} / {net_total_params}")
+        logger.info(f"Model parameters trainable : {net_params}")
 
         try:
             training_engine.train(train_dataloader, val_dataloader)

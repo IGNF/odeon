@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as Fclass
+import torch.nn.functional as F
 from itertools import filterfalse
 import numpy as np
 
@@ -11,21 +11,20 @@ and work from SpaceNet challenges participants
 """
 
 class BCEWithLogitsLoss(nn.Module):
+    """Binary cross entropy loss with logits
+    Loss is computed each class separately and reduced regarding reduction param
+    Raw logits are flattened before invoking nn.BCEWithLogitsLoss which combines Sigmoid and BCELoss
+
+    Parameters
+    ----------
+    weight : list of float, optional
+        weights applied to loss computation, by default None
+    reduction : str, optional
+        reduction to apply to output, by default 'mean'
+    pos_weight : list of float, optional
+        , by default None
+    """
     def __init__(self, weight=None, reduction='mean', pos_weight=None):
-        """Binary cross entropy loss with logits
-        Loss is computed each class separately and reduced regarding reduction param
-        Raw logits are flattened before invoking nn.BCEWithLogitsLoss which combines Sigmoid and BCELoss
-
-        Parameters
-        ----------
-        weight : list of float, optional
-            weights applied to loss computation, by default None
-        reduction : str, optional
-            reduction to apply to output, by default 'mean'
-        pos_weight : list of float, optional
-            , by default None
-        """
-
         super(BCEWithLogitsLoss, self).__init__()
         self.bce_loss = nn.BCEWithLogitsLoss(weight, reduction=reduction, pos_weight=pos_weight)
 
@@ -35,17 +34,18 @@ class BCEWithLogitsLoss(nn.Module):
         return self.bce_loss(probs_flat, targets_flat)
 
 class CrossEntropyWithLogitsLoss(nn.Module):
-    def __init__(self, weight=None, reduction='mean'):
-        """Cross entropy loss with logits
-        Raw logits are flattened using argmax function and CrossEntropyLoss uses a LogSoftmax function.
+    """Cross entropy loss with logits
+    Raw logits are flattened using argmax function and CrossEntropyLoss uses a LogSoftmax function.
 
-        Parameters
-        ----------
-        weight : [type], optional
-            [description], by default None
-        reduction : str, optional
-            reduction to apply to output, by default 'mean'
-        """
+    Parameters
+    ----------
+    weight : [type], optional
+        [description], by default None
+    reduction : str, optional
+        reduction to apply to output, by default 'mean'
+    """
+
+    def __init__(self, weight=None, reduction='mean'):
 
         super(CrossEntropyWithLogitsLoss, self).__init__()
         self.cross_entropy = nn.CrossEntropyLoss(weight, reduction=reduction)
