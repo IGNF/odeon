@@ -29,6 +29,7 @@ class History:
         }
 
         self.base_path = base_path
+        self.history_file = f'{self.base_path}_history.json'
 
         if update is True and os.path.exists(self.history_file):
             with open(self.history_file, 'r') as file:
@@ -60,8 +61,7 @@ class History:
             self.history_dict['train_mean_iou'].append(train_mean_iou)
 
     def save(self):
-        history_file = f'{self.base_path}_history.json'
-        with open(history_file, 'w') as file:
+        with open(self.history_file, 'w') as file:
             json.dump(self.history_dict, file)
 
     def plot(self):

@@ -1,8 +1,7 @@
 import gdal
 import numpy as np
-import logging
+from odeon import LOGGER
 
-logger = logging.getLogger(__package__)
 
 def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
     """Load and transform an image into a ndarray according to parameters:
@@ -29,7 +28,7 @@ def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
     # load full image at a specific resolution
     ds = gdal.Open(image_file, gdal.GA_ReadOnly)
     if ds is None:
-        logger.error(f"File {image_file} not valid.")
+        LOGGER.error(f"File {image_file} not valid.")
 
     # center crop with width and height
     img = ds.ReadAsArray()

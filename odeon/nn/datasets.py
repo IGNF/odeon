@@ -4,6 +4,7 @@ from skimage.util import img_as_float
 from odeon.commons.image import image_to_ndarray
 from odeon.nn.transforms import ToDoubleTensor
 
+
 class PatchDataset(Dataset):
     """Dataset based on patch files both images and masks.
     Masks composition must be with of one channel by class.

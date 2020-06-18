@@ -3,6 +3,7 @@ from odeon.nn.mobilenetv2 import MobileNetV2
 from torchvision.models.segmentation import DeepLabV3
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 
+
 def build_model(model_name, n_channels, n_classes, load_pretrained=False):
     """Build a nn model from a model name.
 

@@ -7,8 +7,6 @@ import json
 
 from odeon.commons.timer import Timer
 from odeon.commons.json_interpreter import JsonInterpreter
-from odeon.scripts.sampler_grid import grid_sample
-from odeon.scripts.trainer import train
 
 from odeon import LOGGER
 
@@ -59,11 +57,13 @@ def main() -> int:
     LOGGER.debug(f"Loaded configuration: \n{pformat(conf, indent=4)}")
 
     if tool == "sampler_grid":
+        from odeon.scripts.sampler_grid import grid_sample
         with Timer("Sampling"):
             image_conf, sampler_conf = conf['image'], conf['sampler']
             grid_sample(verbosity, **sampler_conf, **image_conf)
         return 0
     elif tool == "trainer":
+        from odeon.scripts.trainer import train
         with Timer("Training"):
             train(conf, verbosity)
         return 0

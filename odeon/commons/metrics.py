@@ -26,12 +26,26 @@ class AverageMeter(object):
 
 
 def binarizes(detection, threshold=0.5, multilabel=False):
-    """
-        Binarizes the detection masks
-        Output is a mask with [n_classes, width, height] dimension with [0,1] values
+    """Binarizes the detection masks
+       Output is a mask with [n_classes, width, height] dimension with [0,1] values
         - for monoclass case, use of threshold to binarize
         - for multiclass case, use of argmax to binarize
+
+    Parameters
+    ----------
+    detection : ndarray
+        detection mask
+    threshold : float, optional
+        threshold, by default 0.5
+    multilabel : bool, optional
+        activate multilabel mode, by default False
+
+    Returns
+    -------
+    ndarray
+        binarized mask
     """
+
     no_of_class = detection.shape[1]
     if no_of_class == 1 or multilabel:  # Monoclass or multilabel
         assert threshold is not None
@@ -57,14 +71,23 @@ def binarizes(detection, threshold=0.5, multilabel=False):
 
 
 def get_confusion_matrix(predictions, target, multilabel=False):
-    """
-        Return the confusion matrix
+    """Return the confusion matrix
 
-        :param predictions: The predictions
-        :param target: The target
-        :param threshold: The threshold
-        :return: The confusion matrix
+    Parameters
+    ----------
+    predictions : ndarray
+        predictions
+    target : ndarray
+        labels
+    multilabel : bool, optional
+        activate multilabel mode, by default False
+
+    Returns
+    -------
+    ndarray
+        confusion matrix
     """
+
     mask = binarizes(predictions.cpu().numpy(), multilabel=multilabel)
     labels_masks = target.cpu().numpy()
 
@@ -80,17 +103,23 @@ def get_confusion_matrix(predictions, target, multilabel=False):
     return cms
 
 def get_binary_confusion_matrix(prediction, target):
-    """
-        Returns the confusion matrix for one class or threshold.
+    """Returns the confusion matrix for one class or threshold.
+       TP (true positives): the number of correctly classified pixels (1 -> 1)
+       TN (true negatives): the number of correctly not classified pixels (0 -> 0)
+       FP (false positives): the number of pixels wrongly classified (0 -> 1)
+       FN (false negatives): the number of pixels wrongly not classifed (1 -> 0)
 
-        TP (true positives): the number of correctly classified pixels (1 -> 1)
-        TN (true negatives): the number of correctly not classified pixels (0 -> 0)
-        FP (false positives): the number of pixels wrongly classified (0 -> 1)
-        FN (false negatives): the number of pixels wrongly not classifed (1 -> 0)
+    Parameters
+    ----------
+    prediction : ndarray
+        binary inference
+    target : ndarray
+        binary ground truth
 
-        :param target: The binary ground truth
-        :param prediction: The binary inference
-        :return: The confusion matrix [[TP,FN],[FP,TN]]
+    Returns
+    -------
+    ndarray
+        confusion matrix [[TP,FN],[FP,TN]]
     """
 
     tp = np.sum(np.logical_and(target, prediction))
@@ -101,15 +130,21 @@ def get_binary_confusion_matrix(prediction, target):
     return np.array([[tp, fn], [fp, tn]])
 
 def get_iou_metrics(cm):
-    """
-        Returns the IOU metric for the provided confusion matrices
-
-        Iou:
+    """Returns the IOU metric for the provided confusion matrices
+       IoU:
         The Intersection-Over-Union is a common evaluation metric for semantic image segmentation.
         iou = TP / (TP+FP+FN)
 
-        :param cm: The confusion matrix [[TP,FN],[FP,TN]]
-        :return: The IOU metrics
+    Parameters
+    ----------
+    cm : ndarray
+        confusion matrix [[TP,FN],[FP,TN]]
+
+    Returns
+    -------
+    ndarray
+        confusion matrix [[TP,FN],[FP,TN]]
+
     """
 
     m = np.nan
