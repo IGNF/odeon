@@ -20,17 +20,26 @@ class PatchDataset(Dataset):
         [albumentation](https://albumentations.readthedocs.io/en/latest/index.html) functions can be used.
         When using :class:`Compose` :class:`ToDoubleTensor` must be added at the end of the transforms list.
         by default None
+    width : number, optional
+        sample width, if None native width is used, by default None
+    height : number, optional
+        sample height, if None native height is used, by default None
+    image_bands : list of number, optional
+        list of band indices to keep in sample generation, by default None
+    mask_bands : [type], optional
+        list of band indices to keep in sample generation, by default None
+
     """
 
-    def __init__(self, image_files, mask_files, transform=None, **kwargs):
+    def __init__(self, image_files, mask_files, transform=None, width=None, height=None, image_bands=None, mask_bands=None):
 
         self.image_files = image_files
-        self.image_bands = kwargs.get('image_bands', None)
+        self.image_bands = image_bands
         self.mask_files = mask_files
-        self.mask_bands = kwargs.get('mask_bands', None)
+        self.mask_bands = mask_bands
 
-        self.width = kwargs.get('width', None)
-        self.height = kwargs.get('height', None)
+        self.width = width
+        self.height = height
         self.transform_function = transform
         pass
 

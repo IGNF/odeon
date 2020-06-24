@@ -65,7 +65,10 @@ def main() -> int:
     elif tool == "trainer":
         from odeon.scripts.trainer import train
         with Timer("Training"):
-            train(conf, verbosity)
+            datasource_conf = conf.get('data_source')
+            model_conf = conf.get('model_setup')
+            train_conf = conf.get('train_setup')
+            train(verbosity, **datasource_conf, **model_conf, **train_conf)
         return 0
 
 

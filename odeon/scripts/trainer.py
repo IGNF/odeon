@@ -11,7 +11,7 @@ Example
     $ python odeon/main.py train -c src/json/train.json -v
 
     This will read the configuration from a json file and train a model.
-    Model is stored in output_path folder in a .pth file.
+    Model is stored in output_folder in a .pth file.
 
 
 Notes
@@ -21,6 +21,7 @@ Notes
 """
 
 import os
+from typing import Tuple
 import csv
 import logging
 from sklearn.model_selection import train_test_split
@@ -41,7 +42,20 @@ from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 logger = logging.getLogger(__package__)
 
-def read_csv_sample_file(file_path):
+def read_csv_sample_file(file_path) -> Tuple[list, list]:
+    """Read a sample CSV file and return a list of image files and a list of mask files.
+    CSV file should contain image pathes in the first column and mask pathes in the second.
+
+    Parameters
+    ----------
+    file_path : str
+        path to sample CSV file
+
+    Returns
+    -------
+    Tuple[list, list]
+        a list of image pathes and a list of mask pathes
+    """
     image_files = []
     mask_files = []
     if not os.path.exists(file_path):
@@ -127,11 +141,64 @@ def get_sample_shape(dataset):
     return {'image': sample['image'].shape, 'mask': sample['mask'].shape}
 
 
-def train(conf, verbose=False):
+def train(verbose, train_file, model_name, output_folder, val_file=None, percentage_val=0.2, image_bands=None,
+          mask_bands=None, model_filename=None, load_pretrained_enc=False, epochs=300, batch_size=16, patience=20,
+          save_history=False, continue_training=False, loss="ce", class_imbalance=None, optimizer="adam", lr=0.001,
+          data_augmentation=['rotation90'], device=None, reproducible=False):
+    """[summary]
+
+    Parameters
+    ----------
+    verbose : bool
+        verbose level
+    train_file : str
+        CSV file with image files in this first column and mask files in the second
+    model_name : str
+        name of model within ('unet', 'deeplab')
+    output_folder : str
+        path to output folder
+    val_file : str, optional
+        CSV file for validation, by default None
+    percentage_val : number, optional
+        used if val_file is None, by default 0.2
+    image_bands : list of int, optional
+        list of band indices, by default None
+    mask_bands : list of int, optional
+        list of band indices, by default None
+    model_filename : str, optional
+        name of pth file, if None model name will be used, by default None
+    load_pretrained_enc : bool, optional
+        WIP: load pretrained weights for encoder, by default False
+    epochs : int, optional
+        number of epochs, by default 300
+    batch_size : int, optional
+        batch size, by default 16
+    patience : int, optional
+        maximum number of epoch without improvement before train is stopped, by default 20
+    save_history : bool, optional
+        activate history storing, by default False
+    continue_training : bool, optional
+        resume a training, by default False
+    loss : str, optional
+        loss function within ('ce', 'bce', 'wce', 'focal', 'combo'), by default "ce"
+    class_imbalance : list of number, optional
+        weights for weighted-cross entropy loss, by default None
+    optimizer : str, optional
+        optimizer name within ('adam', 'SGD'), by default "adam"
+    lr : number, optional
+        start learning rate, by default 0.001
+    data_augmentation : list, optional
+        list of data augmentation function within ('rotation', 'rotation90', 'radiometry'), by default ['rotation90']
+    device : str, optional
+        device if None 'cpu' or 'cuda' if available will be used, by default None
+    reproducible : bool, optional
+        activate training reproducibility, by default False
+    """
+
     with Timer("Training"):
 
         # reproducibility
-        if conf.get('train_setup').get('reproducible'):
+        if reproducible is True:
             random_seed = 2020
         else:
             random_seed = None
@@ -142,7 +209,7 @@ def train(conf, verbose=False):
             "rotation": Rotation(),
             "radiometry": Radiometry()
         }
-        transformation_conf = conf.get('train_setup').get('data_augmentation')
+        transformation_conf = data_augmentation
         transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
 
         transformation_functions = list({
@@ -153,63 +220,49 @@ def train(conf, verbose=False):
 
         # datasets & dataloaders
         #   read csv file with columns: image, mask
-        train_csv_file = conf.get('data_sources').get('train')
-        train_image_files, train_mask_files = read_csv_sample_file(train_csv_file)
-        val_csv_file = conf.get('data_sources').get('val', None)
-        if val_csv_file:
-            val_image_files, val_mask_files = read_csv_sample_file(val_csv_file)
+        train_image_files, train_mask_files = read_csv_sample_file(train_file)
+        if val_file:
+            val_image_files, val_mask_files = read_csv_sample_file(val_file)
         else:
-            percentage_val = conf.get('data_sources').get('percentage_val')
             train_image_files, val_image_files, train_mask_files, val_mask_files = train_test_split(
                 train_image_files, train_mask_files, test_size=percentage_val, random_state=random_seed)
 
         logger.info(
             f"Selection of {len(train_image_files)} files for training and {len(val_image_files)} for model validation")
 
-        #    get parameters for dataset initialisation
-        batch_size = conf.get('train_setup').get('batch_size')
-        dataset_optional_args = {}
-        for key in ['width', 'height', 'image_bands', 'mask_bands']:
-            dataset_optional_args[key] = conf.get('train_setup').get(key)
-
-        train_dataset = PatchDataset(train_image_files, train_mask_files,
-                                     transform=Compose(transformation_functions), **dataset_optional_args)
+        train_dataset = PatchDataset(train_image_files, train_mask_files, transform=Compose(transformation_functions),
+                                     image_bands=image_bands, mask_bands=mask_bands)
         train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
-        val_dataset = PatchDataset(val_image_files, val_mask_files,
-                                   transform=Compose(transformation_functions), **dataset_optional_args)
+        val_dataset = PatchDataset(val_image_files, val_mask_files, transform=Compose(transformation_functions),
+                                   image_bands=image_bands, mask_bands=mask_bands)
         val_dataloader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=8)
 
         # training
-        training_optional_args = {}
-        for key in ['epochs', 'batch_size', 'patience', 'save_history', 'continue_training']:
-            training_optional_args[key] = conf.get('train_setup').get(key)
-
         #    model generation
-        if dataset_optional_args['image_bands'] is not None:
-            n_channels = len(dataset_optional_args['image_bands'])
+        if image_bands is not None:
+            n_channels = len(image_bands)
         else:
             n_channels = get_sample_shape(train_dataset)['image'][0]
-        if dataset_optional_args['mask_bands'] is not None:
-            n_classes = len(dataset_optional_args['mask_bands'])
+        if mask_bands is not None:
+            n_classes = mask_bands
         else:
             n_classes = get_sample_shape(train_dataset)['mask'][0]
-        model_name = conf.get('model_setup').get('name')
         model = build_model(model_name, n_channels, n_classes)
         #    optimizer
-        optimizer_name = conf.get('train_setup').get('optimizer')
-        lr = conf.get('train_setup').get('lr')
-        optimizer = get_optimizer(optimizer_name, model, lr)
+        optimizer_function = get_optimizer(optimizer, model, lr)
         #    loss
-        loss_name = conf.get('train_setup').get('loss')
-        loss_function = get_loss(loss_name)
+        loss_function = get_loss(loss)
         #    learning rate scheduler
-        lr_scheduler = ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=10, verbose=verbose, cooldown=4,
-                                         min_lr=1e-7)
+        lr_scheduler = ReduceLROnPlateau(optimizer_function, 'min', factor=0.5, patience=10, verbose=verbose,
+                                         cooldown=4, min_lr=1e-7)
 
         #    training engine instanciation
-        output_folder = conf.get('model_setup').get('output_folder')
-        training_engine = TrainingEngine(model, loss_function, optimizer, lr_scheduler, output_folder,
-                                         output_filename=f'{model_name}.pth', verbose=verbose, **training_optional_args)
+        if model_filename is None:
+            model_filename = f"{model_name}.pth"
+        training_engine = TrainingEngine(model, loss_function, optimizer_function, lr_scheduler, output_folder,
+                                         model_filename, epochs=epochs, batch_size=batch_size, patience=patience,
+                                         save_history=save_history, continue_training=continue_training,
+                                         reproducible=reproducible, device=device, verbose=verbose)
 
         net_params = sum(p.numel() for p in model.parameters())
         logger.info(f"Model parameters trainable : {net_params}")

@@ -11,39 +11,52 @@ from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_me
 from odeon import LOGGER
 
 class TrainingEngine:
-    """TrainingEngine class
+    """Training class
 
-        Parameters
-        ----------
-        model : :class:`nn.Module`
-            model instance
-        loss: :class:`nn.Module`
-            loss instance
-        optimizer: :class:`Optimizer`
-            optimizer class
-        lr_scheduler: object
-            learning rate scheduler object
-        output_folder: str
-            output folder where model checkpoints and history file are written
-        epochs : int, optional
-            number of epochs, default 300
-        output_filename: str
-            output filename if omitted file name is generated from hyperparameters, default None
-        verbose: boolean, optional
-            verbosity adds iou computation during training, default False
-        """
+    Parameters
+    ----------
+    model : :class:`nn.Module`
+        pytorch model
+    loss : :class:`nn.Module`
+        loss class
+    optimizer : :class:`Optimizer`
+        optimizer
+    lr_scheduler : object
+        learning rate scheduler
+    output_folder : str
+        path to output folder
+    output_filename : str
+        output file name for pth file
+    epochs : int, optional
+        number of epochs, by default 300
+    batch_size : int, optional
+        batch size, by default 16
+    patience : int, optional
+        maximum number of epoch without improvement before train is stopped, by default 20
+    save_history : bool, optional
+        activate history storing, by default False
+    continue_training : bool, optional
+        resume a training, by default False
+    device : str, optional
+        device if None 'cpu' or 'cuda' if available will be used, by default None
+    reproducible : bool, optional
+        activate training reproducibility, by default False
+    verbose : bool, optional
+        verbosity, by default False
+    """
 
-    def __init__(self, model, loss, optimizer, lr_scheduler, output_folder, output_filename="model.pth",
-                 verbose=False, **kwargs):
+    def __init__(self, model, loss, optimizer, lr_scheduler, output_folder, output_filename,
+                 epochs=300, batch_size=16, patience=20, save_history=False, continue_training=False,
+                 device=None, reproducible=False, verbose=False):
 
-        self.device = kwargs.get('device', 'cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = device if device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
         self.net = model.cuda(self.device) if self.device.startswith('cuda') else model
-        self.epochs = kwargs.get('epochs')
-        self.batch_size = kwargs.get('batch_size')
-        self.patience = kwargs.get('patience')
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.patience = patience
 
-        self.save_history = kwargs.get('save_history')
-        self.continue_training = kwargs.get('continue_training')
+        self.save_history = save_history
+        self.continue_training = continue_training
 
         self.optimizer = optimizer
         self.loss = loss.cuda(self.device) if self.device.startswith('cuda') else loss
