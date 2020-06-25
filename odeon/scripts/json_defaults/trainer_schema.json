@@ -10,7 +10,7 @@
             "properties": {
                 "train_file": {"type": "string"},
                 "val_file": {"type": "string"},
-                "percentage_val": {"type": "number", "default": 0.2},
+                "percentage_val": {"type": "number"},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true}
             },
