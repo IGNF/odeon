@@ -1,7 +1,5 @@
 from odeon.nn.unet import UNet, UNetResNet, HeavyUNet
-from odeon.nn.mobilenetv2 import MobileNetV2
-from torchvision.models.segmentation import DeepLabV3
-from torchvision.models.segmentation.deeplabv3 import DeepLabHead
+from odeon.nn.deeplabv3p import DeeplabV3p
 
 
 def build_model(model_name, n_channels, n_classes, load_pretrained=False):
@@ -35,12 +33,6 @@ def build_model(model_name, n_channels, n_classes, load_pretrained=False):
         depth = int(model_name[6:])
         net = UNetResNet(depth, n_classes=n_classes, n_channels=n_channels)
     elif model_name == 'deeplab':
-        backbone = MobileNetV2(n_channels, n_classes)
-        classifier = DeepLabHead(n_channels, n_classes)
-        net = DeepLabV3(backbone, classifier)
-
-        # net = deeplab.DeeplabV3p(n_channels=n_channels, n_classes=n_classes,
-        #                          input_size=cfg['data_loader']['image_setup']['side'], device=device,
-        #                          load_pretrained=load_pretrained)
+        net = DeeplabV3p(n_channels, n_classes, output_stride=16)
 
     return net

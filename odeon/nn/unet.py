@@ -6,22 +6,22 @@ import torchvision
 
 
 class DoubleConv(nn.Module):
+    """Double convolution with BatchNorm as an option
+    -  conv --> (BatchNorm) --> ReLu
+    -  conv --> (BatchNorm) --> ReLu
+        [w,h,in_ch] -> [w,h,out_ch] -> [w,h,out_ch]
+
+    Parameters
+    ----------
+    in_ch : int
+        number of input channels
+    out_ch : int
+        number of output channels
+    batch_norm : bool, optional
+        insert BatchNorm in double convolution, by default False
+    """
 
     def __init__(self, in_ch, out_ch, batch_norm=False):
-        """Double convolution with BatchNorm as an option
-        -  conv --> (BatchNorm) --> ReLu
-        -  conv --> (BatchNorm) --> ReLu
-            [w,h,in_ch] -> [w,h,out_ch] -> [w,h,out_ch]
-
-        Parameters
-        ----------
-        in_ch : int
-            number of input channels
-        out_ch : int
-            number of output channels
-        batch_norm : bool, optional
-            insert BatchNorm in double convolution, by default False
-        """
         super(DoubleConv, self).__init__()
         if batch_norm is True:
             self.double_conv = nn.Sequential(
@@ -46,9 +46,9 @@ class DoubleConv(nn.Module):
 
 
 class InputConv(nn.Module):
+    """Input convolution, clone of DoubleConv
+    """
     def __init__(self, in_ch, out_ch, batch_norm=False):
-        """Input convolution, clone of DoubleConv
-        """
         super(InputConv, self).__init__()
         self.double_conv = DoubleConv(in_ch, out_ch, batch_norm)
 
@@ -58,23 +58,23 @@ class InputConv(nn.Module):
 
 
 class EncoderConv(nn.Module):
+    """Encoder convolution stack
+
+    - 2x2 max-pooling with stride 2 (for downsampling)
+        [w,h,in_ch] ->> [w/2,h/2,in_ch]
+    - double_conv
+
+    Parameters
+    ----------
+    in_ch : int
+        number of input channels
+    out_ch : int
+        number of output channels
+    batch_norm : bool, optional
+        insert BatchNorm in double convolution, by default False
+    """
 
     def __init__(self, in_ch, out_ch, batch_norm=False):
-        """Encoder convolution stack
-
-        - 2x2 max-pooling with stride 2 (for downsampling)
-            [w,h,in_ch] ->> [w/2,h/2,in_ch]
-        - double_conv
-
-        Parameters
-        ----------
-        in_ch : int
-            number of input channels
-        out_ch : int
-            number of output channels
-        batch_norm : bool, optional
-            insert BatchNorm in double convolution, by default False
-        """
         super(EncoderConv, self).__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(2),
@@ -87,27 +87,27 @@ class EncoderConv(nn.Module):
 
 
 class DecoderConv(nn.Module):
+    """Decoder convolution stack
+
+    - deconvolution (*2) with stride 2 upscale
+        [w,h,in_ch] -> [w*2,h*2,in_ch/2]
+    - concatenation
+        [w*2,h*2,in_ch/2] -> [w*2,h*2,in_ch/2+in_ch/2]
+    - double_conv
+
+    Parameters
+    ----------
+    in_ch : int
+        number of input channels
+    out_ch : int
+        number of output channels
+    bilinear : bool, optional
+        enable bilinearity in DecoderConv, by default True
+    batch_norm : bool, optional
+        insert BatchNorm in double convolution, by default False
+    """
 
     def __init__(self, in_ch, out_ch, bilinear=True, batch_norm=False):
-        """Decoder convolution stack
-
-        - deconvolution (*2) with stride 2 upscale
-            [w,h,in_ch] -> [w*2,h*2,in_ch/2]
-        - concatenation
-            [w*2,h*2,in_ch/2] -> [w*2,h*2,in_ch/2+in_ch/2]
-        - double_conv
-
-        Parameters
-        ----------
-        in_ch : int
-            number of input channels
-        out_ch : int
-            number of output channels
-        bilinear : bool, optional
-            enable bilinearity in DecoderConv, by default True
-        batch_norm : bool, optional
-            insert BatchNorm in double convolution, by default False
-        """
         super(DecoderConv, self).__init__()
         # upconv divide number of channels by 2 and divide widh, height by 2 with stride=2
         self.bilinear = bilinear
@@ -134,20 +134,20 @@ class DecoderConv(nn.Module):
 
 
 class OutputConv(nn.Module):
+    """Final layer:
+
+    - convolution
+        [w,h,in_ch] -> [w,h,out_ch]
+
+    Parameters
+    ----------
+    in_ch : int
+        number of input channels
+    out_ch : int
+        number of output channels
+    """
 
     def __init__(self, in_ch, out_ch):
-        """Final layer:
-
-        - convolution
-            [w,h,in_ch] -> [w,h,out_ch]
-
-        Parameters
-        ----------
-        in_ch : int
-            number of input channels
-        out_ch : int
-            number of output channels
-        """
         super(OutputConv, self).__init__()
         self.conv = nn.Conv2d(in_ch, out_ch, 1)
 
@@ -161,16 +161,16 @@ def conv3x3(in_, out):
 
 
 class ConvRelu(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        """Convolution + Relu
+    """Convolution + Relu
 
-        Parameters
-        ----------
-        in_ch : int
-            number of input channels
-        out_ch : int
-            number of output channels
-        """
+    Parameters
+    ----------
+    in_ch : int
+        number of input channels
+    out_ch : int
+        number of output channels
+    """
+    def __init__(self, in_ch, out_ch):
         super().__init__()
         self.conv = conv3x3(in_ch, out_ch)
         self.activation = nn.ReLU(inplace=True)
@@ -181,22 +181,22 @@ class ConvRelu(nn.Module):
         return x
 
 class DecoderBlockV2(nn.Module):
+    """DecoderBlockV2
+
+    Parameters
+    ----------
+    in_ch : int
+        number of input channels
+    middle_ch : int
+        number of input channels
+    out_ch : int
+        number of output channels
+    is_deconv: bool, optional
+        False: bilinear interpolation is used in decoder.
+        True: deconvolution is used in decoder.
+    """
 
     def __init__(self, in_ch, middle_ch, out_ch, is_deconv=True):
-        """DecoderBlockV2
-
-        Parameters
-        ----------
-        in_ch : int
-            number of input channels
-        middle_ch : int
-            number of input channels
-        out_ch : int
-            number of output channels
-        is_deconv: bool, optional
-            False: bilinear interpolation is used in decoder.
-            True: deconvolution is used in decoder.
-        """
         super(DecoderBlockV2, self).__init__()
 
         if is_deconv:
@@ -221,17 +221,17 @@ class DecoderBlockV2(nn.Module):
 
 
 class UNet(nn.Module):
+    """U-Net class
+
+    Parameters
+    ----------
+    n_channels : int
+        number of input channels
+    n_classes : int
+        number of output classes
+    """
 
     def __init__(self, n_channels, n_classes):
-        """U-Net class
-
-        Parameters
-        ----------
-        n_channels : int
-            number of input channels
-        n_classes : int
-            number of output classes
-        """
 
         super(UNet, self).__init__()
 
@@ -268,17 +268,17 @@ class UNet(nn.Module):
 
 
 class HeavyUNet(nn.Module):
+    """HeavyUnet = U-Net with augmented number of filters
+
+    Parameters
+    ----------
+    n_channels : int
+        number of input channels
+    n_classes : int
+        number of output classes
+    """
 
     def __init__(self, n_channels, n_classes):
-        """HeavyUnet = U-Net with augmented number of filters
-
-        Parameters
-        ----------
-        n_channels : int
-            number of input channels
-        n_classes : int
-            number of output classes
-        """
 
         super(HeavyUNet, self).__init__()
 

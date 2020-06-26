@@ -31,7 +31,8 @@ class PatchDataset(Dataset):
 
     """
 
-    def __init__(self, image_files, mask_files, transform=None, width=None, height=None, image_bands=None, mask_bands=None):
+    def __init__(self, image_files, mask_files, transform=None, width=None, height=None, image_bands=None,
+                 mask_bands=None):
 
         self.image_files = image_files
         self.image_bands = image_bands

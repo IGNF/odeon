@@ -21,7 +21,6 @@ Notes
 """
 
 import os
-from typing import Tuple
 import csv
 import logging
 from sklearn.model_selection import train_test_split
@@ -42,7 +41,7 @@ from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 logger = logging.getLogger(__package__)
 
-def read_csv_sample_file(file_path) -> Tuple[list, list]:
+def read_csv_sample_file(file_path):
     """Read a sample CSV file and return a list of image files and a list of mask files.
     CSV file should contain image pathes in the first column and mask pathes in the second.
 
@@ -230,6 +229,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
         logger.info(
             f"Selection of {len(train_image_files)} files for training and {len(val_image_files)} for model validation")
 
+        assert batch_size <= len(train_image_files), "batch_size must be lower than the length of training dataset"
         train_dataset = PatchDataset(train_image_files, train_mask_files, transform=Compose(transformation_functions),
                                      image_bands=image_bands, mask_bands=mask_bands)
         train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
@@ -251,7 +251,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
         #    optimizer
         optimizer_function = get_optimizer(optimizer, model, lr)
         #    loss
-        loss_function = get_loss(loss)
+        loss_function = get_loss(loss, class_weight=class_imbalance)
         #    learning rate scheduler
         lr_scheduler = ReduceLROnPlateau(optimizer_function, 'min', factor=0.5, patience=10, verbose=verbose,
                                          cooldown=4, min_lr=1e-7)

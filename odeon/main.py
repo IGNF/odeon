@@ -1,6 +1,5 @@
 import argparse
 import os
-from typing import Tuple
 from pprint import pformat
 import pathlib
 import json
@@ -10,7 +9,7 @@ from odeon.commons.json_interpreter import JsonInterpreter
 
 from odeon import LOGGER
 
-def parse_arguments() -> Tuple:
+def parse_arguments():
     """
     Argument parsing
     """
@@ -30,7 +29,7 @@ def parse_arguments() -> Tuple:
         SCHEMA = json.load(schema_file)
 
     if args.config is None or not os.path.exists(args.config):
-        LOGGER.error("ERROR: Sampling config file not found (check path)")
+        LOGGER.error("ERROR: config file not found (check path)")
         exit(1)
 
     try:
@@ -45,7 +44,7 @@ def parse_arguments() -> Tuple:
         LOGGER.exception("JSON file incorrectly formatted")
         exit(1)
 
-def main() -> int:
+def main():
 
     tool, conf, verbosity = parse_arguments()
 
