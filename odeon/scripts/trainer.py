@@ -194,83 +194,81 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
         activate training reproducibility, by default False
     """
 
-    with Timer("Training"):
+    # reproducibility
+    if reproducible is True:
+        random_seed = 2020
+    else:
+        random_seed = None
 
-        # reproducibility
-        if reproducible is True:
-            random_seed = 2020
-        else:
-            random_seed = None
+    # transformations
+    transformation_dict = {
+        "rotation90": Rotation90(),
+        "rotation": Rotation(),
+        "radiometry": Radiometry()
+    }
+    transformation_conf = data_augmentation
+    transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
 
-        # transformations
-        transformation_dict = {
-            "rotation90": Rotation90(),
-            "rotation": Rotation(),
-            "radiometry": Radiometry()
-        }
-        transformation_conf = data_augmentation
-        transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
+    transformation_functions = list({
+        value for key, value in transformation_dict.items() if key in transformation_keys
+    })
+    transformation_functions.append(ToDoubleTensor())
+    logger.info(f"Data augmentation: {transformation_keys}")
 
-        transformation_functions = list({
-            value for key, value in transformation_dict.items() if key in transformation_keys
-        })
-        transformation_functions.append(ToDoubleTensor())
-        logger.info(f"Data augmentation: {transformation_keys}")
+    # datasets & dataloaders
+    #   read csv file with columns: image, mask
+    train_image_files, train_mask_files = read_csv_sample_file(train_file)
+    if val_file:
+        val_image_files, val_mask_files = read_csv_sample_file(val_file)
+    else:
+        train_image_files, val_image_files, train_mask_files, val_mask_files = train_test_split(
+            train_image_files, train_mask_files, test_size=percentage_val, random_state=random_seed)
 
-        # datasets & dataloaders
-        #   read csv file with columns: image, mask
-        train_image_files, train_mask_files = read_csv_sample_file(train_file)
-        if val_file:
-            val_image_files, val_mask_files = read_csv_sample_file(val_file)
-        else:
-            train_image_files, val_image_files, train_mask_files, val_mask_files = train_test_split(
-                train_image_files, train_mask_files, test_size=percentage_val, random_state=random_seed)
+    logger.info(
+        f"Selection of {len(train_image_files)} files for training and {len(val_image_files)} for model validation")
 
-        logger.info(
-            f"Selection of {len(train_image_files)} files for training and {len(val_image_files)} for model validation")
+    assert batch_size <= len(train_image_files), "batch_size must be lower than the length of training dataset"
+    train_dataset = PatchDataset(train_image_files, train_mask_files, transform=Compose(transformation_functions),
+                                    image_bands=image_bands, mask_bands=mask_bands)
+    train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
+    val_dataset = PatchDataset(val_image_files, val_mask_files, transform=Compose(transformation_functions),
+                                image_bands=image_bands, mask_bands=mask_bands)
+    val_dataloader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=8)
 
-        assert batch_size <= len(train_image_files), "batch_size must be lower than the length of training dataset"
-        train_dataset = PatchDataset(train_image_files, train_mask_files, transform=Compose(transformation_functions),
-                                     image_bands=image_bands, mask_bands=mask_bands)
-        train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
-        val_dataset = PatchDataset(val_image_files, val_mask_files, transform=Compose(transformation_functions),
-                                   image_bands=image_bands, mask_bands=mask_bands)
-        val_dataloader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=8)
+    # training
+    #    model generation
+    if image_bands is not None:
+        n_channels = len(image_bands)
+    else:
+        n_channels = get_sample_shape(train_dataset)['image'][0]
+    if mask_bands is not None:
+        n_classes = mask_bands
+    else:
+        n_classes = get_sample_shape(train_dataset)['mask'][0]
+    model = build_model(model_name, n_channels, n_classes)
+    #    optimizer
+    optimizer_function = get_optimizer(optimizer, model, lr)
+    #    loss
+    loss_function = get_loss(loss, class_weight=class_imbalance)
+    #    learning rate scheduler
+    lr_scheduler = ReduceLROnPlateau(optimizer_function, 'min', factor=0.5, patience=10, verbose=verbose,
+                                        cooldown=4, min_lr=1e-7)
 
-        # training
-        #    model generation
-        if image_bands is not None:
-            n_channels = len(image_bands)
-        else:
-            n_channels = get_sample_shape(train_dataset)['image'][0]
-        if mask_bands is not None:
-            n_classes = mask_bands
-        else:
-            n_classes = get_sample_shape(train_dataset)['mask'][0]
-        model = build_model(model_name, n_channels, n_classes)
-        #    optimizer
-        optimizer_function = get_optimizer(optimizer, model, lr)
-        #    loss
-        loss_function = get_loss(loss, class_weight=class_imbalance)
-        #    learning rate scheduler
-        lr_scheduler = ReduceLROnPlateau(optimizer_function, 'min', factor=0.5, patience=10, verbose=verbose,
-                                         cooldown=4, min_lr=1e-7)
+    #    training engine instanciation
+    if model_filename is None:
+        model_filename = f"{model_name}.pth"
+    training_engine = TrainingEngine(model, loss_function, optimizer_function, lr_scheduler, output_folder,
+                                        model_filename, epochs=epochs, batch_size=batch_size, patience=patience,
+                                        save_history=save_history, continue_training=continue_training,
+                                        reproducible=reproducible, device=device, verbose=verbose)
 
-        #    training engine instanciation
-        if model_filename is None:
-            model_filename = f"{model_name}.pth"
-        training_engine = TrainingEngine(model, loss_function, optimizer_function, lr_scheduler, output_folder,
-                                         model_filename, epochs=epochs, batch_size=batch_size, patience=patience,
-                                         save_history=save_history, continue_training=continue_training,
-                                         reproducible=reproducible, device=device, verbose=verbose)
+    net_params = sum(p.numel() for p in model.parameters())
+    logger.info(f"Model parameters trainable : {net_params}")
 
-        net_params = sum(p.numel() for p in model.parameters())
-        logger.info(f"Model parameters trainable : {net_params}")
+    try:
+        training_engine.train(train_dataloader, val_dataloader)
 
-        try:
-            training_engine.train(train_dataloader, val_dataloader)
-
-        except KeyboardInterrupt:
-            tmp_file = os.path.join('/tmp', 'INTERRUPTED.pth')
-            torch.save(model.state_dict(), tmp_file)
-            logger.info(f"Saved interrupt as {tmp_file}")
+    except KeyboardInterrupt:
+        tmp_file = os.path.join('/tmp', 'INTERRUPTED.pth')
+        torch.save(model.state_dict(), tmp_file)
+        logger.info(f"Saved interrupt as {tmp_file}")
