@@ -31,8 +31,6 @@ from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from odeon.commons.timer import Timer
-
 from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
@@ -127,7 +125,7 @@ def get_sample_shape(dataset):
 
     Parameters
     ----------
-    dataloader : :class:`DataLoader`
+    dataset : :class:`Dataset`
 
     Returns
     -------
@@ -143,7 +141,7 @@ def get_sample_shape(dataset):
 def train(verbose, train_file, model_name, output_folder, val_file=None, percentage_val=0.2, image_bands=None,
           mask_bands=None, model_filename=None, load_pretrained_enc=False, epochs=300, batch_size=16, patience=20,
           save_history=False, continue_training=False, loss="ce", class_imbalance=None, optimizer="adam", lr=0.001,
-          data_augmentation=['rotation90'], device=None, reproducible=False):
+          data_augmentation=None, device=None, reproducible=False):
     """[summary]
 
     Parameters
@@ -187,7 +185,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
     lr : number, optional
         start learning rate, by default 0.001
     data_augmentation : list, optional
-        list of data augmentation function within ('rotation', 'rotation90', 'radiometry'), by default ['rotation90']
+        list of data augmentation function within ('rotation', 'rotation90', 'radiometry'), by default None
     device : str, optional
         device if None 'cpu' or 'cuda' if available will be used, by default None
     reproducible : bool, optional
@@ -201,6 +199,8 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
         random_seed = None
 
     # transformations
+    if data_augmentation is None:
+        data_augmentation = ['rotation90']
     transformation_dict = {
         "rotation90": Rotation90(),
         "rotation": Rotation(),
@@ -229,10 +229,10 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
 
     assert batch_size <= len(train_image_files), "batch_size must be lower than the length of training dataset"
     train_dataset = PatchDataset(train_image_files, train_mask_files, transform=Compose(transformation_functions),
-                                    image_bands=image_bands, mask_bands=mask_bands)
+                                 image_bands=image_bands, mask_bands=mask_bands)
     train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
     val_dataset = PatchDataset(val_image_files, val_mask_files, transform=Compose(transformation_functions),
-                                image_bands=image_bands, mask_bands=mask_bands)
+                               image_bands=image_bands, mask_bands=mask_bands)
     val_dataloader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=8)
 
     # training
@@ -252,15 +252,15 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
     loss_function = get_loss(loss, class_weight=class_imbalance)
     #    learning rate scheduler
     lr_scheduler = ReduceLROnPlateau(optimizer_function, 'min', factor=0.5, patience=10, verbose=verbose,
-                                        cooldown=4, min_lr=1e-7)
+                                     cooldown=4, min_lr=1e-7)
 
     #    training engine instanciation
     if model_filename is None:
         model_filename = f"{model_name}.pth"
     training_engine = TrainingEngine(model, loss_function, optimizer_function, lr_scheduler, output_folder,
-                                        model_filename, epochs=epochs, batch_size=batch_size, patience=patience,
-                                        save_history=save_history, continue_training=continue_training,
-                                        reproducible=reproducible, device=device, verbose=verbose)
+                                     model_filename, epochs=epochs, batch_size=batch_size, patience=patience,
+                                     save_history=save_history, continue_training=continue_training,
+                                     reproducible=reproducible, device=device, verbose=verbose)
 
     net_params = sum(p.numel() for p in model.parameters())
     logger.info(f"Model parameters trainable : {net_params}")

@@ -237,16 +237,16 @@ def flatten_binary_scores(scores, labels, ignore=None):
     return vscores, vlabels
 
 
-def mean(l, ignore_nan=False, empty=0):
+def mean(val, ignore_nan=False, empty=0):
     """nanmean compatible with generators.
     """
 
-    l_iter = iter(l)
+    l_iter = iter(val)
     if ignore_nan:
-        l_iter = filterfalse(np.isnan, l)
+        l_iter = filterfalse(np.isnan, val)
     try:
         n = 1
-        acc = next(l)
+        acc = next(val)
     except StopIteration:
         if empty == 'raise':
             raise ValueError('Empty mean')
