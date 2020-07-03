@@ -6,7 +6,7 @@ Logger class in an individual module with singleton pattern: one instance
 import logging
 import os
 import datetime
-from commons.folder_manager import create_folder
+from odeon.commons.folder_manager import create_folder
 
 
 class ColoredFormatter(logging.Formatter):
