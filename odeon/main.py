@@ -19,7 +19,7 @@ def parse_arguments():
 
     """
 
-    available_tools = ['sample_grid', 'trainer', 'generate']
+    available_tools = ['sample_grid', 'train', 'generate']
 
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
@@ -87,12 +87,11 @@ def main():
 
         return 0
 
-    elif tool == "trainer":
+    elif tool == "train":
 
-        from odeon.scripts.trainer import train
+        from odeon.scripts.train import train
 
         with Timer("Training"):
-            # print(conf)
 
             datasource_conf = conf.get('data_source')
             model_conf = conf.get('model_setup')

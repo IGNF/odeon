@@ -8,7 +8,7 @@ Example
 -------
     Call this module from the root of the project:
 
-    $ python odeon/main.py train -c src/json/train.json -v
+    $ odeon train -c src/json/train.json -v
 
     This will read the configuration from a json file and train a model.
     Model is stored in output_folder in a .pth file.
