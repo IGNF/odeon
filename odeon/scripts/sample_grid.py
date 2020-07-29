@@ -27,7 +27,6 @@ Notes
 """
 
 import os
-from typing import Tuple, List, Dict
 import fiona
 from numpy import linspace
 from shapely.geometry import shape, box, mapping, Point
@@ -46,7 +45,7 @@ def setup_output(output_pattern):
     fm.create_folder(path)
 
 
-def get_geometries_from_shp(shapefile) -> Tuple[List, Dict]:
+def get_geometries_from_shp(shapefile):
     """
     Returns a list of geometries ordered by x, then y
     Parameters
@@ -73,7 +72,7 @@ def get_geometries_from_shp(shapefile) -> Tuple[List, Dict]:
     return geometry_list, crs
 
 
-def generate_filename(output_pattern, no_of_samples) -> List:
+def generate_filename(output_pattern, no_of_samples):
     """
     Returns a list of filenames with complete path
     Parameters
@@ -215,14 +214,14 @@ def grid_sample(verbose, input_file, output_pattern, image_size_pixel, pixel_siz
     """
 
     LOGGER.addHandler(get_file_handler(LOGGER, os.path.split(output_pattern)[0]))
-    if verbose:
-        LOGGER.debug("Configuration :")
-        LOGGER.debug(f"\tinput shapefile: {input_file}")
-        LOGGER.debug(f"\toutput pattern: {output_pattern}")
-        LOGGER.debug(f"\timage size (pixel): {image_size_pixel}")
-        LOGGER.debug(f"\tpixel size (meter per pixel): {pixel_size_meter_per_pixel}")
-        LOGGER.debug(f"\tstrict_inclusion: {strict_inclusion}")
-        LOGGER.debug(f"\tshift (1 to shift centers): {shift}")
+
+    LOGGER.debug("Configuration :")
+    LOGGER.debug(f"\tinput shapefile: {input_file}")
+    LOGGER.debug(f"\toutput pattern: {output_pattern}")
+    LOGGER.debug(f"\timage size (pixel): {image_size_pixel}")
+    LOGGER.debug(f"\tpixel size (meter per pixel): {pixel_size_meter_per_pixel}")
+    LOGGER.debug(f"\tstrict_inclusion: {strict_inclusion}")
+    LOGGER.debug(f"\tshift (1 to shift centers): {shift}")
 
     if not os.path.isfile(input_file):
         LOGGER.debug(f"ERROR: file nor found: {input_file}")

@@ -1,0 +1,33 @@
+{
+  "image": {
+    "image_size_pixel": 128,
+    "resolution": [0.2, 0.2]
+  },
+  "image_layers": {
+    "RGB": {
+      "path": "/media/hd/tests_data/33/RVB/33_2015_zone_1_1.tif",
+      "bands": [1, 2, 3]
+    },
+    "CIR": {
+      "path": "/media/hd/tests_data/33/IRC/33_2015_zone_1_1.tif",
+      "bands": [1, 2, 3]
+    }
+  },
+  "vector_classes": {
+    "building": "/media/hd/tests_data/33/VECTOR/33_2015_zone_1_1_bati.shp",
+    "bitumen" : "/media/hd/tests_data/33/VECTOR/33_2015_zone_1_1_bitume.shp",
+    "water" : "/media/hd/tests_data/33/VECTOR/33_2015_zone_1_1_eau.shp",
+    "tree": "/media/hd/tests_data/33/VECTOR/33_2015_zone_1_1_ligneux.shp",
+    "minerals": "/media/hd/tests_data/33/VECTOR/33_2015_zone_1_1_mineraux.shp",
+    "pool": "/media/hd/tests_data/33/VECTOR/33_2015_zone_1_1_piscine.shp"
+  },
+  "generator": {
+    "output_path": "/media/hd/out/test_dev/generation",
+    "poi_pattern": "/media/hd/out/test_dev/grid_sampler/zone1_2015_zone_33_1_1.csv",
+    "train_test_split": 0.8,
+    "train_val_split": 0.8,
+    "compute_only_masks": false,
+    "mns_mnt": true,
+    "append": false
+  }
+}

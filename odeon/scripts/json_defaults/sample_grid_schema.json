@@ -14,7 +14,8 @@
                                 "output_pattern":
                                     {"type": "string",
                                      "default": "/media/ssd/datasets/ocsge/odeon_data/data/odeon_sample/zone_33_1.csv"},
-                                "shift": {"enum": [0, 1], "default": 0}
+                                "shift": {"enum": [0, 1], "default": 0},
+                                 "strict_inclusion": {"enum": [0, 1], "default": 0}
                                 }
                                },
                    "required": ["image", "sampler"]

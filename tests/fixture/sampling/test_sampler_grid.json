@@ -1,11 +1,11 @@
 {
   "image": {
-    "image_size_pixel": 256,
+    "image_size_pixel": 128,
     "pixel_size_meter_per_pixel": 0.2
   },
   "sampler": {
-    "input_file": "/home/dlsupport/data/odeon_data/learning_zones/zone_33_1_crs.shp",
-    "output_pattern": "/home/dlsupport/data/odeon_data/odeon_sample/zone_33_1.csv",
+    "input_file": "/media/hd/tests_data/33/LEARNING_ZONES/33_2015_zone_1_1.shp",
+    "output_pattern": "/media/hd/out/test_dev/grid_sampler/2015_zone_33_1_1.csv",
     "shift": 0
   }
 }

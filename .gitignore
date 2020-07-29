@@ -3,3 +3,7 @@
 odeon/log/*
 *.pyc
 *__pycache__*
+tests/poc_aws
+tests/poc_aws/*
+tests/fixture
+tests/fixture/*

@@ -31,7 +31,8 @@
                 "output_folder"
             ],
             "properties": {
-                "model_name": {"type": "string"}, 
+
+                "model_name": {"type": "string"},
                 "load_pretrained_enc": {"type": "boolean", "default": false},
                 "output_folder": {"type": "string"},
                 "model_filename": {"type": "string"}
@@ -58,7 +59,7 @@
             }, "then": {
                 "properties": {"class_imbalance": {"minItems": "2"}}
             }
-        
+
     }
 
     }

@@ -1,6 +1,6 @@
-# Sampler grid how-to
+# Sample grid how-to
 
-`Sampler_grid` performs a regular sampling over one or several zones.
+`Sample_grid` performs a regular sampling over one or several zones.
 
 This is one possibility for the first step (out of two) to build a dataset. This is suited if you have areas with ground truth for all your classes.   
 
@@ -59,7 +59,7 @@ This information has to be consistent with the following steps : generation of t
 
 ### Section sampler
 
-"sampler" contains information regarding the way the sammpling will be performed:
+"sampler" contains information regarding the way the sampling will be performed:
 * "input_file": a shapefile containing a list of shapes (avoid concave polygons)
 * "output_pattern": "../../odeon_test/*_regularsampling.csv",
 * "strict_inclusion": 1,

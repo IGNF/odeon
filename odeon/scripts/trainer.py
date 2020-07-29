@@ -39,6 +39,7 @@ from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 logger = logging.getLogger(__package__)
 
+
 def read_csv_sample_file(file_path):
     """Read a sample CSV file and return a list of image files and a list of mask files.
     CSV file should contain image pathes in the first column and mask pathes in the second.
@@ -125,6 +126,7 @@ def get_sample_shape(dataset):
 
     Parameters
     ----------
+
     dataset : :class:`Dataset`
 
     Returns
@@ -143,6 +145,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
           save_history=False, continue_training=False, loss="ce", class_imbalance=None, optimizer="adam", lr=0.001,
           data_augmentation=None, device=None, reproducible=False):
     """[summary]
+
 
     Parameters
     ----------

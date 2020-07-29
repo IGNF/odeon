@@ -53,10 +53,38 @@ def get_new_logger(name):
         return log
 
 
+def get_simple_handler(level=logging.DEBUG):
+    """
+
+    Parameters
+    ----------
+
+    level logging level
+
+    Returns
+    -------
+
+    StreamHandler
+
+    """
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+
+    return ch
+
+
 def get_stream_handler(level=logging.DEBUG):
     """
-    Set a stream handler to your Logger instance
-    :return StreamHandler
+
+    Parameters
+    ----------
+
+    level logging level
+
+    Returns
+    -------
+
+    StreamHandler
     """
 
     ch = logging.StreamHandler()
@@ -67,7 +95,6 @@ def get_stream_handler(level=logging.DEBUG):
 
 def get_file_handler(logger: logging.Logger, dir_name, level=logging.WARNING):
     """
-
     :param logger:
     :param dir_name:
     :param level: min level to log in default: WARNING

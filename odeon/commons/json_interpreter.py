@@ -6,8 +6,7 @@ This class checks the content of json files:
 
 Notes
 -----
-    * [Todo] implement default values
-    * [Todo] is a section is absent, check if default values exists
+
 
 """
 
@@ -19,7 +18,7 @@ import sys
 
 class JsonInterpreter:
     """
-    Json dictionary with default values (TODO).
+
 
     ...
 
@@ -27,7 +26,6 @@ class JsonInterpreter:
     ----------
     __dict__ : dictionary
     _path: string
-    _logger: OdeonLogger
         list of (parameters, values).
 
     Methods
@@ -99,7 +97,7 @@ class JsonInterpreter:
 
 #######################################################################
 #
-#   OLD FUNCTIONS
+#   OLD FUNCTIONS; LEGACY
 #
 #######################################################################
 
@@ -123,6 +121,16 @@ class JsonInterpreter:
         return self.__dict__
 
     def check_content(self, tag_names):
+        """
+
+        Parameters
+        ----------
+        tag_names
+
+        Returns
+        -------
+
+        """
         try:
             for name in tag_names:
                 if name not in self.__dict__:
