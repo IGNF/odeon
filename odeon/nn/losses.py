@@ -11,6 +11,7 @@ Parts of this file inspired by
 and work from SpaceNet challenges participants
 """
 
+
 class BCEWithLogitsLoss(nn.Module):
     """Binary cross entropy loss with logits
     Loss is computed each class separately and reduced regarding reduction param
@@ -33,6 +34,7 @@ class BCEWithLogitsLoss(nn.Module):
         probs_flat = logits.view(-1)  # Flatten
         targets_flat = targets.view(-1)  # Flatten
         return self.bce_loss(probs_flat, targets_flat)
+
 
 class CrossEntropyWithLogitsLoss(nn.Module):
     """Cross entropy loss with logits
@@ -109,6 +111,7 @@ def dice_round(preds, trues):
     preds = preds.float()
     return soft_dice_loss(preds, trues)
 
+
 def soft_dice_loss(outputs, targets, per_image=False):
     batch_size = outputs.size()[0]
     eps = 1e-5
@@ -120,6 +123,7 @@ def soft_dice_loss(outputs, targets, per_image=False):
     union = torch.sum(dice_output, dim=1) + torch.sum(dice_target, dim=1) + eps
     loss = (1 - (2 * intersection + eps) / union).mean()
     return loss
+
 
 def jaccard(outputs, targets, per_image=True, non_empty=False, min_pixels=5):
     batch_size = outputs.size()[0]
@@ -145,6 +149,7 @@ def jaccard(outputs, targets, per_image=True, non_empty=False, min_pixels=5):
             return sum_loss / non_empty_images
     return losses.mean()
 
+
 class DiceLoss(nn.Module):
     def __init__(self, weight=None, size_average=True, per_image=False):
         super().__init__()
@@ -155,6 +160,7 @@ class DiceLoss(nn.Module):
     def forward(self, logits, target):
         input = torch.sigmoid(logits)
         return soft_dice_loss(input, target, per_image=self.per_image)
+
 
 class JaccardLoss(nn.Module):
     def __init__(self, weight=None, size_average=True, per_image=False, non_empty=False, apply_sigmoid=False,
@@ -186,6 +192,7 @@ def lovasz_grad(gt_sorted):
         jaccard[1:p] = jaccard[1:p] - jaccard[0:-1]
     return jaccard
 
+
 def lovasz_hinge(logits, labels, per_image=True, ignore=None):
 
     if per_image:
@@ -194,6 +201,7 @@ def lovasz_hinge(logits, labels, per_image=True, ignore=None):
     else:
         loss = lovasz_hinge_flat(*flatten_binary_scores(logits, labels, ignore))
     return loss
+
 
 def lovasz_hinge_flat(logits, labels):
     """Binary Lovasz hinge loss
@@ -221,6 +229,7 @@ def lovasz_hinge_flat(logits, labels):
     grad = lovasz_grad(gt_sorted)
     loss = torch.dot(F.relu(errors_sorted), grad)
     return loss
+
 
 def flatten_binary_scores(scores, labels, ignore=None):
     """
@@ -257,6 +266,7 @@ def mean(val, ignore_nan=False, empty=0):
         return acc
     return acc / n
 
+
 class LovaszLoss(nn.Module):
     def __init__(self, ignore_index=255, per_image=True):
         super().__init__()
@@ -267,6 +277,7 @@ class LovaszLoss(nn.Module):
         outputs = outputs.contiguous()
         targets = targets.contiguous()
         return lovasz_hinge(outputs, targets, per_image=self.per_image, ignore=self.ignore_index)
+
 
 class FocalLoss2d(nn.Module):
     def __init__(self, gamma=2, ignore_index=255):

@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 matplotlib.use('agg')
 
+
 class History:
     """History class to manage metrics storage during training, export to json file and plots
 

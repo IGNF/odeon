@@ -7,8 +7,9 @@ import fiona
 from odeon.commons.exception import ErrorCodes, OdeonError
 from fiona import supported_drivers
 import os
+from odeon import LOGGER
 
-RASTER_DRIVER_ACCEPTED = ["GTiff", "GeoTIFF"]
+RASTER_DRIVER_ACCEPTED = ["GTiff", "GeoTIFF", "VRT"]
 FIONA_DRIVER_ACCEPTED = supported_drivers.keys()
 
 
@@ -17,7 +18,7 @@ def geo_projection_raster_guard(raster):
 
     Parameters
     ----------
-    raster : dict
+    raster : Union[str, list]
      file path of raster
 
     Returns
@@ -31,22 +32,34 @@ def geo_projection_raster_guard(raster):
     """
     try:
 
-        with rasterio.open(raster) as src:
+        if isinstance(raster, str):
 
-            if src.crs == "" or src.crs is None:
+            with rasterio.open(raster) as src:
 
-                raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
-                                 f"the crs {src.crs} of raster {raster} is empty")
+                if src.crs == "" or src.crs is None:
+
+                    raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
+                                     f"the crs {src.crs} of raster {raster} is empty")
+        else:
+
+            for file in raster:
+
+                with rasterio.open(file) as src:
+
+                    if src.crs == "" or src.crs is None:
+
+                        raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
+                                         f"the crs {src.crs} of raster {file} is empty")
 
     except rasterio.errors.RasterioError as rioe:
 
         raise OdeonError(ErrorCodes.ERR_IO,
-                         f"the crs {src.crs} of raster {raster} is empty", stack_trace=rioe)
+                         f"Odeon encountered an error during raster opening {raster}", stack_trace=rioe)
 
     except rasterio.errors.RasterioIOError as rioe:
 
         raise OdeonError(ErrorCodes.ERR_IO,
-                         f"the crs {src.crs} of raster {raster} is empty", stack_trace=rioe)
+                         f"Odeon encountered an error during raster opening {raster}", stack_trace=rioe)
 
 
 def geo_projection_vector_guard(vector):
@@ -66,13 +79,40 @@ def geo_projection_vector_guard(vector):
     odeon.commons.exception.OdeonError
      error code ERR_COORDINATE_REFERENCE_SYSTEM
     """
+    if isinstance(vector, str):
+        LOGGER.debug(vector)
+        try:
+            with fiona.open(vector) as src:
 
-    with fiona.open(vector) as src:
+                if src.crs == "" or src.crs is None:
 
-        if src.crs == "" or src.crs is None:
+                    raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
+                                     f"the crs {src.crs} of vector {vector} is empty")
+        except fiona._err.CPLE_AppDefinedError as error:
 
             raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
-                             f"the crs {src.crs} of vector {vector} is empty")
+                             f"the crs {src.crs} of vector {vector} has an encoding problem", stack_trace=error)
+
+    else:
+
+        for v in vector:
+
+            try:
+
+                LOGGER.debug(v)
+                with fiona.open(v) as src:
+
+                    if isinstance(v, str):
+
+                        if src.crs == "" or src.crs is None:
+
+                            raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
+                                             f"the crs {src.crs} of vector {v} is empty")
+
+            except fiona._err.CPLE_AppDefinedError as error:
+
+                raise OdeonError(ErrorCodes.ERR_COORDINATE_REFERENCE_SYSTEM,
+                                 f"the crs {src.crs} of vector {vector} has an encoding problem", stack_trace=error)
 
 
 def vector_driver_guard(vector):
@@ -92,13 +132,25 @@ def vector_driver_guard(vector):
      error code ERR_DRIVER_COMPATIBILITY
     """
 
-    with fiona.open(vector) as src:
+    if isinstance(vector, str):
 
-        if src.driver not in FIONA_DRIVER_ACCEPTED:
+        with fiona.open(vector) as src:
 
-            raise OdeonError(ErrorCodes.ERR_DRIVER_COMPATIBILITY,
-                             f"the driver {src.driver} of mask file"
-                             f" {vector} is not accepted in Odeon")
+            if src.driver not in FIONA_DRIVER_ACCEPTED:
+
+                raise OdeonError(ErrorCodes.ERR_DRIVER_COMPATIBILITY,
+                                 f"the driver {src.driver} of mask file"
+                                 f" {vector} is not accepted in Odeon")
+    else:
+
+        for v in vector:
+
+            with fiona.open(v) as src:
+
+                if src.driver not in FIONA_DRIVER_ACCEPTED:
+                    raise OdeonError(ErrorCodes.ERR_DRIVER_COMPATIBILITY,
+                                     f"the driver {src.driver} of mask file"
+                                     f" {v} is not accepted in Odeon")
 
 
 def raster_driver_guard(raster):
@@ -119,23 +171,35 @@ def raster_driver_guard(raster):
         """
     try:
 
-        with rasterio.open(raster) as src:
+        if isinstance(raster, str):
 
-            if src.driver not in RASTER_DRIVER_ACCEPTED:
+            with rasterio.open(raster) as src:
 
-                raise OdeonError(ErrorCodes.ERR_DRIVER_COMPATIBILITY,
-                                 f"the driver {src.driver} of raster file"
-                                 f" {raster} is not accepted in Odeon")
+                if src.driver not in RASTER_DRIVER_ACCEPTED:
+
+                    raise OdeonError(ErrorCodes.ERR_DRIVER_COMPATIBILITY,
+                                     f"the driver {src.driver} of raster file"
+                                     f" {raster} is not accepted in Odeon")
+        else:
+
+            for r in raster:
+
+                with rasterio.open(r) as src:
+
+                    if src.driver not in RASTER_DRIVER_ACCEPTED:
+                        raise OdeonError(ErrorCodes.ERR_DRIVER_COMPATIBILITY,
+                                         f"the driver {src.driver} of raster file"
+                                         f" {r} is not accepted in Odeon")
 
     except rasterio.errors.RasterioError as rioe:
 
         raise OdeonError(ErrorCodes.ERR_IO,
-                         f"the crs {src.crs} of raster {raster} is empty", stack_trace=rioe)
+                         f"Odeon encountered an error during raster opening {raster}", stack_trace=rioe)
 
     except rasterio.errors.RasterioIOError as rioe:
 
         raise OdeonError(ErrorCodes.ERR_IO,
-                         f"the crs {src.crs} of raster {raster} is empty", stack_trace=rioe)
+                         f"Odeon encountered an error during raster opening {raster}", stack_trace=rioe)
 
 
 def files_exist(list_of_file):
@@ -155,12 +219,23 @@ def files_exist(list_of_file):
 
     """
 
-    for file in list_of_file:
+    for element in list_of_file:
 
-        if os.path.isfile(file) is not True:
+        if isinstance(element, str):
 
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"the file {file} doesn't exists")
+            if os.path.isfile(element) is not True:
+
+                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                                 f"the file {element} doesn't exists")
+
+        else:
+
+            for sub_element in element:
+
+                if os.path.isfile(sub_element) is not True:
+
+                    raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                                     f"the file {sub_element} doesn't exists")
 
 
 def dirs_exist(list_of_dir):
@@ -206,16 +281,32 @@ def raster_bands_exist(raster, list_of_band):
     """
     try:
 
-        with rasterio.open(raster) as src:
+        if isinstance(raster, str):
 
-            bands_count = src.count
+            with rasterio.open(raster) as src:
 
-            for band in list_of_band:
+                bands_count = src.count
 
-                if band > bands_count:
-                    raise OdeonError(ErrorCodes.ERR_RASTER_BAND_NOT_EXIST,
-                                     f"the band {band} from raster {raster} "
-                                     f"doesn't exists")
+                for band in list_of_band:
+
+                    if band > bands_count:
+                        raise OdeonError(ErrorCodes.ERR_RASTER_BAND_NOT_EXIST,
+                                         f"the band {band} from raster {raster} "
+                                         f"doesn't exists")
+        else:
+
+            for r in raster:
+
+                with rasterio.open(r) as src:
+
+                    bands_count = src.count
+
+                    for band in list_of_band:
+
+                        if band > bands_count:
+                            raise OdeonError(ErrorCodes.ERR_RASTER_BAND_NOT_EXIST,
+                                             f"the band {band} from raster {r} "
+                                             f"doesn't exists")
 
     except rasterio.errors.RasterioError as rioe:
 

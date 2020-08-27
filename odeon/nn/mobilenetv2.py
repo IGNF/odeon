@@ -2,6 +2,7 @@ from torch import nn
 from torchvision.models import MobileNetV2
 from torchvision.models.mobilenet import _make_divisible, ConvBNReLU
 
+
 class MobileNetV2(MobileNetV2):
     """MobileNetV2 version used as deeplab backbone
     First layer is rewritten to accept a number of channels != 3.

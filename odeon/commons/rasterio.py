@@ -3,14 +3,12 @@ from math import isclose
 import numpy as np
 import rasterio
 from rasterio import features
-from rasterio.windows import Window
 from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 from odeon import LOGGER
 
 IMAGE_TYPE = {"uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
-              "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16],
-              "uint32": [2, 0, 2**32 - 1, np.uint32, rasterio.uint32]
+              "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
               }
 
 
@@ -73,15 +71,18 @@ def get_bounds(x, y, width, height, resolution_x, resolution_y):
 
     Parameters
     ----------
-    center : pandas.core.series.Series
-     a row from a pandas DataFrame
-    dataset : rasterio.DatasetReader
-     a Rasterio Dataset to get the row, col from x, y in GeoCoordinate
-     this is where we will extract path
+    x : float
+     x coord
+    y: float
+     y coord
     width : float
      width in Geocoordinate
     height : float
      height GeoCoordinate
+    resolution_x: float
+     resolution in x axis
+    resolution_y: float
+     resolution in y axis
 
     Returns
     -------
@@ -123,6 +124,7 @@ def get_scale_factor_and_img_size(target_raster, resolution, width, height):
         if x_close and y_close:
 
             return 1, 1, width, height
+
         else:
 
             x_scale = target.res[0] / resolution[0]
@@ -134,7 +136,7 @@ def get_scale_factor_and_img_size(target_raster, resolution, width, height):
 
 
 def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
-    """Create tile from center
+    """Create mask
 
     Parameters
     ----------
@@ -155,10 +157,24 @@ def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
     with rasterio.open(msk_raster) as dst:
 
         clip = dst.read(window=window, out_shape=(meta["count"], meta["height"], meta["width"]), resampling=resampling)
+        # building the no label band
+
+        bands = clip[0:clip.shape[0]-1].astype(np.bool).astype(np.uint8).copy()
+        other_band = np.sum(bands, axis=0, dtype=np.uint8)
+        other_band = (other_band == 0).astype(np.uint8)
 
         with rasterio.open(out_file, 'w', **meta) as raster_out:
 
-            raster_out.write(clip)
+            # raster_out.write(clip)
+            # LOGGER.info(np.array([other_band]).shape)
+            # LOGGER.info(clip[0:clip.shape[0]-1].shape)
+
+            out = dst.read(window=window,
+                           out_shape=(meta["count"], meta["height"], meta["width"]),
+                           resampling=resampling)
+            out = np.vstack((out[0:out.shape[0]-1], np.array([other_band])))
+            # LOGGER.debug(out.shape)
+            raster_out.write(out)
 
         return window
 
@@ -176,6 +192,7 @@ def check_proj(dict_of_raster):
     boolean
      True if all rasters have same crs
     """
+
     check = True
     crs_compare = None
 
@@ -187,15 +204,17 @@ def check_proj(dict_of_raster):
             crs_compare = crs if crs_compare is None else crs_compare
 
             if crs_compare != crs:
+
                 check = False
 
     return check
 
 
 def stack_window_raster(center,
+                        pointer,
                         dict_of_raster,
                         meta,
-                        mns_mnt,
+                        dem,
                         compute_only_masks=False,
                         raster_out=None,
                         meta_msk=None):
@@ -206,11 +225,14 @@ def stack_window_raster(center,
     ----------
     center : pandas.core.series.Series
      a row from a pandas DataFrame
+    pointer : int
+     position in the generation sequence (batch mode, always 0 if no batch
+     mode)
     dict_of_raster : dict[str, str]
      dictionary of layer geo tif (RGB, CIR, etc.)
     meta : dict
      metadata for the window raster
-    mns_mnt : boolean
+    dem : boolean
      rather calculate or not DMS - DMT and create a new band with it
     compute_only_masks : int (0,1)
      rather compute only masks or not
@@ -230,7 +252,7 @@ def stack_window_raster(center,
     rasters: dict = dict_of_raster.copy()
     resampling = Resampling.bilinear
 
-    def _get_window(dataset, raster):
+    def _get_window(dataset, raster, pointer):
         """
 
         Parameters
@@ -239,14 +261,17 @@ def stack_window_raster(center,
          dataset where to exctract window
         raster : dict
          raster params
+        pointer : int
+         position in the generation sequence (batch mode, always 0 if no batch
+         mode)
 
         Returns
         -------
         window : rasterio.Windows
         """
 
-        scaled_width = raster["scaled_width"]
-        scaled_height = raster["scaled_height"]
+        scaled_width = raster["scaled_width"][pointer]
+        scaled_height = raster["scaled_height"][pointer]
 
         left, bottom, right, top = get_bounds(center.x,
                                               center.y,
@@ -267,9 +292,9 @@ def stack_window_raster(center,
 
     raster: dict = next(iter(dict_of_raster.values()))
 
-    with rasterio.open(raster["path"]) as src:
+    with rasterio.open(raster["path"][pointer]) as src:
 
-        window = _get_window(src, raster)
+        window = _get_window(src, raster, pointer)
         meta_msk["transform"] = rasterio.windows.transform(window, src.transform)
         meta["transform"] = rasterio.windows.transform(window, src.transform)
 
@@ -277,19 +302,20 @@ def stack_window_raster(center,
 
         idx = 1
 
-        """ handle the special case MNS-MNT"""
+        """ handle the special case DMS-DMT """
+
         dtype = meta["dtype"]
         first = True
 
         for raster_name, raster in rasters.items():
 
-            if raster_name in ["DSM", "DTM"] and mns_mnt:
-
+            if raster_name in ["DSM", "DTM"] and dem:
+                # in this case, the band stacked will be the DEM computed with add_height
                 break
 
             else:
 
-                with rasterio.open(raster["path"]) as src:
+                with rasterio.open(raster["path"][pointer]) as src:
 
                     if first:
 
@@ -305,7 +331,7 @@ def stack_window_raster(center,
 
                         if first is False:
 
-                            window = _get_window(src, raster)
+                            window = _get_window(src, raster, pointer)
 
                         for i in raster["bands"]:
 
@@ -316,6 +342,7 @@ def stack_window_raster(center,
                                                        meta["width"]),
                                             resampling=resampling
                                             )
+
                             if src.meta["dtype"] != meta["dtype"]:
 
                                 band = normalize_array_in(band,
@@ -325,15 +352,15 @@ def stack_window_raster(center,
                             dst.write_band(idx, band)
                             idx += 1
 
-        if ("DSM" and "DTM") in rasters and mns_mnt:
+        if ("DSM" and "DTM") in rasters and dem:
 
-            with rasterio.open(rasters["DSM"]["path"]) as dsm_ds:
+            with rasterio.open(rasters["DSM"]["path"][pointer]) as dsm_ds:
 
-                dsm_window = _get_window(dsm_ds, rasters["DSM"])
+                dsm_window = _get_window(dsm_ds, rasters["DSM"], pointer)
 
-                with rasterio.open(rasters["DTM"]["path"]) as dtm_ds:
+                with rasterio.open(rasters["DTM"]["path"][pointer]) as dtm_ds:
 
-                    dtm_window = _get_window(dtm_ds, rasters["DTM"])
+                    dtm_window = _get_window(dtm_ds, rasters["DTM"], pointer)
 
                     if first:
 
@@ -342,7 +369,10 @@ def stack_window_raster(center,
                                                  meta_msk,
                                                  dsm_window,
                                                  resampling)
+
                     if compute_only_masks is False:
+
+                        LOGGER.debug(f"dtype: {dtype}")
 
                         band = add_height(dsm_ds,
                                           dtm_ds,
@@ -394,7 +424,7 @@ def count_band_for_stacking(dict_of_raster):
 def add_height(dsm_ds,
                dtm_ds,
                meta,
-               dtype=np.uint8,
+               dtype="uint8",
                dsm_window=None,
                dtm_window=None,
                height=None,
@@ -427,7 +457,7 @@ def add_height(dsm_ds,
     NDArray
      a NDArray containing the height coded in Byte (0..255)
     """
-
+    LOGGER.debug(f"type add band: {meta['dtype']}")
     if dsm_window is not None and dtm_window is not None:
 
         dsm_band = dsm_ds.read(1,
@@ -435,34 +465,50 @@ def add_height(dsm_ds,
                                out_shape=(1, height, width),
                                resampling=resampling)
 
-        dsm_band = normalize_array_in(dsm_band,
-                                      meta["dtype"],
-                                      IMAGE_TYPE[meta["dtype"]][2])
+        if dsm_ds.meta["dtype"] != dtm_ds.meta["dtype"]:
+
+            dsm_band = normalize_array_in(dsm_band,
+                                          meta["dtype"],
+                                          IMAGE_TYPE[meta["dtype"]][2])
         dtm_band = dtm_ds.read(1,
                                window=dtm_window,
                                out_shape=(1, height, width),
                                resampling=resampling)
-        dtm_band = normalize_array_in(dtm_band,
-                                      meta["dtype"],
-                                      IMAGE_TYPE[meta["dtype"]][2])
+
+        if dtm_ds.meta["dtype"] != dsm_ds.meta["dtype"]:
+
+            dtm_band = normalize_array_in(dtm_band,
+                                          meta["dtype"],
+                                          IMAGE_TYPE[meta["dtype"]][2])
     else:
 
         dsm_band = dsm_ds.read(1)
         dtm_band = dtm_ds.read(1)
-        dsm_band = normalize_array_in(dsm_band,
-                                      meta["dtype"],
-                                      IMAGE_TYPE[meta["dtype"]][2])
-        dtm_band = normalize_array_in(dtm_band,
-                                      meta["dtype"],
-                                      IMAGE_TYPE[meta["dtype"]][2])
+
+        if dsm_ds.meta["dtype"] != dtm_ds.meta["dtype"]:
+
+            dsm_band = normalize_array_in(dsm_band,
+                                          meta["dtype"],
+                                          IMAGE_TYPE[meta["dtype"]][2])
+        if dtm_ds.meta["dtype"] != dsm_ds.meta["dtype"]:
+
+            dtm_band = normalize_array_in(dtm_band,
+                                          meta["dtype"],
+                                          IMAGE_TYPE[meta["dtype"]][2])
 
     band = dsm_band - dtm_band
 
+    # handle case
+    if band.min() < 0:
+
+        band = band - band.min()
+
+    normalize_array_in(band,
+                       meta["dtype"],
+                       IMAGE_TYPE[meta["dtype"]][2])
+
     # scaling by a factor 5 : 1pix = 1m -> 1pix = 20 cm, hence the max height is 50m (= 255pix)
-    band *= 5
-    lower_bound, upper_bound = 0.2, 255
-    band[band < lower_bound] = lower_bound
-    band[band > upper_bound] = upper_bound  # we apply a cutout over 50m
+    # we apply a cutout over 50m
 
     return band.astype(dtype)
 
@@ -516,6 +562,7 @@ def normalize_array_in(array, dtype, max_type_val):
 
     array = array.astype(np.float64)
     LOGGER.debug(array.max())
+    LOGGER.debug(f"type {dtype}")
 
     if float(array.max()) != float(0):
 
@@ -542,10 +589,14 @@ def get_max_type(rasters):
 
     for name, raster in rasters.items():
 
-        with rasterio.open(raster["path"]) as src:
+        for r in raster["path"]:
 
-            if src.meta["dtype"] in IMAGE_TYPE.keys() and IMAGE_TYPE[src.meta["dtype"]][0] > IMAGE_TYPE[dtype][0]:
+            with rasterio.open(r) as src:
 
-                dtype = src.meta["dtype"]
+                LOGGER.debug(f"raster: {raster}, type: {src.meta['dtype']}")
+                if src.meta["dtype"] in IMAGE_TYPE.keys() and IMAGE_TYPE[src.meta["dtype"]][0] > IMAGE_TYPE[dtype][0]:
 
+                    dtype = src.meta["dtype"]
+
+    LOGGER.debug(f"dtype: {dtype}")
     return dtype

@@ -10,6 +10,7 @@ from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_me
 
 from odeon import LOGGER
 
+
 class TrainingEngine:
     """Training class
 

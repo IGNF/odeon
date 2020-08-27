@@ -10,11 +10,9 @@ before_script:
 
 flake8:
   stage: Static Analysis
-  script:
-  - flake8 --max-line-length=120 odeon/*.py
+  script: flake8 --max-line-length=120 odeon/
 
 pylint:
   stage: Static Analysis
-  allow_failure: true
-  script:
-  - pylint -d C0301 odeon/*.py
+  allow_failure: false
+  script: python pylint-fail-under.py odeon/

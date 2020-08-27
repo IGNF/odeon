@@ -55,6 +55,7 @@ class Decoder(nn.Module):
 
         return x
 
+
 class DeeplabV3p(nn.Module):
     """Deeplab V3 + implementation
     cf. https://github.com/tensorflow/models/tree/master/research/deeplab

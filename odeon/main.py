@@ -78,12 +78,13 @@ def main():
 
     if tool == "sample_grid":
 
-        from odeon.scripts.sample_grid import grid_sample
+        from odeon.scripts.sample_grid import SampleGrid
 
         with Timer("Sample Grid"):
 
             image_conf, sampler_conf = conf['image'], conf['sampler']
-            grid_sample(verbosity, **sampler_conf, **image_conf)
+            grid_sample = SampleGrid(verbosity, **sampler_conf, **image_conf)
+            grid_sample()
 
         return 0
 
@@ -102,7 +103,7 @@ def main():
 
     elif tool == "generate":
 
-        from odeon.scripts.generate import generate
+        from odeon.scripts.generate import Generator
 
         with Timer("Generate data"):
 
@@ -110,12 +111,10 @@ def main():
                 image_layers = conf["image_layers"]
                 vector_classes = conf["vector_classes"]
                 image = conf["image"]
-                generator = conf["generator"]
+                generator_conf = conf["generator"]
 
-                generate(image_layers,
-                         vector_classes,
-                         **image,
-                         **generator)
+                generator = Generator(image_layers, vector_classes, **image, **generator_conf)
+                generator()
                 return 0
 
             except OdeonError as oe:

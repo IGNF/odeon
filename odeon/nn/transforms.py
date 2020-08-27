@@ -104,6 +104,7 @@ class ToSingleTensor(object):
         image = image.transpose((2, 0, 1)).copy()
         return torch.from_numpy(image).float()
 
+
 class Compose(object):
     """Compose function differs from torchvision Compose as sample argument is passed unpacked to match albumentation
     behaviour.

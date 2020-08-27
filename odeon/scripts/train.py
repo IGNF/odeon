@@ -86,6 +86,7 @@ def get_optimizer(optimizer_name, model, lr):
     elif optimizer_name == 'SGD':
         return optim.SGD(model.parameters(), lr=lr)
 
+
 def get_loss(loss_name, class_weight=None, use_cuda=False):
     """Initialize loss class instance
        Loss function applied directly on models raw prediction (logits)
@@ -120,6 +121,7 @@ def get_loss(loss_name, class_weight=None, use_cuda=False):
         return FocalLoss2d()
     elif loss_name == "combo":
         return ComboLoss({'bce': 0.75, 'jaccard': 0.25})
+
 
 def get_sample_shape(dataset):
     """get sample shape from dataloader

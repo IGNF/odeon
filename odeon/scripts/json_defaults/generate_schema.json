@@ -8,31 +8,27 @@
                                },
                                  {"type": "number"}
                                ]}
-
                              }
                              }
                              ,
                    "image_layers": {"type": "object",
                                "properties":
                                {
-
                                }
                                },
                     "vector_classes":{"type": "object",
                              "properties":{
-
                              }
-
                     },
                    "generator":{
                     "type": "object",
                      "properties":{
                        "output_path": {"type": "string"},
-                       "poi_pattern": {"type": "string"},
-                       "train_test_split": {"type": "number", "default": 0.8},
-                       "train_val_split": {"type": "number", "default": 0.8},
+                       "poi_pattern": {"type": ["string","array"]},
+                       "train_test_split": {"type": "number"},
+                       "train_val_split": {"type": "number"},
                        "compute_only_masks": {"type": "boolean", "default": false},
-                       "mns_mnt": {"type": "boolean", "default": true},
+                       "dem": {"type": "boolean", "default": true},
                        "append": {"type": "boolean", "default": true}
                      },
                      "required": ["output_path", "poi_pattern"]

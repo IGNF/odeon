@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 import torchvision
 
 
@@ -179,6 +178,7 @@ class ConvRelu(nn.Module):
         x = self.conv(x)
         x = self.activation(x)
         return x
+
 
 class DecoderBlockV2(nn.Module):
     """DecoderBlockV2

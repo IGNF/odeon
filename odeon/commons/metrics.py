@@ -102,6 +102,7 @@ def get_confusion_matrix(predictions, target, multilabel=False):
 
     return cms
 
+
 def get_binary_confusion_matrix(prediction, target):
     """Returns the confusion matrix for one class or threshold.
        TP (true positives): the number of correctly classified pixels (1 -> 1)
@@ -128,6 +129,7 @@ def get_binary_confusion_matrix(prediction, target):
     fn = np.sum(prediction[target == 1] == 0)
 
     return np.array([[tp, fn], [fp, tn]])
+
 
 def get_iou_metrics(cm):
     """Returns the IOU metric for the provided confusion matrices
