@@ -275,5 +275,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
 
     except KeyboardInterrupt:
         tmp_file = os.path.join('/tmp', 'INTERRUPTED.pth')
+        tmp_optimizer_file = os.path.join('/tmp', 'optimizer_INTERRUPTED.pth')
         torch.save(model.state_dict(), tmp_file)
+        torch.save(optimizer_function.state_dict(), tmp_optimizer_file)
         logger.info(f"Saved interrupt as {tmp_file}")

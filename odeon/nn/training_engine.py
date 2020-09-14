@@ -65,6 +65,7 @@ class TrainingEngine:
 
         self.output_folder = output_folder
         self.output_filename = output_filename
+        self.optimizer_filename = f'optimizer_{output_filename}'
 
         self.train_iou = verbose
 
@@ -89,6 +90,7 @@ class TrainingEngine:
         history = History(base_history_file, update=self.continue_training, train_iou=self.train_iou)
 
         model_filepath = os.path.join(self.output_folder, self.output_filename)
+        optimizer_filepath = os.path.join(self.output_folder, self.optimizer_filename)
 
         # training loop
         for epoch in range(epoch_start, self.epochs):
@@ -121,6 +123,7 @@ class TrainingEngine:
             if prec_val_loss > val_loss:
                 LOGGER.info(f"Saving {model_filepath}")
                 torch.save(self.net.state_dict(), model_filepath)
+                torch.save(self.optimizer.state_dict(), optimizer_filepath)
 
                 if self.save_history:
                     history.save()
