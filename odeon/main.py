@@ -2,7 +2,6 @@ import argparse
 import os
 import sys
 from pprint import pformat
-import pathlib
 import json
 from odeon.commons.timer import Timer
 from odeon.commons.json_interpreter import JsonInterpreter
