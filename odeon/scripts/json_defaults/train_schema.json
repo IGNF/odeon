@@ -1,4 +1,3 @@
-
 {
     "type": "object",
     "properties": {
@@ -55,7 +54,7 @@
                 "reproducible": {"type": "boolean", "default": false}
             },
             "if": {
-                "properties": {"loss": {"const": "wce"}}
+                "properties": {"loss": {"const": "ce"}}
             }, "then": {
                 "properties": {"class_imbalance": {"minItems": "2"}}
             }
