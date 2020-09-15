@@ -75,10 +75,10 @@ class ErrorCodes(Enum):
     """ happens if we ask or try to access to a non existent band of a raster with Odeon"""
     ERR_RASTER_BAND_NOT_EXIST = auto()
 
-    """ happen if a file (in a json configuration CLI mostly) doesn't exist """
+    """ happens if a file (in a json configuration CLI mostly) doesn't exist """
     ERR_FILE_NOT_EXIST = auto()
 
-    """ happen if a dir (in a json configuration CLI mostly) doesn't exist """
+    """ happens if a dir (in a json configuration CLI mostly) doesn't exist """
     ERR_DIR_NOT_EXIST = auto()
 
     """ happens when the opening of a file raises an IO error """
@@ -87,13 +87,21 @@ class ErrorCodes(Enum):
     """ happens when a json schema validation raises an error"""
     ERR_JSON_SCHEMA_ERROR = auto()
 
-    """ happens when something went wrong in generation """
+    """ happens when something goes wrong in generation """
     ERR_GENERATION_ERROR = auto()
 
-    """ happends when something went wrong in sampling """
+    """ happens when something goes wrong in sampling """
     ERR_SAMPLING_ERROR = auto()
-    """ happends when something went wrong in main configuration """
+    """ happens when something goes wrong in main configuration """
     ERR_MAIN_CONF_ERROR = auto()
+    """ happens when a field is not found in any type of key value pair object """
+    ERR_FIELD_NOT_FOUND = auto()
+    """ happens when a critical test of interection returns false"""
+    ERR_INTERSECTION_ERROR = auto()
+    """ happens when an iterable object must be not empty"""
+    ERR_EMPTY_ITERABLE_OBJECT = auto()
+    """happens when an index is out of the bound of an object"""
+    ERR_OUT_OF_BOUND = auto()
 
     def __str__(self):
         """

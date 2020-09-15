@@ -19,7 +19,7 @@ def parse_arguments():
 
     """
 
-    available_tools = ['sample_grid', 'train', 'generate']
+    available_tools = ['sample_grid', 'train', 'generate', 'sample_sys']
 
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
@@ -115,6 +115,30 @@ def main():
 
                 generator = Generator(image_layers, vector_classes, **image, **generator_conf)
                 generator()
+                return 0
+
+            except OdeonError as oe:
+
+                LOGGER.error(oe)
+                return oe.error_code
+
+    elif tool == "sample_sys":
+
+        from odeon.scripts.sample_sys import SampleSys
+
+        with Timer("Systematic sampling"):
+
+            try:
+
+                io = conf["io"]
+                sampling = conf["sampling"]
+                patch = conf["patch"]
+                LOGGER.debug(io)
+                LOGGER.debug(sampling)
+                LOGGER.debug(patch)
+                sample_sys = SampleSys(**io, **sampling, **patch)
+                sample_sys()
+
                 return 0
 
             except OdeonError as oe:
