@@ -12,6 +12,7 @@ from odeon.nn.transforms import Rotation90, ToDoubleTensor, Compose
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 
+
 class TestPatchDataset(object):
 
     @pytest.fixture
@@ -160,4 +161,3 @@ class TestTransformation(object):
             sample['image'][0, :, int(512/2) - 1, int(512/2)].numpy(),
             1/255
         )
-

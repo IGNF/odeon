@@ -236,12 +236,6 @@ class Generator(BaseTool):
 
             else:
 
-                if len_seq == 1:
-
-                    raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                     "something went wrong during generation configuration:"
-                                     "\nyou declared an array in vector_layers but a string is found in image_layers")
-
                 if len_seq != len(vector):
 
                     raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,

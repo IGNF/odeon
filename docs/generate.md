@@ -101,7 +101,7 @@ Example of declaration with a list of vector file by class (batch mode)
  * `train_val_split (optional, float between 0 and 1)`: the percentage of the training part over the validation part when we do the train/valt split
  * `compute_only_masks (optional, boolean, default value false)`: when we activate it, we compute only the mask
  * `dem (optional, boolean, default value false)`: rather we create a DEM (digital elevation model) band as the substration of DSM and DTM (whose has to be present in the image_layers declaration).
-  Be careful, this option is centered on specific needs of our teams. You should prefer declare your own DME band in the image_layers section. 
+  Be careful, this option is centered on specific needs of our teams. You should prefer declare your own dem band in the image_layers section. 
  * `append (optional, boolean, default value false)`: Appends patches if a dataset exists already in the output_path , or purge everything
     and create a fresh new Dataset if set to False. This option is interesting if you need to update an existing dataset (the csv will be updated too).
 
@@ -141,7 +141,7 @@ The json schema of the generation configuration file can be found at odeon/scrip
     "train_test_split": 0.8,
     "train_val_split": 0.8,
     "compute_only_masks": false,
-    "dme": true,
+    "dem": true,
     "append": false
   }
 }
@@ -178,7 +178,7 @@ The json schema of the generation configuration file can be found at odeon/scrip
     "train_test_split": 0.7,
     "train_val_split": 0.7,
     "compute_only_masks": false,
-    "dme": true,
+    "dem": true,
     "append": false
   }
 }
