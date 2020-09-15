@@ -27,7 +27,7 @@ def parse_arguments():
                         required=True)
     parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity", default=0)
     args = parser.parse_args()
-    schema_path = os.path.join(pathlib.Path().absolute(), *["odeon", "scripts", "json_defaults",
+    schema_path = os.path.join(os.path.dirname(__file__), *["scripts", "json_defaults",
                                f"{args.tool}_schema.json"])
 
     with open(schema_path) as schema_file:

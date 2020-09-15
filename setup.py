@@ -76,6 +76,7 @@ setup(
         'License :: OSI Approved :: MIT License'
     ],
     packages=find_packages(),
+    include_package_data=True,
     entry_points={'console_scripts': ['odeon = odeon.main:main']},
     install_requires=install_requires
 )
