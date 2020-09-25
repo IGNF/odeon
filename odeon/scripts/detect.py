@@ -1,62 +1,47 @@
 import os
 import pandas as pd
+import rasterio
+import geopandas as gpd
+from shapely import wkt
 from odeon.commons.core import BaseTool
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.commons.guard import dirs_exist, files_exist, is_valid_dataset_path
+from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.nn.datasets import PatchDataset
+from odeon.commons.rasterio import get_number_of_band
+from odeon.nn.detector import BaseDetector, PatchDetector, ZoneDetector
+from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, WriteJob
 
 " A logger for big message "
-STD_OUT_LOGGER = get_new_logger("stdout_generation")
+STD_OUT_LOGGER = get_new_logger("stdout_detection")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 
 
-class Detector(BaseTool):
+class DetectionTool(BaseTool):
 
     def __init__(self,
                  verbosity,
                  img_size_pixel,
                  resolution,
-                 margin,
                  model_name,
                  file_name,
+                 n_classes,
                  batch_size,
                  use_gpu,
-                 booster,
                  interruption_recovery,
+                 mutual_exclusion,
                  output_path,
                  output_type,
-                 export_input,
                  sparse_mode,
                  threshold,
+                 export_input=None,
+                 margin=None,
+                 num_worker=None,
+                 num_thread=None,
                  dataset=None,
                  zone=None
                  ):
-        """
-
-        Parameters
-        ----------
-        verbosity
-        img_size_pixel
-        resolution
-        margin
-        model_name
-        file_name
-        batch_size
-        use_gpu
-        booster
-        interruption_recovery
-        output_path
-        output_type
-        export_input
-        sparse_mode
-        threshold
-        dataset : str
-        zone
-
-        """
 
         self.verbosity = verbosity
         self.img_size_pixel = img_size_pixel
@@ -64,16 +49,20 @@ class Detector(BaseTool):
         self.margin = margin
         self.model_name = model_name
         self.file_name = file_name
+        self.n_classes = n_classes
         self.batch_size = batch_size
         self.use_gpu = use_gpu
-        self.booster = booster
+        self.num_worker = num_worker
+        self.num_thread = num_thread
         self.interruption_recovery = interruption_recovery
         self.output_path = output_path
         self.output_type = output_type
         self.export_input = export_input
         self.sparse_mode = sparse_mode
         self.threshold = threshold
-        self.df = None
+        self.df: pd.DataFrame = None
+        self.detector: BaseDetector = None
+        self.mutual_exclusion = mutual_exclusion
 
         if zone is not None:
 
@@ -102,7 +91,8 @@ class Detector(BaseTool):
 
     def __call__(self):
 
-        LOGGER.info(self.__dict__)
+        # LOGGER.debug(self.__dict__)
+        self.detector.run()
 
     def check(self):
         """
@@ -115,7 +105,7 @@ class Detector(BaseTool):
         try:
 
             files_exist([self.file_name])
-            dirs_exist([self.output_path, self.dataset])
+            dirs_exist([self.output_path])
 
         except OdeonError as error:
 
@@ -137,15 +127,138 @@ class Detector(BaseTool):
 
         if self.mode == "dataset":
 
-            if self.dataset.endswith(".csv"):
+            if self.dataset["path"].endswith(".csv"):
 
-                self.df = pd.read_csv(self.dataset, usecols=[0], header=None, names=["img_file"])
+                self.df = pd.read_csv(self.dataset["path"], usecols=[0], header=None, names=["img_file"])
 
             else:
 
-                img_array = [f for f in os.listdir(self.dataset) if os.path.isfile(os.path.join(self.dataset, f))]
+                img_array = [f for f in os.listdir(self.dataset["path"]) if os.path.isfile(os.path.join(
+                    self.dataset["path"], f))]
                 self.df = pd.DataFrame(img_array, columns={"img_file": str})
+
+            self.df["img_output_file"] = self.df.apply(lambda row: os.path.join(self.output_path,
+                                                                                str(row["img_file"]).split("/")[-1]),
+                                                       axis=1)
+
+            self.df["job_done"] = False
+            self.df["transform"] = object()
+            # self.df = self.df.head(250)
+
+            if "image_bands" in self.dataset.keys():
+
+                image_bands = self.dataset["image_bands"]
+                n_channel = len(image_bands)
+
+            else:
+
+                with rasterio.open(self.df["img_file"].iloc[0]) as src:
+
+                    n_channel = src.count
+                    image_bands = range(1, n_channel + 1)
+
+            patch_detection_job = PatchJobDetection(self.df, self.output_path, self.interruption_recovery)
+
+            self.detector = PatchDetector(patch_detection_job,
+                                          self.output_path,
+                                          self.model_name,
+                                          self.file_name,
+                                          n_classes=self.n_classes,
+                                          n_channel=n_channel,
+                                          img_size_pixel=self.img_size_pixel,
+                                          resolution=self.resolution,
+                                          batch_size=self.batch_size,
+                                          use_gpu=self.use_gpu,
+                                          num_worker=self.num_worker,
+                                          num_thread=self.num_thread,
+                                          mutual_exclusion=self.mutual_exclusion,
+                                          output_type=self.output_type,
+                                          sparse_mode=self.sparse_mode,
+                                          threshold=self.threshold,
+                                          verbosity=self.verbosity,
+                                          image_bands=image_bands)
+
+            self.detector.configure()
 
         else:
 
-            pass
+            """"
+            Build Job
+            """
+
+            dict_of_raster = self.zone["sources"]
+            with rasterio.open(next(iter(dict_of_raster.values()))["path"]) as src:
+
+                crs = src.crs
+                LOGGER.debug(crs)
+
+            if os.path.isfile(self.zone["extent"]):
+
+                gdf_zone = gpd.GeoDataFrame.from_file(self.zone["extent"])
+
+            else:
+
+                gdf_zone = gpd.GeoDataFrame([{"id": 1, "geometry": wkt.loads(self.zone["extent"])}],
+                                            geometry="geometry",
+                                            crs=crs)
+
+            LOGGER.debug(gdf_zone)
+            extent = self.zone["extent"]
+            export_input = self.zone["export_input"]
+            tile_factor = self.zone["tile_factor"]
+            margin_zone = self.zone["margin_zone"]
+            output_size = self.img_size_pixel * tile_factor
+            out_dalle_size = self.zone["out_dalle_size"] if "out_dalle_size" in self.zone.keys() else None
+            LOGGER.debug(f"output_size {output_size}")
+
+            with rasterio.open(next(iter(dict_of_raster.values()))["path"]) as src:
+
+                meta = src.meta
+
+            self.df, df_write = ZoneDetectionJob.build_job(gdf=gdf_zone,
+                                                           output_size=output_size,
+                                                           resolution=self.resolution,
+                                                           meta=meta,
+                                                           overlap=self.zone["margin_zone"],
+                                                           out_dalle_size=out_dalle_size,
+                                                           write_job=True)
+
+            LOGGER.debug(self.df)
+            self.df = self.df.sample(n=100, random_state=1).reset_index()
+            # self.df.to_file("/home/dlsupport/data/33/ground_truth/2018/learning_zones/test_zone_1.shp")
+
+            zone_detection_job = ZoneDetectionJob(self.df, self.output_path, self.interruption_recovery)
+            zone_detection_job.save_job()
+            write_job = WriteJob(df_write, self.output_path, self.interruption_recovery, file_name="write_job.shp")
+            write_job.save_job()
+            dem = self.zone["dem"]
+            n_channel = get_number_of_band(dict_of_raster, dem)
+            LOGGER.debug(f"number of channel input: {n_channel}")
+
+            self.detector = ZoneDetector(dict_of_raster=dict_of_raster,
+                                         extent=extent,
+                                         export_input=export_input,
+                                         tile_factor=tile_factor,
+                                         margin_zone=margin_zone,
+                                         job=zone_detection_job,
+                                         output_path=self.output_path,
+                                         model_name=self.model_name,
+                                         file_name=self.file_name,
+                                         n_classes=self.n_classes,
+                                         n_channel=n_channel,
+                                         write_job=write_job,
+                                         img_size_pixel=self.img_size_pixel,
+                                         resolution=self.resolution,
+                                         batch_size=self.batch_size,
+                                         use_gpu=self.use_gpu,
+                                         num_worker=self.num_worker,
+                                         num_thread=self.num_thread,
+                                         mutual_exclusion=self.mutual_exclusion,
+                                         output_type=self.output_type,
+                                         sparse_mode=self.sparse_mode,
+                                         threshold=self.threshold,
+                                         verbosity=self.verbosity,
+                                         dem=dem)
+
+            LOGGER.debug(self.detector.__dict__)
+            self.detector.configure()

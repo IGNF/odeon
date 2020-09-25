@@ -21,6 +21,7 @@ class Decoder(nn.Module):
         [description]
     """
     def __init__(self, num_classes, backbone):
+
         super(Decoder, self).__init__()
         if backbone == 'resnet' or backbone == 'drn':
             low_level_inplanes = 256
@@ -29,6 +30,7 @@ class Decoder(nn.Module):
         elif backbone == 'MobileNetV2':
             low_level_inplanes = 24
         else:
+
             raise NotImplementedError
 
         self.conv1 = nn.Conv2d(low_level_inplanes, 48, 1, bias=False)

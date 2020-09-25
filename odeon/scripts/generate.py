@@ -348,6 +348,7 @@ class Generator(BaseTool):
     def set_meta_img_msk(self):
         """
         Set metadata of image patch and mask patch in rasterio format
+
         Returns
         -------
 

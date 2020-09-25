@@ -299,6 +299,7 @@ class HeavyUNet(nn.Module):
         self.outc = OutputConv(64, n_classes)
 
     def forward(self, x):
+
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
@@ -399,6 +400,7 @@ class UNetResNet(nn.Module):
         self.final = nn.Conv2d(num_filters, n_classes, kernel_size=1)
 
     def forward(self, x):
+
         conv1 = self.conv1(x)
         conv2 = self.conv2(conv1)
         conv3 = self.conv3(conv2)

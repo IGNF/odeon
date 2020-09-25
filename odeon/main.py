@@ -18,10 +18,7 @@ def parse_arguments():
 
     """
 
-
     available_tools = ['sample_grid', 'train', 'generate', 'sample_sys', 'detect']
-
-
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
     parser.add_argument("-c", "--config", action='store', type=str, help="json configuration file (required)",
@@ -147,7 +144,7 @@ def main():
 
     elif tool == "detect":
 
-        from odeon.scripts.detect import Detector
+        from odeon.scripts.detect import DetectionTool
 
         with Timer("Detecting"):
 
@@ -161,27 +158,19 @@ def main():
                 if "zone" in conf.keys():
 
                     zone = conf["zone"]
-                    detector = Detector(verbosity,
-                                        **image,
-                                        **model,
-                                        **output_param,
-                                        **detect_param,
-                                        zone=zone
-                                        )
+                    detector = DetectionTool(verbosity, **image, **model, **output_param, **detect_param, zone=zone)
                     detector()
 
                 else:
 
                     dataset = conf["dataset"]
-                    detector = Detector(verbosity,
-                                        **image,
-                                        **model,
-                                        **output_param,
-                                        **detect_param,
-                                        dataset=dataset
-                                        )
+                    detector = DetectionTool(verbosity,
+                                             **image,
+                                             **model,
+                                             **output_param,
+                                             **detect_param,
+                                             dataset=dataset)
                     detector()
-
 
                 return 0
 

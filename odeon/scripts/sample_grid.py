@@ -214,6 +214,7 @@ class SampleGrid(BaseTool):
         bounding_box_list = [geometry.bounds for geometry in geometry_list]
         # TODO ? bounding_box_list.sort(key=lambda x: (x[0], x[1]))  # sort by x1 then y_2
         data = zip(filename_list, bounding_box_list, geometry_list)
+
         for filename, bounding_box, geometry in tqdm(data):
             # find limits
             x_1, y_1, x_2, y_2 = bounding_box

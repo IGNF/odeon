@@ -7,7 +7,6 @@ from skimage.color import hsv2rgb
 from skimage.color import rgb2hsv
 from skimage.transform import rotate
 from skimage.util import random_noise
-from scipy.ndimage.interpolation import rotate
 
 # TODO :
 #   - normalisation sur les canaux RGB Irc ?
@@ -87,7 +86,6 @@ class ToDoubleTensor(object):
         # torch image: C X H X W
         image = image.transpose((2, 0, 1)).copy()
         mask = mask.transpose((2, 0, 1)).copy()
-
         return {
             'image': torch.from_numpy(image).float(),
             'mask': torch.from_numpy(mask).float()
@@ -104,6 +102,43 @@ class ToSingleTensor(object):
         # torch image: C X H X W
         image = image.transpose((2, 0, 1)).copy()
         return torch.from_numpy(image).float()
+
+
+class ToPatchTensor(object):
+    """Convert ndarrays of image, scalar index, affineasndarray into Tensors"""
+
+    def __call__(self, **sample):
+
+        image = sample['image']
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C X H X W
+        image = image.transpose((2, 0, 1)).copy()
+        index = sample["index"]
+        affine = sample["affine"]
+        return {
+                "image": torch.from_numpy(image).float(),
+                "index": torch.from_numpy(index).int(),
+                "affine": torch.from_numpy(affine).float()
+                }
+
+
+class ToWindowTensor(object):
+    """Convert ndarrays of image, scalar index"""
+
+    def __call__(self, **sample):
+
+        image = sample['image']
+        # swap color axis because
+        # numpy image: H x W x C
+        # torch image: C X H X W
+        image = image.transpose((2, 0, 1)).copy()
+        index = sample["index"]
+
+        return {
+                "image": torch.from_numpy(image).float(),
+                "index": torch.from_numpy(index).int()
+                }
 
 
 class Compose(object):

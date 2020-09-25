@@ -14,17 +14,11 @@
           "type": "number",
           "default": 0.2,
           "minimum": 0.0001
-        },
-        "margin": {
-          "type": "integer",
-          "default": 30,
-          "minimum": 1
         }
         },
         "default": {
           "img_size_pixel": 256,
-          "resolution": 0.2,
-          "margin": 30
+          "resolution": 0.2
         }
       },
       "zone": {
@@ -34,23 +28,35 @@
             "type": "object",
             "properties": {}},
           "extent":  {
-            "type": ["string", "object"]
+            "type": ["string"]
           },
           "out_dalle_size": {
             "type": "integer"
           },
+          "export_input": {
+             "type": "boolean",
+             "default": false
+           },
           "tile_factor": {"type": "integer", "default": 4, "minimum": 1},
-          "margin_zone": {"type": "integer"}
+          "margin_zone": {"type": "integer", "default": 0, "minimum":0},
+          "dem": {"type": "boolean", "default": false}
         },
         "required": ["sources", "extent"]
       },
-      "dataset": {"type": "string"},
+      "dataset": {
+        "type": "object",
+        "properties": {
+          "path": {"type": "string"},
+          "image_bands": {"type": "array"}
+        },
+        "required": ["path"]
+      },
       "model": {
         "type": "object",
         "properties": {
           "model_name": {"type": "string"},
           "file_name": {"type": "string"},
-          "image_bands": {"type": "array"}
+          "n_classes": {"type": "integer", "minimum": 1}
         },
         "required": ["model_name", "file_name"]
       },
@@ -65,11 +71,20 @@
            "use_gpu": {
                "type": "boolean",
                "default": true},
-           "booster": {
-               "type": "boolean",
-               "default": true
+           "num_worker": {
+               "type": "integer",
+               "minimum": 0
            },
+          "num_thread": {
+            "type": "integer",
+            "minimum": 1
+          },
           "interruption_recovery":
+          {
+            "type": "boolean",
+            "default": false
+          },
+          "mutual_exclusion":
           {
             "type": "boolean",
             "default": true
@@ -78,8 +93,8 @@
         "default": {
           "batch_size": 1,
           "use_gpu": true,
-          "booster": true,
-          "interruption_recovery": true
+          "interruption_recovery": false,
+          "mutual_exclusion": true
         }
       },
       "output_param": {
@@ -91,18 +106,15 @@
            },
            "output_type": {
              "type": "string",
-             "enum": ["bit", "int8", "float32"],
-             "default": "int8"
+             "enum": ["bit", "uint8", "float32"],
+             "default": "uint8"
            },
-           "export_input": {
+          "n_classes": {"type": "integer"},
+          "sparse_mode": {
              "type": "boolean",
              "default": false
            },
-           "sparse_mode": {
-             "type": "boolean",
-             "default": false
-           },
-           "threshold": {
+          "threshold": {
              "type": "number",
              "default": 0.5
            }
@@ -122,4 +134,3 @@
                 ]
             }]
 }
-

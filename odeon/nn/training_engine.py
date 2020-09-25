@@ -7,7 +7,6 @@ import torch
 
 from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_metrics
-
 from odeon import LOGGER
 
 
@@ -51,6 +50,7 @@ class TrainingEngine:
                  device=None, reproducible=False, verbose=False):
 
         self.device = device if device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.n_classes = self.net.n_classes
         self.net = model.cuda(self.device) if self.device.startswith('cuda') else model
         self.epochs = epochs
         self.batch_size = batch_size
@@ -142,6 +142,7 @@ class TrainingEngine:
                 patience_counter = 0
 
             else:
+
                 patience_counter += 1
 
             # stop training if patience is reached
@@ -220,7 +221,9 @@ class TrainingEngine:
 
                 # predictions
                 if self.net.n_classes == 1:
+
                     preds = torch.sigmoid(logits)
+
                 else:
                     preds = torch.softmax(logits, dim=1)
 
@@ -239,3 +242,4 @@ class TrainingEngine:
         miou = get_iou_metrics(confusion_matrix)
 
         return losses.avg, miou
+

@@ -7,9 +7,15 @@ from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 from odeon import LOGGER
 
-IMAGE_TYPE = {"uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
-              "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
-              }
+IMAGE_TYPE = {
+                "uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
+                "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
+}
+
+
+def get_center_from_bound(left, bottom, right, top):
+
+    return abs(float((top - bottom) / 2)), abs(float((right - left)))
 
 
 def rasterize_shape(tuples, meta, shape, fill=0, default_value=1):
@@ -87,7 +93,7 @@ def get_bounds(x, y, width, height, resolution_x, resolution_y):
     Returns
     -------
     Tuple
-     col, row, width, height
+     left, bottom, right, top
 
     """
 
@@ -114,25 +120,47 @@ def get_scale_factor_and_img_size(target_raster, resolution, width, height):
 
     Returns
     -------
-
+     x_scale, y_scale, scaled_width, scaled_height
     """
     with rasterio.open(target_raster) as target:
 
-        x_close = isclose(target.res[0], resolution[0], rel_tol=1e-04)
-        y_close = isclose(target.res[1], resolution[1], rel_tol=1e-04)
+        return get_scale_factor_and_img_size_from_dataset(target, resolution, width, height)
 
-        if x_close and y_close:
 
-            return 1, 1, width, height
+def get_scale_factor_and_img_size_from_dataset(target, resolution, width, height):
+    """
 
-        else:
+    Parameters
+    ----------
+    target : dataset
+     a rasterio dataset
+    resolution : tuple[float, float]
+     the targeted resolution
+    width : int
+     the original width of patch
+    height : int
+     the original height of patch
 
-            x_scale = target.res[0] / resolution[0]
-            y_scale = target.res[1] / resolution[1]
-            scaled_width = width / x_scale
-            scaled_height = height / y_scale
+    Returns
+    -------
+     x_scale, y_scale, scaled_width, scaled_height
+    """
 
-            return x_scale, y_scale, scaled_width, scaled_height
+    x_close = isclose(target.res[0], resolution[0], rel_tol=1e-04)
+    y_close = isclose(target.res[1], resolution[1], rel_tol=1e-04)
+
+    if x_close and y_close:
+
+        return 1, 1, width, height
+
+    else:
+
+        x_scale = target.res[0] / resolution[0]
+        y_scale = target.res[1] / resolution[1]
+        scaled_width = width / x_scale
+        scaled_height = height / y_scale
+
+        return x_scale, y_scale, scaled_width, scaled_height
 
 
 def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
@@ -458,6 +486,7 @@ def add_height(dsm_ds,
      a NDArray containing the height coded in Byte (0..255)
     """
     LOGGER.debug(f"type add band: {meta['dtype']}")
+    LOGGER.info(f"resampling: {resampling}")
     if dsm_window is not None and dtm_window is not None:
 
         dsm_band = dsm_ds.read(1,
@@ -498,7 +527,7 @@ def add_height(dsm_ds,
 
     band = dsm_band - dtm_band
 
-    # handle case
+    # handle case where band substraction makes negative values
     if band.min() < 0:
 
         band = band - band.min()
@@ -506,9 +535,6 @@ def add_height(dsm_ds,
     normalize_array_in(band,
                        meta["dtype"],
                        IMAGE_TYPE[meta["dtype"]][2])
-
-    # scaling by a factor 5 : 1pix = 1m -> 1pix = 20 cm, hence the max height is 50m (= 255pix)
-    # we apply a cutout over 50m
 
     return band.astype(dtype)
 
@@ -533,7 +559,6 @@ def set_afffine_transform_to_meta(center, meta):
     width = meta["width"]
     height = meta["height"]
     affine: rasterio.Affine = meta["transform"]
-
     ul_x = center.x - (1/2 * width)
     ul_y = center.y + (1/2 * height)
 
@@ -600,3 +625,77 @@ def get_max_type(rasters):
 
     LOGGER.debug(f"dtype: {dtype}")
     return dtype
+
+
+def affine_to_ndarray(affine):
+    """
+    Convert an affine transform into an ndarray
+    Used for pytorch embedding
+
+    Parameters
+    ----------
+    affine : rasterio.Affine
+
+    Returns
+    -------
+    numpy NdArray
+    """
+
+    tuple_affine = (affine.a, affine.b, affine.c, affine.d, affine.e, affine.f)
+    return np.asarray(tuple_affine)
+
+
+def ndarray_to_affine(affine):
+    """
+
+    Parameters
+    ----------
+    affine : numpy Array
+
+    Returns
+    -------
+    rasterio.Affine
+    """
+    return rasterio.Affine(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5])
+
+
+def get_number_of_band(dict_of_raster, dem):
+    """
+
+    Parameters
+    ----------
+    dict_of_raster : list
+    dme : boolean
+
+    Returns
+    -------
+
+    """
+    num_band = 0
+    for _, value in dict_of_raster.items():
+
+        num_band += len(value["bands"])
+
+    if dem and ("DSM" in dict_of_raster.keys() and "DTM" in dict_of_raster.keys()):
+
+        num_band -= 1
+        LOGGER.debug(num_band)
+
+    return num_band
+
+
+def affine_to_tuple(affine):
+    """
+    Convert an affine transform into a tuple
+    Used for pytorch embedding
+
+    Parameters
+    ----------
+    affine : rasterio.Affine
+
+    Returns
+    -------
+    list
+    """
+
+    return (affine.a, affine.b, affine.c, affine.d, affine.e, affine.f)

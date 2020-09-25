@@ -113,6 +113,8 @@ class ErrorCodes(Enum):
 
     """ happens when something went wrong during the detection """
     ERR_DETECTION_ERROR = auto()
+    """ happens when we try to build a pytorch model"""
+    ERR_MODEL_ERROR = auto()
 
     def __str__(self):
         """

@@ -81,16 +81,21 @@ class ComboLoss(nn.Module):
         weights = self.weights
         # sigmoid_input = torch.sigmoid(outputs)
         for k, v in weights.items():
+
             if not v:
+
                 continue
+
             # val = self.mapping[k](sigmoid_input if k in self.expect_sigmoid else outputs, targets)
             val = self.mapping[k](outputs, targets)
             self.values[k] = val
             loss += self.weights[k] * val
+
         return loss
 
 
 class SoftDiceLoss(nn.Module):
+
     def __init__(self, weight=None, size_average=True):
         super(SoftDiceLoss, self).__init__()
 
@@ -163,6 +168,7 @@ class DiceLoss(nn.Module):
 
 
 class JaccardLoss(nn.Module):
+
     def __init__(self, weight=None, size_average=True, per_image=False, non_empty=False, apply_sigmoid=False,
                  min_pixels=5):
         super().__init__()

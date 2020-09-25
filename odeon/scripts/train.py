@@ -113,8 +113,11 @@ def get_loss(loss_name, class_weight=None, use_cuda=False):
             if use_cuda:
                 weight = weight.cuda()
             return CrossEntropyWithLogitsLoss(weight=weight)
+
         else:
+
             return CrossEntropyWithLogitsLoss()
+
     elif loss_name == "bce":
         return nn.BCEWithLogitsLoss()
     elif loss_name == "focal":
@@ -224,8 +227,11 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
     #   read csv file with columns: image, mask
     train_image_files, train_mask_files = read_csv_sample_file(train_file)
     if val_file:
+
         val_image_files, val_mask_files = read_csv_sample_file(val_file)
+
     else:
+
         train_image_files, val_image_files, train_mask_files, val_mask_files = train_test_split(
             train_image_files, train_mask_files, test_size=percentage_val, random_state=random_seed)
 
@@ -271,6 +277,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
     logger.info(f"Model parameters trainable : {net_params}")
 
     try:
+
         training_engine.train(train_dataloader, val_dataloader)
 
     except KeyboardInterrupt:

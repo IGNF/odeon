@@ -54,11 +54,14 @@ def binarizes(detection, threshold=0.5, multilabel=False):
         tmp[detection <= threshold] = 0
         return tmp.copy()
     else:  # Multiclass monolabel
+
         labels = np.argmax(detection, axis=1)
         cl = np.arange(no_of_class)
         v_other = no_of_class + 1
         result = []
+
         for c in np.nditer(cl):
+
             tmp = labels.copy()
             tmp[tmp != c] = v_other
             tmp[tmp == c] = 1
