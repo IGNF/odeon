@@ -20,7 +20,8 @@
                              "properties":{
                              }
                     },
-                   "generator":{
+                   "generator":
+                   {
                     "type": "object",
                      "properties":{
                        "output_path": {"type": "string"},

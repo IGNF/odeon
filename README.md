@@ -31,7 +31,7 @@ conda install cudatoolkit
 Odeon toolkit is run through main command:
 ```bash
 $ odeon
-usage: odeon [-h] -c CONFIG [-v] {sampler_grid,trainer}
+usage: odeon [-h] -c CONFIG [-v] {sample_grid,trainer}
 odeon: error: the following arguments are required: tool, -c/--config
 ```
 

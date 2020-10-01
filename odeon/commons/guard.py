@@ -262,6 +262,40 @@ def dirs_exist(list_of_dir):
                              f"the dir {dir_name} doesn't exists")
 
 
+def is_valid_dataset_path(uri):
+    """
+
+    Parameters
+    ----------
+    uri : str
+     a string representing
+
+    Returns
+    -------
+    boolean
+     True if it's an extisting dir or a file, else False
+    """
+    if os.path.isdir(uri):
+
+        try:
+
+            dirs_exist([os.path.join(uri, "img"), os.path.join(uri, "msk")])
+            return True
+
+        except OdeonError as error:
+
+            LOGGER.error(error)
+            return False
+
+    elif os.path.isfile(uri) and uri.endswith(".csv"):
+
+        return True
+
+    else:
+
+        return False
+
+
 def raster_bands_exist(raster, list_of_band):
     """
 

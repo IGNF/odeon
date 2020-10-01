@@ -301,7 +301,9 @@ class SampleGrid(BaseTool):
             shp_filename = filename[:-4] + "_center.shp"
             shp_schema = {'geometry': 'Point', 'properties': {'id_sample': 'int'}}
             shp_file = fiona.open(shp_filename, 'w', crs=crs, driver='ESRI Shapefile', schema=shp_schema)
+
             for i, (x, y) in enumerate(coordinates):
+
                 shp_file.write({
                     'properties': {'id_sample': i},
                     'geometry': mapping(Point(float(x), float(y)))

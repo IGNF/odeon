@@ -59,6 +59,7 @@ def build_directories(paths, append=True, exist_ok=True):
     for k, path in paths.items():
 
         if os.path.isdir(path) and bool(append) is False:
+
             shutil.rmtree(path)
 
         os.makedirs(path, exist_ok=exist_ok)

@@ -27,7 +27,9 @@ def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
 
     # load full image at a specific resolution
     ds = gdal.Open(image_file, gdal.GA_ReadOnly)
+
     if ds is None:
+
         LOGGER.error(f"File {image_file} not valid.")
 
     # center crop with width and height
@@ -35,14 +37,20 @@ def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
     dims = len(img.shape)  # one channel or many
 
     if dims == 3:
+
         img = img.swapaxes(0, 2).swapaxes(0, 1)
+
     else:
+
         img = img[..., np.newaxis]
     # image shape is now W x H x B
 
     if width is None:
+
         width = img.shape[0]
+
     if height is None:
+
         height = width
 
     # cropping
@@ -54,12 +62,16 @@ def image_to_ndarray(image_file, width=None, height=None, band_indices=None):
     dy_bottom = crop_size_y - dy_top
 
     if not (dx_left == 0 or dx_right == 0):
+
         img = img[dx_left:-dx_right, :, :]
+
     if not (dy_top == 0 or dy_bottom == 0):
+
         img = img[:, dy_top:-dy_bottom, :]
 
     # bands selection
     if dims == 3 and not(band_indices is None):
+
         img = img[:, :, band_indices]
 
     return img

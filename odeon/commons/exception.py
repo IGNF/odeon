@@ -92,16 +92,27 @@ class ErrorCodes(Enum):
 
     """ happens when something goes wrong in sampling """
     ERR_SAMPLING_ERROR = auto()
+
     """ happens when something goes wrong in main configuration """
     ERR_MAIN_CONF_ERROR = auto()
+
     """ happens when a field is not found in any type of key value pair object """
     ERR_FIELD_NOT_FOUND = auto()
+
     """ happens when a critical test of interection returns false"""
     ERR_INTERSECTION_ERROR = auto()
+
     """ happens when an iterable object must be not empty"""
     ERR_EMPTY_ITERABLE_OBJECT = auto()
+
     """happens when an index is out of the bound of an object"""
     ERR_OUT_OF_BOUND = auto()
+
+    """ happens when a path of datset is not valid"""
+    INVALID_DATASET_PATH = auto()
+
+    """ happens when something went wrong during the detection """
+    ERR_DETECTION_ERROR = auto()
 
     def __str__(self):
         """

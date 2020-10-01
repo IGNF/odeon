@@ -1,6 +1,8 @@
 from odeon.nn.unet import UNet, UNetResNet, HeavyUNet
 from odeon.nn.deeplabv3p import DeeplabV3p
 
+model_list = ["unet", "heavyunet", "resnet", "deeplab"]
+
 
 def build_model(model_name, n_channels, n_classes, load_pretrained=False):
     """Build a nn model from a model name.

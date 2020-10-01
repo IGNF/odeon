@@ -268,24 +268,30 @@ def mean(val, ignore_nan=False, empty=0):
 
 
 class LovaszLoss(nn.Module):
+
     def __init__(self, ignore_index=255, per_image=True):
+
         super().__init__()
         self.ignore_index = ignore_index
         self.per_image = per_image
 
     def forward(self, outputs, targets):
+
         outputs = outputs.contiguous()
         targets = targets.contiguous()
         return lovasz_hinge(outputs, targets, per_image=self.per_image, ignore=self.ignore_index)
 
 
 class FocalLoss2d(nn.Module):
+
     def __init__(self, gamma=2, ignore_index=255):
+
         super().__init__()
         self.gamma = gamma
         self.ignore_index = ignore_index
 
     def forward(self, logits, targets):
+
         outputs = torch.sigmoid(logits)
         outputs = outputs.contiguous()
         targets = targets.contiguous()

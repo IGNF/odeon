@@ -7,7 +7,7 @@ from skimage.color import hsv2rgb
 from skimage.color import rgb2hsv
 from skimage.transform import rotate
 from skimage.util import random_noise
-
+from scipy.ndimage.interpolation import rotate
 
 # TODO :
 #   - normalisation sur les canaux RGB Irc ?
@@ -15,6 +15,7 @@ from skimage.util import random_noise
 #       transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 #   - investiguer les fonctions pytorch et la bibliothèque albumentation
 #       https://albumentations.readthedocs.io/en/latest/index.html
+
 
 class Rotation90(object):
     """Apply rotation (0, 90, 180 or 270) to image and mask, this is the default minimum transformation."""
@@ -39,8 +40,7 @@ class Rotation(object):
 
         # rotation angle in degrees in counter-clockwise direction.
         angle = random.randint(0, 359)
-
-        image = rotate(image, angle)
+        image = rotate(image, angle=angle)
         mask = rotate(mask, angle)
 
         return {'image': image, 'mask': mask}
@@ -51,6 +51,7 @@ class Radiometry(object):
        There is a 50% that each effect is applied"""
 
     def __call__(self, **sample):
+
         image, mask = sample['image'], sample['mask']
 
         if random.randint(0, 1):

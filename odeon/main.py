@@ -18,7 +18,9 @@ def parse_arguments():
 
     """
 
-    available_tools = ['sample_grid', 'train', 'generate', 'sample_sys']
+
+    available_tools = ['sample_grid', 'train', 'generate', 'sample_sys', 'detect']
+
 
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
@@ -107,11 +109,11 @@ def main():
         with Timer("Generate data"):
 
             try:
+
                 image_layers = conf["image_layers"]
                 vector_classes = conf["vector_classes"]
                 image = conf["image"]
                 generator_conf = conf["generator"]
-
                 generator = Generator(image_layers, vector_classes, **image, **generator_conf)
                 generator()
                 return 0
@@ -138,6 +140,49 @@ def main():
                 sample_sys = SampleSys(**io, **sampling, **patch)
                 sample_sys()
 
+            except OdeonError as oe:
+
+                LOGGER.error(oe)
+                return oe.error_code
+
+    elif tool == "detect":
+
+        from odeon.scripts.detect import Detector
+
+        with Timer("Detecting"):
+
+            try:
+
+                model = conf["model"]
+                output_param = conf["output_param"]
+                detect_param = conf["detect_param"]
+                image = conf["image"]
+
+                if "zone" in conf.keys():
+
+                    zone = conf["zone"]
+                    detector = Detector(verbosity,
+                                        **image,
+                                        **model,
+                                        **output_param,
+                                        **detect_param,
+                                        zone=zone
+                                        )
+                    detector()
+
+                else:
+
+                    dataset = conf["dataset"]
+                    detector = Detector(verbosity,
+                                        **image,
+                                        **model,
+                                        **output_param,
+                                        **detect_param,
+                                        dataset=dataset
+                                        )
+                    detector()
+
+
                 return 0
 
             except OdeonError as oe:
@@ -146,6 +191,7 @@ def main():
                 return oe.error_code
 
     else:
+
         return ErrorCodes.ERR_MAIN_CONF_ERROR
 
 

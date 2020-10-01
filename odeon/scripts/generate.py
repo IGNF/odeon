@@ -230,6 +230,7 @@ class Generator(BaseTool):
                     raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
                                      "something went wrong during generation configuration:"
                                      "\nyou declared an array in image_layers but a string is found in vector_layers")
+
                 else:
 
                     self.vector_classes[name] = [vector]
