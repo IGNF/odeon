@@ -10,7 +10,7 @@ from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.rasterio import get_number_of_band
 from odeon.nn.detector import BaseDetector, PatchDetector, ZoneDetector
-from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, WriteJob
+from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, ZoneDetectionJobNoDalle
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
@@ -35,7 +35,6 @@ class DetectionTool(BaseTool):
                  output_type,
                  sparse_mode,
                  threshold,
-                 export_input=None,
                  margin=None,
                  num_worker=None,
                  num_thread=None,
@@ -57,7 +56,6 @@ class DetectionTool(BaseTool):
         self.interruption_recovery = interruption_recovery
         self.output_path = output_path
         self.output_type = output_type
-        self.export_input = export_input
         self.sparse_mode = sparse_mode
         self.threshold = threshold
         self.df: pd.DataFrame = None
@@ -204,40 +202,47 @@ class DetectionTool(BaseTool):
 
             LOGGER.debug(gdf_zone)
             extent = self.zone["extent"]
-            export_input = self.zone["export_input"]
             tile_factor = self.zone["tile_factor"]
             margin_zone = self.zone["margin_zone"]
             output_size = self.img_size_pixel * tile_factor
             out_dalle_size = self.zone["out_dalle_size"] if "out_dalle_size" in self.zone.keys() else None
-            LOGGER.debug(f"output_size {output_size}")
+            LOGGER.debug(f"output_size {out_dalle_size}")
 
             with rasterio.open(next(iter(dict_of_raster.values()))["path"]) as src:
 
                 meta = src.meta
 
-            self.df, df_write = ZoneDetectionJob.build_job(gdf=gdf_zone,
-                                                           output_size=output_size,
-                                                           resolution=self.resolution,
-                                                           meta=meta,
-                                                           overlap=self.zone["margin_zone"],
-                                                           out_dalle_size=out_dalle_size,
-                                                           write_job=True)
+            self.df, _ = ZoneDetectionJob.build_job(gdf=gdf_zone,
+                                                    output_size=output_size,
+                                                    resolution=self.resolution,
+                                                    meta=meta,
+                                                    overlap=self.zone["margin_zone"],
+                                                    out_dalle_size=out_dalle_size)
 
-            LOGGER.debug(self.df)
-            self.df = self.df.sample(n=100, random_state=1).reset_index()
+            LOGGER.debug(len(self.df))
+            # exit(0)
+            # self.df = self.df.sample(n=100, random_state=1).reset_index()
             # self.df.to_file("/home/dlsupport/data/33/ground_truth/2018/learning_zones/test_zone_1.shp")
 
-            zone_detection_job = ZoneDetectionJob(self.df, self.output_path, self.interruption_recovery)
+            if out_dalle_size is not None:
+
+                zone_detection_job = ZoneDetectionJob(self.df,
+                                                      self.output_path,
+                                                      self.interruption_recovery)
+            else:
+
+                zone_detection_job = ZoneDetectionJobNoDalle(self.df,
+                                                             self.output_path,
+                                                             self.interruption_recovery)
             zone_detection_job.save_job()
-            write_job = WriteJob(df_write, self.output_path, self.interruption_recovery, file_name="write_job.shp")
-            write_job.save_job()
+            # write_job = WriteJob(df_write, self.output_path, self.interruption_recovery, file_name="write_job.shp")
+            # write_job.save_job()
             dem = self.zone["dem"]
             n_channel = get_number_of_band(dict_of_raster, dem)
             LOGGER.debug(f"number of channel input: {n_channel}")
 
             self.detector = ZoneDetector(dict_of_raster=dict_of_raster,
                                          extent=extent,
-                                         export_input=export_input,
                                          tile_factor=tile_factor,
                                          margin_zone=margin_zone,
                                          job=zone_detection_job,
@@ -246,7 +251,6 @@ class DetectionTool(BaseTool):
                                          file_name=self.file_name,
                                          n_classes=self.n_classes,
                                          n_channel=n_channel,
-                                         write_job=write_job,
                                          img_size_pixel=self.img_size_pixel,
                                          resolution=self.resolution,
                                          batch_size=self.batch_size,
@@ -258,7 +262,8 @@ class DetectionTool(BaseTool):
                                          sparse_mode=self.sparse_mode,
                                          threshold=self.threshold,
                                          verbosity=self.verbosity,
-                                         dem=dem)
+                                         dem=dem,
+                                         out_dalle_size=out_dalle_size)
 
             LOGGER.debug(self.detector.__dict__)
             self.detector.configure()

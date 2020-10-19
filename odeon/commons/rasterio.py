@@ -699,3 +699,35 @@ def affine_to_tuple(affine):
     """
 
     return (affine.a, affine.b, affine.c, affine.d, affine.e, affine.f)
+
+
+class RIODatasetCollection:
+
+    def __init__(self):
+
+        self.collection = {}
+
+    def add_rio_dataset(self, key, rio_ds):
+
+        self.collection[key] = rio_ds
+
+    def get_rio_dataset(self, key):
+
+        if self.collection_has_key(key):
+
+            return self.collection[key]
+
+        else:
+
+            return None
+
+    def collection_has_key(self, key):
+
+        return key in self.collection
+
+    def delete_key(self, key):
+
+        if self.collection_has_key(key):
+
+            self.collection[key].close()
+            del self.collection[key]

@@ -8,7 +8,6 @@ from rasterio.plot import reshape_as_image
 from skimage.transform import resize
 from skimage import img_as_float
 from odeon.commons.rasterio import get_scale_factor_and_img_size_from_dataset, get_center_from_bound
-from odeon.commons.rasterio import normalize_array_in, IMAGE_TYPE
 from odeon import LOGGER
 
 
@@ -185,6 +184,19 @@ def crop_center(img, cropx, cropy):
     return img[starty:starty + cropy, startx:startx + cropx]
 
 
+def substract_margin(img, margin_x, margin_y):
+
+    if img.ndim == 2:
+
+        y, x = img.shape
+
+    else:
+
+        y, x, _ = img.shape
+
+    return img[0 + margin_y: y - margin_y, 0 + margin_x:x - margin_x]
+
+
 class TypeConverter:
 
     def __init__(self):
@@ -266,12 +278,12 @@ class CollectionDatasetReader:
                 band_indices = value["bands"]
 
                 img, _ = raster_to_ndarray_from_dataset(src,
-                                                     width,
-                                                     height,
-                                                     resolution,
-                                                     band_indices=band_indices,
-                                                     resampling=Resampling.bilinear,
-                                                     window=window)
+                                                        width,
+                                                        height,
+                                                        resolution,
+                                                        band_indices=band_indices,
+                                                        resampling=Resampling.bilinear,
+                                                        window=window)
 
                 # pixels are normalized to [0, 1]
                 img = img_as_float(img)
@@ -289,20 +301,20 @@ class CollectionDatasetReader:
             dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
 
             dsm_img, _ = raster_to_ndarray_from_dataset(src,
-                                                     width,
-                                                     height,
-                                                     resolution,
-                                                     band_indices=band_indices,
-                                                     resampling=Resampling.bilinear,
-                                                     window=dsm_window)
+                                                        width,
+                                                        height,
+                                                        resolution,
+                                                        band_indices=band_indices,
+                                                        resampling=Resampling.bilinear,
+                                                        window=dsm_window)
 
             dtm_img, _ = raster_to_ndarray_from_dataset(src,
-                                                     width,
-                                                     height,
-                                                     resolution,
-                                                     band_indices=band_indices,
-                                                     resampling=Resampling.bilinear,
-                                                     window=dtm_window)
+                                                        width,
+                                                        height,
+                                                        resolution,
+                                                        band_indices=band_indices,
+                                                        resampling=Resampling.bilinear,
+                                                        window=dtm_window)
 
             dsm_img = img_as_float(dsm_img)
             dtm_img = img_as_float(dtm_img)

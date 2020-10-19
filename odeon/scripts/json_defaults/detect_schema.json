@@ -33,10 +33,6 @@
           "out_dalle_size": {
             "type": "integer"
           },
-          "export_input": {
-             "type": "boolean",
-             "default": false
-           },
           "tile_factor": {"type": "integer", "default": 4, "minimum": 1},
           "margin_zone": {"type": "integer", "default": 0, "minimum":0},
           "dem": {"type": "boolean", "default": false}

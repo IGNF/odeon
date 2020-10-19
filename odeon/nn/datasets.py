@@ -1,7 +1,7 @@
 from torch.utils.data import Dataset
-from skimage.util import img_as_float, img_as_ubyte
+from skimage.util import img_as_float
 import rasterio
-from rasterio.plot import reshape_as_raster
+# from rasterio.plot import reshape_as_raster
 import numpy as np
 from odeon.commons.image import image_to_ndarray, raster_to_ndarray, CollectionDatasetReader
 from odeon.nn.transforms import ToDoubleTensor, ToPatchTensor, ToWindowTensor

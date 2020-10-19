@@ -7,6 +7,7 @@ import torch
 
 from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_metrics
+
 from odeon import LOGGER
 
 
@@ -50,23 +51,18 @@ class TrainingEngine:
                  device=None, reproducible=False, verbose=False):
 
         self.device = device if device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
-        self.n_classes = self.net.n_classes
         self.net = model.cuda(self.device) if self.device.startswith('cuda') else model
         self.epochs = epochs
         self.batch_size = batch_size
         self.patience = patience
-
         self.save_history = save_history
         self.continue_training = continue_training
-
         self.optimizer = optimizer
         self.loss = loss.cuda(self.device) if self.device.startswith('cuda') else loss
         self.lr_scheduler = lr_scheduler
-
         self.output_folder = output_folder
         self.output_filename = output_filename
         self.optimizer_filename = f'optimizer_{output_filename}'
-
         self.train_iou = verbose
 
     def train(self, train_loader, val_loader):
@@ -94,7 +90,6 @@ class TrainingEngine:
 
         # training loop
         for epoch in range(epoch_start, self.epochs):
-
             self.epoch_counter = epoch
             # switch to train mode
             self.net.train()
@@ -105,21 +100,15 @@ class TrainingEngine:
             # switch to evaluate mode
             self.net.eval()
             # run the validation pass
-
             with torch.no_grad():
-
                 val_loss, val_miou = self._validate_epoch(val_loader)
 
             self.lr_scheduler.step(val_loss)
 
             LOGGER.info(f"train_loss = {train_loss:03f}, val_loss = {val_loss:03f}")
-
             if self.train_iou:
-
                 LOGGER.info(f"train_miou = {train_miou:03f}, val_miou = {val_miou:03f}")
-
             else:
-
                 LOGGER.info(f"val_miou = {val_miou:03f}")
 
             # update history
@@ -128,26 +117,21 @@ class TrainingEngine:
 
             # save model if val_loss has decreased
             if prec_val_loss > val_loss:
-
                 LOGGER.info(f"Saving {model_filepath}")
                 torch.save(self.net.state_dict(), model_filepath)
                 torch.save(self.optimizer.state_dict(), optimizer_filepath)
 
                 if self.save_history:
-
                     history.save()
                     history.plot()
 
                 prec_val_loss = val_loss
                 patience_counter = 0
-
             else:
-
                 patience_counter += 1
 
             # stop training if patience is reached
             if patience_counter == self.patience:
-
                 LOGGER.info(f"Model has not improved since {self.patience} epochs, train stopped.")
                 break
 
@@ -221,9 +205,7 @@ class TrainingEngine:
 
                 # predictions
                 if self.net.n_classes == 1:
-
                     preds = torch.sigmoid(logits)
-
                 else:
                     preds = torch.softmax(logits, dim=1)
 
@@ -238,8 +220,5 @@ class TrainingEngine:
                 confusion_matrix = confusion_matrix + get_confusion_matrix(preds, masks)
 
                 pbar.update(1)
-
         miou = get_iou_metrics(confusion_matrix)
-
         return losses.avg, miou
-

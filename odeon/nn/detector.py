@@ -2,6 +2,7 @@
 module of Detection jobs
 """
 import os
+import math
 import multiprocessing
 import torch
 from torch.utils.data import DataLoader
@@ -10,12 +11,14 @@ from tqdm import tqdm
 import rasterio
 from rasterio.features import geometry_window
 from rasterio.windows import transform
+from rasterio.plot import reshape_as_raster
+from rasterio.warp import aligned_target
 from odeon.nn.datasets import PatchDetectionDataset, ZoneDetectionDataset
 from odeon.nn.models import build_model, model_list
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon import LOGGER
-from odeon.commons.rasterio import ndarray_to_affine
-from odeon.commons.image import TypeConverter
+from odeon.commons.rasterio import ndarray_to_affine, RIODatasetCollection
+from odeon.commons.image import TypeConverter, substract_margin
 from odeon.commons.shape import create_polygon_from_bounds
 from odeon.commons.folder_manager import create_folder
 NB_PROCESSOR = multiprocessing.cpu_count()
@@ -239,7 +242,7 @@ class PatchDetector(BaseDetector):
                              "tiled": True,
                              "blockxsize": self.img_size_pixel,
                              "blockysize": self.img_size_pixel,
-                             "SPARSE_MODE": True}
+                             "SPARSE_MODE": self.sparse_mode}
 
         if self.output_type == "bit":
 
@@ -249,8 +252,13 @@ class PatchDetector(BaseDetector):
 
         LOGGER.debug(len(self.job))
         self.meta = self.get_meta(self.job.get_cell_at(0, "img_file"))
-        self.meta["count"] = self.n_classes
         self.meta["driver"] = "GTiff"
+        self.meta["dtype"] = "uint8" if self.output_type in ["uint8", "bit"] else "float32"
+        self.meta["count"] = self.n_classes
+        self.meta["transform"], _, _ = aligned_target(self.meta["transform"],
+                                                      self.meta["width"],
+                                                      self.meta["height"],
+                                                      self.resolution)
         self.meta["width"] = self.img_size_pixel
         self.meta["height"] = self.img_size_pixel
         self.dataset = PatchDetectionDataset(self.job,
@@ -301,7 +309,6 @@ class ZoneDetector(PatchDetector):
     def __init__(self,
                  dict_of_raster,
                  extent,
-                 export_input,
                  tile_factor,
                  margin_zone,
                  job,
@@ -310,7 +317,6 @@ class ZoneDetector(PatchDetector):
                  file_name,
                  n_classes,
                  n_channel,
-                 write_job,
                  img_size_pixel=256,
                  resolution=0.2,
                  batch_size=16,
@@ -322,7 +328,8 @@ class ZoneDetector(PatchDetector):
                  sparse_mode=False,
                  threshold=0.5,
                  verbosity=False,
-                 dem=False
+                 dem=False,
+                 out_dalle_size=None
                  ):
 
         super(ZoneDetector, self).__init__(
@@ -346,64 +353,133 @@ class ZoneDetector(PatchDetector):
 
         self.dict_of_raster = dict_of_raster
         self.extent = extent
-        self.export_input = export_input
         self.tile_factor = tile_factor
         self.margin_zone = margin_zone
         self.dem = dem
         self.output_write = os.path.join(self.output_path, "result")
         create_folder(self.output_write)
-        self.write_job = write_job
-        self.gdal_options["BIGTIFF"] = "IF_NEEDED"
+        self.gdal_options["BIGTIFF"] = "YES"
         self.dst = None
+        self.meta_output = None
+        self.out_dalle_size = out_dalle_size
+        self.rio_ds_collection = None
+        LOGGER.debug(out_dalle_size)
 
     def configure(self):
 
         LOGGER.debug(len(self.job))
+        self.rio_ds_collection = RIODatasetCollection()
+
         self.dst = rasterio.open(next(iter(self.dict_of_raster.values()))["path"])
         self.meta = self.dst.meta.copy()
         self.meta["driver"] = "GTiff"
+        self.meta["dtype"] = "uint8" if self.output_type in ["uint8", "bit"] else "float32"
         self.meta["count"] = self.n_classes
+        self.meta["transform"], _, _ = aligned_target(self.meta["transform"],
+                                                      self.meta["width"],
+                                                      self.meta["height"],
+                                                      self.resolution)
+        self.meta_output = self.meta.copy()
+        if self.out_dalle_size is None:
+
+            self.meta_output["height"] = self.img_size_pixel * self.tile_factor - (2 * self.margin_zone)
+
+        else:
+
+            self.meta_output["height"] = math.ceil(self.out_dalle_size / self.resolution)
+
+        self.meta_output["width"] = self.meta_output["height"]
         self.num_worker = 0 if self.num_worker is None else self.num_worker
         self.num_thread = NB_PROCESSOR if self.num_thread is None else self.num_thread
         torch.set_num_threads(self.num_thread)
 
-    def save(self, predictions, indices, out):
-        LOGGER.info("writing")
+    def save(self, predictions, indices):
+
         for prediction, index in zip(predictions, indices):
 
-            zone_id = self.job.get_cell_at(index[0], "zone")
-            zone_geometry = self.write_job.get_cell_at(zone_id, "geometry")
-            
-            """
-            window = geometry_window(
-                            self.dst,
-                            [zone_geometry],
-                            pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
+            prediction = prediction.transpose((1, 2, 0)).copy()
+            # LOGGER.info(prediction.shape)
+            prediction = substract_margin(prediction, self.margin_zone, self.margin_zone)
+            prediction = reshape_as_raster(prediction)
+            converter = TypeConverter()
+            prediction = converter.from_type("float32").to_type(self.output_type).convert(prediction,
+                                                                                          threshold=self.threshold)
 
-            meta_output["transform"] = transform(window, self.dst.transform)
+            output_id = self.job.get_cell_at(index[0], "output_id")
+            LOGGER.debug(output_id)
+            name = str(output_id) + ".tif"
+            output_file = os.path.join(self.output_write, name)
 
-            
-                
-            LOGGER.debug(f"out meta of file {output_file}: {out.meta}")
-            """
+            if self.out_dalle_size is not None and self.rio_ds_collection.collection_has_key(output_id):
+
+                out = self.rio_ds_collection.get_rio_dataset(output_id)
+                # LOGGER.info(f"{str(output_id)}in ds collection")
+
+            else:
+                # LOGGER.info(f"{str(output_id)} not in ds collection")
+                left = self.job.get_cell_at(index[0], "left_o")
+                bottom = self.job.get_cell_at(index[0], "bottom_o")
+                right = self.job.get_cell_at(index[0], "right_o")
+                top = self.job.get_cell_at(index[0], "top_o")
+
+                geometry = create_polygon_from_bounds(left, right, bottom, top)
+                window = geometry_window(
+                                         self.dst,
+                                         [geometry],
+                                         pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
+
+                # window = self.dst.window(left, right, bottom, top)
+                self.meta_output["transform"] = transform(window, self.dst.transform)
+                out = rasterio.open(output_file, 'w+', **self.meta_output, **self.gdal_options)
+                LOGGER.debug(out.bounds)
+                LOGGER.debug(self.dst.bounds)
+                # exit(0)
+                self.rio_ds_collection.add_rio_dataset(output_id, out)
+
+            LOGGER.debug(out.meta)
+
             left = self.job.get_cell_at(index[0], "left")
             bottom = self.job.get_cell_at(index[0], "bottom")
             right = self.job.get_cell_at(index[0], "right")
             top = self.job.get_cell_at(index[0], "top")
             geometry = create_polygon_from_bounds(left, right, bottom, top)
+            LOGGER.debug(geometry)
             window = geometry_window(
-                                        out,
-                                        [geometry],
-                                        pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
-            converter = TypeConverter()
-            prediction = converter.from_type("float32").to_type(self.output_type).convert(prediction,
-                                                                                            threshold=self.threshold)
+                                    out,
+                                    [geometry],
+                                    pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
+            LOGGER.debug(window)
             indices = [i for i in range(1, self.n_classes + 1)]
-            # LOGGER.info(indices)
-            LOGGER.info(prediction.shape)
-            exit(0)
-            out.write_band(indices, prediction, window=window)
-            self.job.set_cell_at(index[0], "job_done", True)
+            """
+            for i in range(1, self.n_classes + 1):
+
+                out.write_band(i, prediction[i-1], window=window)
+            """
+            out.write_band([i for i in range(1, self.n_classes + 1)], prediction, window=window)
+            """
+            nb_patch_done = int(self.write_job.get_cell_at(output_id, "nb_patch_done")) + 1
+            self.write_job.set_cell_at(output_id, "nb_patch_done", nb_patch_done)
+            patch_count = int(self.write_job.get_cell_at(output_id, "patch_count"))
+
+            if nb_patch_done >= patch_count:
+
+                self.rio_ds_collection.delete_key(output_id)
+                self.write_job.set_cell_at(output_id, "job_done", True)
+            """
+            self.job.set_cell_at(index[0], "job_done", 1)
+
+            if self.out_dalle_size is not None and self.job.job_finished_for_output_id(output_id):
+
+                self.rio_ds_collection.delete_key(output_id)
+                self.job.mark_dalle_job_as_done(output_id)
+                # LOGGER.info(f"{str(output_id)} removed from ds collection")
+
+            if self.out_dalle_size is None:
+
+                out.close()
+
+            self.job.save_job()
+            # self.write_job.save_job()
 
     def run(self):
 
@@ -430,20 +506,14 @@ class ZoneDetector(PatchDetector):
                                                   pin_memory=True
                                                   )
 
-                    name = "zone.tif"
-                    output_file = os.path.join(self.output_write, name)
-                    meta_output = self.meta.copy()
+                    for samples in tqdm(self.data_loader):
 
-                    with rasterio.open(output_file, 'w+', **meta_output, **self.gdal_options) as out:
-
-                        for samples in tqdm(self.data_loader):
-
-                            # LOGGER.debug(samples)
-                            predictions = self.detect(samples["image"])
-                            # LOGGER.debug(predictions)
-                            indices = samples["index"].cpu().numpy()
-                            LOGGER.debug(indices)
-                            self.save(predictions, indices, out=out)
+                        # LOGGER.debug(samples)
+                        predictions = self.detect(samples["image"])
+                        # LOGGER.debug(predictions)
+                        indices = samples["index"].cpu().numpy()
+                        LOGGER.debug(indices)
+                        self.save(predictions, indices)
 
             except KeyboardInterrupt as error:
 
@@ -470,7 +540,7 @@ class ZoneDetector(PatchDetector):
 
                     self.dst.close()
 
-                LOGGER.debug("the detection job has been saved")
+                # LOGGER.info("the detection job has been saved")
 
         else:
 

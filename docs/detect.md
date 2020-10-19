@@ -5,15 +5,9 @@
 
 
 
-**La commande detect.py effectue une prédiction (inférence) d'un réseaux de neurones sur patchs ou sur une zone d'intérêt**
+## Command
 
-
-La commande de base pour faire de la détection est :
-
-* `python detect.py /chemin/du/<fichier_configuration>.json`  
-
-un exemple de fichier de configuration est 
-
+    odeon detect -c /path/to/my/my/conf/file.json
 
 ## Configuration
 
@@ -60,11 +54,6 @@ when output_type is set to "bit"
 
 rather use a gpu for your inference.
 
-`booster (optional, boolean, default value false)`: 
-
-work in progress option, will boost your cpu/gpu params to the max depending on your 
-configuration.
-
 `interruption_recovery (optional, boolean, default value false)`: 
 
 recovery option. The detect process logs every operation done and to be done and
@@ -104,5 +93,5 @@ representing the zone(s) where the detection will be done.
 `out_dalle_size (optional, integer)`: you can use it if you want an output in a list of file
 with a size in the unit format of your crs.
 
-`export_input (optional, default value false)`: rather export input with the same cutting than the output dalle
-when output_dalle_size is set to true.
+`dem`: if set to true and a "DTM" and "DSM" band are declared in sources, it will
+compute a digital elevation model ("DSM" - "DTM") to replace them
