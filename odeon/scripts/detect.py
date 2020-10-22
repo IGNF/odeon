@@ -1,3 +1,8 @@
+"""
+Entry point of the Detect CLI tool.
+This module aims to perform a detection based on an extent or a collection of extent
+with an Odeon model and a dictionary of raster input
+"""
 import os
 import pandas as pd
 import rasterio
@@ -19,7 +24,13 @@ STD_OUT_LOGGER.addHandler(ch)
 
 
 class DetectionTool(BaseTool):
+    """Main entry point of detection tool
 
+    Implements
+    ----------
+    BaseTool : object
+        the abstract class for implmenting a CLI tool
+    """
     def __init__(self,
                  verbosity,
                  img_size_pixel,
@@ -41,7 +52,63 @@ class DetectionTool(BaseTool):
                  dataset=None,
                  zone=None
                  ):
+        """[summary]
 
+        Parameters
+        ----------
+        verbosity : boolean
+            verbosity of logger
+        img_size_pixel : int
+            image size of output in pixel
+        resolution : float
+            output resolution
+        model_name : str
+            name of te model as declared in the nn.models.build_model function
+        file_name : str
+            file of trained model with only weights parameters.
+        n_classes : int
+            The number of class learned by the model
+        batch_size : int
+            the size of the batch in the dataloader
+        use_gpu : boolead
+            use a GPU or not
+        interruption_recovery : boolean
+            store and restart from where the detection has been
+            if an interruption has been encountered
+        mutual_exclusion : boolean
+            In multiclass model you can use softmax if True or
+            Sigmoïd if False
+        output_path : str
+            output path of the detection
+        output_type : str
+            the output type, one of int8, float32 or bit
+        sparse_mode : boolean
+            if set to True, will only write the annotated pixels on disk.
+            If can save a lot of space.
+        threshold : float beetwen 0 and 1
+            threshold used in the case of an output in bit (0/1)
+        margin : int, optional
+            a margin to use to make an overlaping detection.
+            It can improve your prediction by ignoring the bordered pixels
+            of the prediction, by default None
+        num_worker : int, optional
+            Number of worker used by the dataloader.
+            Stable with the prediction by dataset but not with
+            a prediction by zone, by default None (0 extra worker)
+        num_thread : int, optional
+            Number of thread used during the prediction.
+            Useful when you infer on CPU, by default None
+        dataset : dict, optional
+            the description of an inference by dataset, by default None
+        zone : dict, optional
+            the description of an inference by zone, by default None
+
+        Raises
+        ------
+
+        OdeonError
+            ERR_DETECTION_ERROR, if something goes wrong during the prediction
+        """
         self.verbosity = verbosity
         self.img_size_pixel = img_size_pixel
         self.resolution = resolution
@@ -88,16 +155,19 @@ class DetectionTool(BaseTool):
                              stack_trace=error)
 
     def __call__(self):
-
+        """Call the Detector implemented (by zone, or by dataset)
+        """
         # LOGGER.debug(self.__dict__)
         self.detector.run()
 
     def check(self):
-        """
+        """Check configuration
+        if there is an anomaly in the input parameters.
 
-        Returns
-        -------
-
+        Raises
+        ------
+        OdeonError
+            ERR_DETECTION_ERROR, f something wrong has been detected in parameters
         """
 
         try:
@@ -116,11 +186,8 @@ class DetectionTool(BaseTool):
             pass
 
     def configure(self):
-        """
-
-        Returns
-        -------
-
+        """Configuraiton of the Detector class used to make the
+        detection
         """
 
         if self.mode == "dataset":
@@ -220,7 +287,7 @@ class DetectionTool(BaseTool):
                                                     out_dalle_size=out_dalle_size)
 
             LOGGER.debug(len(self.df))
-            # exit(0)
+
             # self.df = self.df.sample(n=100, random_state=1).reset_index()
             # self.df.to_file("/home/dlsupport/data/33/ground_truth/2018/learning_zones/test_zone_1.shp")
 

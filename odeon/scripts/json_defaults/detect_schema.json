@@ -51,8 +51,7 @@
         "type": "object",
         "properties": {
           "model_name": {"type": "string"},
-          "file_name": {"type": "string"},
-          "n_classes": {"type": "integer", "minimum": 1}
+          "file_name": {"type": "string"}
         },
         "required": ["model_name", "file_name"]
       },
@@ -71,20 +70,20 @@
                "type": "integer",
                "minimum": 0
            },
-          "num_thread": {
+           "num_thread": {
             "type": "integer",
             "minimum": 1
-          },
-          "interruption_recovery":
-          {
+           },
+           "interruption_recovery":
+           {
             "type": "boolean",
             "default": false
-          },
-          "mutual_exclusion":
-          {
+           },
+           "mutual_exclusion":
+           {
             "type": "boolean",
             "default": true
-          }
+           }
         },
         "default": {
           "batch_size": 1,
@@ -105,7 +104,6 @@
              "enum": ["bit", "uint8", "float32"],
              "default": "uint8"
            },
-          "n_classes": {"type": "integer"},
           "sparse_mode": {
              "type": "boolean",
              "default": false
@@ -113,9 +111,10 @@
           "threshold": {
              "type": "number",
              "default": 0.5
-           }
+           },
+            "n_classes": {"type": "integer", "minimum": 1}
         },
-        "required": ["output_path", "output_type"]
+        "required": ["output_path", "output_type", "n_classes"]
       }
 
     },

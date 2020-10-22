@@ -1,10 +1,33 @@
 # Detect How To
-`detect` performs two distinct types of detection:
-* batch detection on a dataset: based on a directory path, a pattern URI list, or a csv file of file.
+`detect` performs a detection of two kinds:
+* batch detection on a dataset: based on a directory path, a regex pattern URI list, or a csv file of file.
 * batch detection on a zone: based on a geographical extent.
 
 
+```mermaid
+graph TB
 
+  SubGraph1Flow
+  subgraph "Dataset Detection"
+  SubGraph1Flow(Iterate over patch images and detect) -->
+  SubGraph1Flow
+  end
+
+  SubGraph2Flow
+  subgraph "Zone Detection"
+  SubGraph2Flow(write on formatted dalle?)
+  SubGraph2Flow(slide window on zone and detect) -->
+  SubGraph2Flow
+  end
+
+  subgraph "Odeon detect -c /path/to/my/config/file.json"
+  Node1[load configuration] --> Node2[check configuration]
+  --> Node3[configure the job]
+  Node3 -- Choice1 --> SubGraph1Flow
+  Node3 -- Choice2 --> SubGraph2Flow
+
+end
+```
 ## Command
 
     odeon detect -c /path/to/my/my/conf/file.json
@@ -22,6 +45,15 @@ patch window in case of a detection by zone.
 `resolution (optional, float, default value: 0.2, minimal value: 1)`:
 the resolution in x and y axis of your input patches / images in the model. A resampling will be applied
 on the fly if it's necessary.
+<details>
+<summary>
+Example of image configuration
+</summary>
+
+```json
+"image": {"img_size_pixel": 256, "resolution": 0.2}
+```
+</details>
 
 #### model (required section)
 `model_name (required, string)`: the name of the chosen model for your detection.
@@ -30,7 +62,17 @@ on the fly if it's necessary.
 model, not the entire model method (to see the distinction in pytorch, go to 
 [saving and loading model recipes for pytorch](https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_models_for_inference.html)
 
-`n_classes (required, integer, minimum 1)`: number of class of your trained model.
+
+<details>
+<summary>
+Example of model configuraiton
+</summary>
+
+```json
+"model_name": "deeplab",
+"file_name": "/media/hd/dataset_1_0-2_256_grid/models/deeplab_test_1.pth"
+```
+</details>
 
 #### output_param (required)
 
@@ -42,8 +84,22 @@ predictions, between bit, 8 bits integer and float 32 bits.
 `sparse_mode (optional, boolean, default value false)`: rather output sparse geotif files, to minimize space
  occupation on disk. This option is only used in combination of output_type set as 'bit' and threshold.
 
-`threshold (optional, float, default value 0.5)`: threshold used to output 0/1 value 
-when output_type is set to "bit"
+`threshold (optional, float, default value 0.5)`: threshold used to output 0/1 value when output_type is set to "bit"
+
+<details>
+<summary>
+Example of output_param configuration
+</summary>
+
+```json
+"output_param": {
+    "output_path": "/path/to/output/dir/",
+    "output_type": "bit",
+    "threshold": 0.5,
+    "n_classes": 5
+  }
+```
+</details>
 
 #### detect_param (required)
 `batch_size (optional, integer, default value 1, minimum value 1)`:
@@ -65,8 +121,24 @@ interupted.
 
 In a multiclass detection contest, rather use a softmax activation function
 or a sigmoïd. In general, you may use a softmax for a multiclass detection with monolabel
-and no background pixels. In the other cases like multilabel or monolabel with background,
-you may prefer sigmoïd.
+and no background pixels. In the other cases like multilabel or monolabel with background, you may prefer sigmoïd.
+
+<details>
+<summary>
+Example of detect_param configuration
+</summary>
+
+```json
+"detect_param": {
+                "batch_size": 1,
+                "use_gpu": true,
+                "interruption_recovery": false,
+                "mutual_exclusion": true,
+                "num_worker": 1,
+                "num_thread": 8
+                }
+```
+</details>
 
 ### 2. Task Sections
 
@@ -78,6 +150,19 @@ you may prefer sigmoïd.
 with a list of your patch files on the first column.
 
 `image_bands (optional, array)`: a list of integer representing the band to extract from your raster(s)
+<details>
+<summary>
+Example of Dataset configuration
+</summary>
+
+```json
+"dataset": {
+                "path": "/path/to/csv/file.csv",
+                "image_bands": [1,3,4]
+            }
+```
+
+</details>
 
 #### Zone Section (required if dataset section is not filled)
 
@@ -91,7 +176,56 @@ build the tile images. A raster layer is declared as follow:
 representing the zone(s) where the detection will be done.
 
 `out_dalle_size (optional, integer)`: you can use it if you want an output in a list of file
-with a size in the unit format of your crs.
+with a size in the unit format of your crs to make more formatted outputs based on your business habits. It minimizes the number of tile output. 
+
+One dalle of a detection with output_dalle set to 1000 (1km in our unit crs)
+
+![](assets/output_dalle.png?raw=true)
+
+One patch of its patch
+
+![](assets/output_dalle_patch.png?raw=true)
 
 `dem`: if set to true and a "DTM" and "DSM" band are declared in sources, it will
 compute a digital elevation model ("DSM" - "DTM") to replace them
+
+`margin_zone (optionan integer, default 0, minimum 0)`: slice window with an overlapping height and width, to keep only the center of detection as output. It normally brings better overall performance on overall accuracy, beause the border pixels have less context than center pixels. 
+
+Example of overlapping, you can see that the patch has its four borders shared with four others patches, but at the end we keep only the patch less its margin.
+
+![](assets/detect_overlaping.png?raw=true)
+
+`tile_factor (optionan integer, default 4, minimum 1)`: the multiplication factor of the image size, used to make detection on big patch. It's another way to batch than batch size. Based on papers, it should make better predictions.
+
+<details>
+<summary>
+Example of Zone configuration
+</summary>
+
+```json
+ "zone":{
+    "sources":{
+    "RGB": {
+      "path": "/PATH/TO/RVB/zone_1.tif",
+      "bands": [1, 2, 3]
+    },
+    "CIR": {
+      "path": "/PATH/TO/IRC/zone_1.tif",
+      "bands": [1]
+    },
+    "DSM": {
+      "path": "/PATH/TO/MNS/zone_1.tif",
+      "bands": [1]
+    },
+    "DTM": {
+      "path": "/PATH/TO/MNT/zone_1.tif",
+      "bands": [1]
+    }
+    },
+  "extent":  "/PATH/TO/learning_zones/zone_1.shp",
+  "tile_factor": 2,
+  "margin_zone": 50,
+  "dem": true
+  }
+```
+</details>

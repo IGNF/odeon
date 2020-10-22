@@ -93,7 +93,32 @@ def raster_to_ndarray_from_dataset(src,
                                    resampling=Resampling.bilinear,
                                    window=None,
                                    boundless=True):
-    LOGGER.debug(window)
+
+    """Load and transform an image into a ndarray according to parameters:
+    - center-cropping to fit width, height
+    - loading of specific bands to fit image_bands array
+
+    Parameters
+    ----------
+    src : rasterio.DatasetReader
+        raster source for the conversion
+    width : int, optional
+        output image width, by default None (native image width is used)
+    height : int, optional
+        output image height, by default None (native image height is used)
+    band_indices : obj:`list` of :obj: `int`, optional
+        list of band indices to be loaded in output image, by default None (native image bands are used)
+    resampling: one enum from rasterio.Reampling
+        resampling method to use when a resolution change is necessary.
+        Default: Resampling.bilinear
+    window: rasterio.window, see rasterio docs
+        use a window in rasterio format or not to select a subsection of the raster
+        Default: None
+    Returns
+    -------
+    out: Tuple[ndarray, dict]
+        a numpy array representing the image, and the metadata in rasterio format.
+    """
 
     " get the width and height at the target resolution "
     _, _, scaled_width, scaled_height = get_scale_factor_and_img_size_from_dataset(src,
@@ -161,7 +186,31 @@ def raster_to_ndarray(image_file,
                       band_indices=None,
                       resampling=Resampling.bilinear,
                       window=None):
+    """Simple helper function to call raster_to_ndarray_from_dataset from
+    a raster path file contrary to a rasterio.Dataset
 
+    Parameters
+    ----------
+    src : rasterio.DatasetReader
+        raster source for the conversion
+    width : int, optional
+        output image width, by default None (native image width is used)
+    height : int, optional
+        output image height, by default None (native image height is used)
+    band_indices : obj:`list` of :obj: `int`, optional
+        list of band indices to be loaded in output image, by default None (native image bands are used)
+    resampling: one enum from rasterio.Reampling
+        resampling method to use when a resolution change is necessary.
+        Default: Resampling.bilinear
+    window: rasterio.window, see rasterio docs
+        use a window in rasterio format or not to select a subsection of the raster
+        Default: None
+    Returns
+    -------
+    out: Tuple[ndarray, dict]
+        a numpy array representing the image, and the metadata in rasterio format.
+
+    """
     LOGGER.debug(image_file)
 
     with rasterio.open(image_file) as src:
@@ -170,6 +219,23 @@ def raster_to_ndarray(image_file,
 
 
 def crop_center(img, cropx, cropy):
+    """Crop numpy array based on the center of
+    array (rounded to inf element for array of even size)
+    We expect array to be of format W*H*C
+    Parameters
+    ----------
+    img : numpy NDArray
+        numpy array of dimension 2 or 3
+    cropx : int
+        size of crop on x axis (first axis)
+    cropy : int
+        size of crop on x axis (second axis)
+
+    Returns
+    -------
+    numpy NDArray
+        the cropped numpy 3d array
+    """
 
     if img.ndim == 2:
 
@@ -185,7 +251,23 @@ def crop_center(img, cropx, cropy):
 
 
 def substract_margin(img, margin_x, margin_y):
+    """Crop numpy array based on the center of
+    array (rounded to inf element for array of even size)
+    We expect array to be of format H*W*C
+    Parameters
+    ----------
+    img : numpy NDArray
+        numpy array of dimension 2 or 3
+    margin_x : int
+        size of crop on x axis (first axis)
+    margin_y : int
+        size of crop on x axis (second axis)
 
+    Returns
+    -------
+    numpy NDArray
+        the substracted of its margin numpy 3darray
+    """
     if img.ndim == 2:
 
         y, x = img.shape
@@ -198,23 +280,63 @@ def substract_margin(img, margin_x, margin_y):
 
 
 class TypeConverter:
-
+    """Simple class to handle conversion of output format
+    in detection notably.
+    """
     def __init__(self):
 
         self._from = "float32"
         self._to = "uint8"
 
     def from_type(self, img_type):
+        """get orignal type
+
+        Parameters
+        ----------
+        img_type : str
+            we actually handle only the case of 32 bits
+
+        Returns
+        -------
+        TypeConverter
+            itself
+        """
 
         self._from = img_type
         return self
 
     def to_type(self, img_type):
+        """get targer type
+
+        Parameters
+        ----------
+        img_type : str
+            we actually handle float32, int8, and thresholded
+            1bit.
+        Returns
+        -------
+        TypeConverter
+            itself
+        """
 
         self._to = img_type
         return self
 
     def convert(self, img, threshold=0.5):
+        """Make conversion
+
+        Parameters
+        ----------
+        img : NDArray
+            input image
+        threshold : float, optional
+            used with 1bit output, to binarize pixels, by default 0.5
+
+        Returns
+        -------
+        NDArray
+            converted image
+        """
 
         if self._from == "float32":
 
@@ -258,9 +380,45 @@ def ndarray_to_affine(affine):
 
 
 class CollectionDatasetReader:
+    """Static class to handle connection fo multiple raster input
 
+    Returns
+    -------
+    NDArray
+        stacked bands of multiple rasters
+    """
     @staticmethod
     def get_stacked_window_collection(dict_of_raster, meta, bounds, width, height, resolution, dem=False):
+        """Stack multiple raster band in one raster, with a specific output format and resolution
+        and output bounds. It can handle the DEM = DSM - DTM computation if the dict of raster
+        band includes a band called "DTM" and a band called "DSM", but you must set the dem parameter
+        to True.
+
+        Parameters
+        ----------
+        dict_of_raster : dict
+            a dictionnary of raster definition with the nomenclature
+            "name of raster":{"path": "/path/to/my/raster", "band": an array of index band of interest
+            in rasterio/gdal format (starting to 1)}
+        meta : dict
+            a dictionary of metadata in rasterio Dataset format
+        bounds : Union[Tuple, List]
+            bounds delimiting the output extent
+        width : int
+            the width of the output
+        height : int
+            the height of the output
+        resolution : float
+            the output resolution
+        dem : bool, optional
+            indicate if a DSM - DTM band is computed on the fly
+            ("DSM" and "DTM" must be present in the dictionary of raster), by default False
+
+        Returns
+        -------
+        numpy NDArray
+            the stacked raster
+        """
 
         handle_dem = False
         stacked_bands = None

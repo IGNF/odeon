@@ -450,22 +450,9 @@ class ZoneDetector(PatchDetector):
                                     pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
             LOGGER.debug(window)
             indices = [i for i in range(1, self.n_classes + 1)]
-            """
-            for i in range(1, self.n_classes + 1):
 
-                out.write_band(i, prediction[i-1], window=window)
-            """
             out.write_band([i for i in range(1, self.n_classes + 1)], prediction, window=window)
-            """
-            nb_patch_done = int(self.write_job.get_cell_at(output_id, "nb_patch_done")) + 1
-            self.write_job.set_cell_at(output_id, "nb_patch_done", nb_patch_done)
-            patch_count = int(self.write_job.get_cell_at(output_id, "patch_count"))
 
-            if nb_patch_done >= patch_count:
-
-                self.rio_ds_collection.delete_key(output_id)
-                self.write_job.set_cell_at(output_id, "job_done", True)
-            """
             self.job.set_cell_at(index[0], "job_done", 1)
 
             if self.out_dalle_size is not None and self.job.job_finished_for_output_id(output_id):
