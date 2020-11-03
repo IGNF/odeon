@@ -275,14 +275,9 @@ class DetectionTool(BaseTool):
             out_dalle_size = self.zone["out_dalle_size"] if "out_dalle_size" in self.zone.keys() else None
             LOGGER.debug(f"output_size {out_dalle_size}")
 
-            with rasterio.open(next(iter(dict_of_raster.values()))["path"]) as src:
-
-                meta = src.meta
-
             self.df, _ = ZoneDetectionJob.build_job(gdf=gdf_zone,
                                                     output_size=output_size,
                                                     resolution=self.resolution,
-                                                    meta=meta,
                                                     overlap=self.zone["margin_zone"],
                                                     out_dalle_size=out_dalle_size)
 

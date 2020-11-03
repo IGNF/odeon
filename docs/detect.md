@@ -85,7 +85,7 @@ predictions, between bit, 8 bits integer and float 32 bits.
  occupation on disk. This option is only used in combination of output_type set as 'bit' and threshold.
 
 `threshold (optional, float, default value 0.5)`: threshold used to output 0/1 value when output_type is set to "bit"
-
+`n_classes`: the number of classe of your model.
 <details>
 <summary>
 Example of output_param configuration
@@ -96,6 +96,7 @@ Example of output_param configuration
     "output_path": "/path/to/output/dir/",
     "output_type": "bit",
     "threshold": 0.5,
+    "sparse_mode": true,
     "n_classes": 5
   }
 ```
