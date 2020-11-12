@@ -241,7 +241,7 @@ def train(verbose, train_file, model_name, output_folder, val_file=None, percent
     assert batch_size <= len(train_image_files), "batch_size must be lower than the length of training dataset"
     train_dataset = PatchDataset(train_image_files, train_mask_files, transform=Compose(transformation_functions),
                                  image_bands=image_bands, mask_bands=mask_bands)
-    train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8)
+    train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=8, drop_last=True)
     val_dataset = PatchDataset(val_image_files, val_mask_files, transform=Compose(transformation_functions),
                                image_bands=image_bands, mask_bands=mask_bands)
     val_dataloader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=8)
