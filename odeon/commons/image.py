@@ -457,7 +457,7 @@ class CollectionDatasetReader:
             dtm_ds = dict_of_raster["DTM"]["connection"]
             dsm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
             dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
-
+            band_indices = value["bands"]
             dsm_img, _ = raster_to_ndarray_from_dataset(src,
                                                         width,
                                                         height,

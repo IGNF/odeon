@@ -78,7 +78,7 @@ Example of model configuraiton
 
 `output_path (required, string)`: output path for your model outputs.
 
-`output_type (required, string, one value among 'bit', 'int8', 'float32')`: type of your output 
+`output_type (required, string, one value among 'bit', 'uint8', 'float32')`: type of your output 
 predictions, between bit, 8 bits integer and float 32 bits.
 
 `sparse_mode (optional, boolean, default value false)`: rather output sparse geotif files, to minimize space
