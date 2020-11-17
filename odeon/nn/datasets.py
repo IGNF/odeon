@@ -1,6 +1,8 @@
+import os
 from torch.utils.data import Dataset
-from skimage.util import img_as_float
+from skimage.util import img_as_float, img_as_ubyte
 import rasterio
+from rasterio.plot import reshape_as_raster
 # from rasterio.plot import reshape_as_raster
 import numpy as np
 from odeon.commons.image import image_to_ndarray, raster_to_ndarray, CollectionDatasetReader
@@ -191,7 +193,24 @@ class ZoneDetectionDataset(PatchDetectionDataset):
                                                                         self.dem)
 
             # pixels are normalized to [0, 1]
-            img = img_as_float(img)
+            # img = img_as_float(img)
+            # LOGGER.info(img.shape)
+            output_path = "/home/dlsupport/data/dataset-detection-foret/debug_detection/debug_stack_output_bands"
+            output_file = os.path.join(output_path, str(index) + ".tif")
+            width, height, n_channel = img.shape
+            meta = self.meta.copy()
+            meta["width"] = width
+            meta["height"] = height
+            meta["count"] = n_channel
+            meta["dtype"] = "uint8"
+            # LOGGER.debug(img.max())
+            # LOGGER.info(img.min())
+            # LOGGER.info(img.sum())
+            img_ubyte = img_as_ubyte(img)
+            with rasterio.open(output_file, "w", **meta) as dst:
+
+                dst.write_band(range(1, n_channel + 1), reshape_as_raster(img_ubyte))
+
             to_tensor = ToWindowTensor()
             # affine = meta["transform"]
             # LOGGER.debug(affine)

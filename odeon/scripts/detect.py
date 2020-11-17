@@ -6,6 +6,7 @@ with an Odeon model and a dictionary of raster input
 import os
 import pandas as pd
 import rasterio
+import torch
 import geopandas as gpd
 from shapely import wkt
 from odeon.commons.core import BaseTool
@@ -118,6 +119,8 @@ class DetectionTool(BaseTool):
         self.n_classes = n_classes
         self.batch_size = batch_size
         self.use_gpu = use_gpu
+        STD_OUT_LOGGER.info(f"""CUDA available? {torch.cuda.is_available()}""")
+        self.use_gpu = False if torch.cuda.is_available() is False else self.use_gpu
         self.num_worker = num_worker
         self.num_thread = num_thread
         self.interruption_recovery = interruption_recovery
@@ -138,7 +141,22 @@ class DetectionTool(BaseTool):
 
             self.mode = "dataset"
             self.dataset = dataset
+        STD_OUT_LOGGER.info(f"""detection type: {self.mode}
+device: {"cuda" if self.use_gpu else "cpu"}
+model: {self.model_name}
+model file: {self.file_name}
+number of classes: {self.n_classes}
+batch size: {self.batch_size}
+image size pixel: {self.img_size_pixel}
+resolution: {self.resolution}
+activation: {"softmax" if self.mutual_exclusion is True else "sigmoïd"}
+output type: {self.output_type}""")
+        if self.mode == "zone":
 
+            STD_OUT_LOGGER.info(f"""overlap margin: {self.zone["margin_zone"]}
+compute digital elevation model: {self.zone["dem"]}
+tile factor: {self.zone["tile_factor"]}
+            """)
         try:
 
             self.check()

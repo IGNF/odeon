@@ -6,7 +6,7 @@ from rasterio.enums import Resampling
 from rasterio.windows import from_bounds, transform
 from rasterio.plot import reshape_as_image
 from skimage.transform import resize
-from skimage import img_as_float
+from skimage import img_as_float, img_as_ubyte
 from odeon.commons.rasterio import get_scale_factor_and_img_size_from_dataset, get_center_from_bound
 from odeon import LOGGER
 
@@ -130,6 +130,7 @@ def raster_to_ndarray_from_dataset(src,
     scaled_height, scaled_width = math.ceil(scaled_height), math.ceil(scaled_width)
 
     if band_indices is None:
+
         band_indices = range(1, src.count + 1)
 
     if window is None:
@@ -458,6 +459,8 @@ class CollectionDatasetReader:
             dsm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
             dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
             band_indices = value["bands"]
+            src = dsm_ds
+
             dsm_img, _ = raster_to_ndarray_from_dataset(src,
                                                         width,
                                                         height,
@@ -466,6 +469,7 @@ class CollectionDatasetReader:
                                                         resampling=Resampling.bilinear,
                                                         window=dsm_window)
 
+            src = dtm_ds
             dtm_img, _ = raster_to_ndarray_from_dataset(src,
                                                         width,
                                                         height,
@@ -474,14 +478,19 @@ class CollectionDatasetReader:
                                                         resampling=Resampling.bilinear,
                                                         window=dtm_window)
 
-            dsm_img = img_as_float(dsm_img)
-            dtm_img = img_as_float(dtm_img)
             img = dsm_img - dtm_img
-            img = img_as_float(img)
+            # LOGGER.debug(img.sum())
+            mne_msk = dtm_img > dsm_img
+            img[mne_msk] = 0
+            img *= 5  # empircally chosen factor
+            xmin, xmax = resolution, 255
+            img[img < xmin] = xmin  # low pass filter
+            img[img > xmax] = xmax  # high pass filter
+            img = img / 255
 
-            LOGGER.debug(f"img min: {img.min()}, img shape: {img.shape}")
+            # LOGGER.debug(f"img min: {img.min()}, img max: {img.max()}, img shape: {img.shape}")
 
             stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
             LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
 
-        return stacked_bands
+        return img_as_float(stacked_bands)
