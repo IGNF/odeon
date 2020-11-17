@@ -6,7 +6,7 @@ from rasterio.enums import Resampling
 from rasterio.windows import from_bounds, transform
 from rasterio.plot import reshape_as_image
 from skimage.transform import resize
-from skimage import img_as_float, img_as_ubyte
+from skimage import img_as_float
 from odeon.commons.rasterio import get_scale_factor_and_img_size_from_dataset, get_center_from_bound
 from odeon import LOGGER
 
