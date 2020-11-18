@@ -286,7 +286,7 @@ class SampleGrid(BaseTool):
         # Save into a csv file
         csv_file = open(filename, 'w', encoding='utf-8', errors='ignore')
         for (x, y) in coordinates:
-            csv_file.write(f"{round(x, 4)}; {round(y, 4)}\n")
+            csv_file.write(f"{round(x, 6)}; {round(y, 6)}\n")
         if verbose:
             # Save the patch shape into a shp file
             shp_filename = filename[:-4] + "_area.shp"

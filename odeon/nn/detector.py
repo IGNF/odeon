@@ -34,7 +34,7 @@ class BaseDetector:
                  n_classes,
                  n_channel,
                  img_size_pixel=256,
-                 resolution=0.2,
+                 resolution=[0.2, 0.2],
                  batch_size=16,
                  use_gpu=True,
                  num_worker=None,
@@ -200,7 +200,7 @@ class PatchDetector(BaseDetector):
                  n_classes,
                  n_channel,
                  img_size_pixel=256,
-                 resolution=0.2,
+                 resolution=[0.2, 0.2],
                  batch_size=16,
                  use_gpu=True,
                  num_worker=None,
@@ -318,7 +318,7 @@ class ZoneDetector(PatchDetector):
                  n_classes,
                  n_channel,
                  img_size_pixel=256,
-                 resolution=0.2,
+                 resolution=[0.2, 0.2],
                  batch_size=16,
                  use_gpu=True,
                  num_worker=None,
@@ -383,12 +383,13 @@ class ZoneDetector(PatchDetector):
         if self.out_dalle_size is None:
 
             self.meta_output["height"] = self.img_size_pixel * self.tile_factor - (2 * self.margin_zone)
+            self.meta_output["width"] = self.meta_output["height"]
 
         else:
 
-            self.meta_output["height"] = math.ceil(self.out_dalle_size / self.resolution)
+            self.meta_output["height"] = math.ceil(self.out_dalle_size / self.resolution[1])
+            self.meta_output["width"] = math.ceil(self.out_dalle_size / self.resolution[0])
 
-        self.meta_output["width"] = self.meta_output["height"]
         self.num_worker = 0 if self.num_worker is None else self.num_worker
         self.num_thread = NB_PROCESSOR if self.num_thread is None else self.num_thread
         torch.set_num_threads(self.num_thread)

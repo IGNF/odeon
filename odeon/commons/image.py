@@ -106,6 +106,8 @@ def raster_to_ndarray_from_dataset(src,
         output image width, by default None (native image width is used)
     height : int, optional
         output image height, by default None (native image height is used)
+    resolution: obj:`list` of :obj: `number`
+        output resolution for x and y
     band_indices : obj:`list` of :obj: `int`, optional
         list of band indices to be loaded in output image, by default None (native image bands are used)
     resampling: one enum from rasterio.Reampling
@@ -122,8 +124,7 @@ def raster_to_ndarray_from_dataset(src,
 
     " get the width and height at the target resolution "
     _, _, scaled_width, scaled_height = get_scale_factor_and_img_size_from_dataset(src,
-                                                                                   resolution=(resolution,
-                                                                                               resolution),
+                                                                                   resolution=resolution,
                                                                                    width=width,
                                                                                    height=height)
 
@@ -198,6 +199,8 @@ def raster_to_ndarray(image_file,
         output image width, by default None (native image width is used)
     height : int, optional
         output image height, by default None (native image height is used)
+    resolution: obj:`list` of :obj: `float`
+        output resolution for x and y
     band_indices : obj:`list` of :obj: `int`, optional
         list of band indices to be loaded in output image, by default None (native image bands are used)
     resampling: one enum from rasterio.Reampling
@@ -409,8 +412,8 @@ class CollectionDatasetReader:
             the width of the output
         height : int
             the height of the output
-        resolution : float
-            the output resolution
+        resolution: obj:`list` of :obj: `float`
+            the output resolution for x and y
         dem : bool, optional
             indicate if a DSM - DTM band is computed on the fly
             ("DSM" and "DTM" must be present in the dictionary of raster), by default False

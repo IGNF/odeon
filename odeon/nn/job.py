@@ -203,9 +203,9 @@ class ZoneDetectionJob(PatchJobDetection):
             a geodataframe with a list of polygon
         output_size : int
             the size of window slice
-        resolution : float
+        resolution: obj:`list` of :obj: `float`
             resolution, in the crs unit of the GeoPandasDataFrame.
-            Used to slice polygon at specifi resolution.
+            Used to slice polygon at specific resolution.
         overlap : int, optional
             the overlapping factor, by default 0
         out_dalle_size : Union[int, float], optional
@@ -219,9 +219,18 @@ class ZoneDetectionJob(PatchJobDetection):
             or the generated dalle it output_dalle_size has been set.
         """
 
-        output_size_u = output_size * resolution
-        overlap_u = overlap * resolution
-        step = output_size_u - (2 * overlap_u)
+        output_size_u = [
+            output_size * resolution[0],
+            output_size * resolution[1]
+        ]
+        overlap_u = [
+            overlap * resolution[0],
+            overlap * resolution[1]
+        ]
+        step = [
+            output_size_u[0] - (2 * overlap_u[0]),
+            output_size_u[1] - (2 * overlap_u[1])
+        ]
         tmp_list = []
         write_gdf = None
 
@@ -229,8 +238,8 @@ class ZoneDetectionJob(PatchJobDetection):
 
             bounds = df_row["geometry"].bounds
 
-            min_x, min_y = int(bounds[0]), int(bounds[1])
-            max_x, max_y = int(bounds[2]), int(bounds[3])
+            min_x, min_y = bounds[0], bounds[1]
+            max_x, max_y = bounds[2], bounds[3]
             name = df_row["id"] if "id" in gdf.columns else idx
 
             if out_dalle_size is not None:
@@ -244,16 +253,16 @@ class ZoneDetectionJob(PatchJobDetection):
 
                             i = max_x - out_dalle_size
 
-                        if j + output_size_u > max_y:
+                        if j + output_size_u[1] > max_y:
 
-                            j = max_y - output_size_u
+                            j = max_y - output_size_u[1]
 
                         left = i
                         right = i + out_dalle_size
                         bottom = j
                         top = j + out_dalle_size
 
-                        col, row = int((j - min_y) // resolution) + 1, int((i - min_x) // resolution) + 1
+                        col, row = int((j - min_y) // resolution[0]) + 1, int((i - min_x) // resolution[1]) + 1
 
                         row_d = {
                                     "id": f"{name}-{row}-{col}",
@@ -281,28 +290,28 @@ class ZoneDetectionJob(PatchJobDetection):
 
             bounds = df_row["geometry"].bounds
             LOGGER.debug(bounds)
-            min_x, min_y = int(bounds[0]), int(bounds[1])
-            max_x, max_y = int(bounds[2]), int(bounds[3])
+            min_x, min_y = bounds[0], bounds[1]
+            max_x, max_y = bounds[2], bounds[3]
 
-            for i in np.arange(min_x - overlap_u, max_x + overlap_u, step):
+            for i in np.arange(min_x - overlap_u[0], max_x + overlap_u[0], step[0]):
 
-                for j in np.arange(min_y - overlap_u, max_y + overlap_u, step):
+                for j in np.arange(min_y - overlap_u[1], max_y + overlap_u[1], step[1]):
 
                     "handling case where the extent is not a multiple of step"
-                    if i + output_size_u > max_x + overlap_u:
+                    if i + output_size_u[0] > max_x + overlap_u[0]:
 
-                        i = max_x + overlap_u - output_size_u
+                        i = max_x + overlap_u[0] - output_size_u[0]
 
-                    if j + output_size_u > max_y + overlap_u:
+                    if j + output_size_u[1] > max_y + overlap_u[1]:
 
-                        j = max_y + overlap_u - output_size_u
+                        j = max_y + overlap_u[1] - output_size_u[1]
 
-                    left = i + overlap_u
-                    right = i + output_size_u - overlap_u
-                    bottom = j + overlap_u
-                    top = j + output_size_u - overlap_u
+                    left = i + overlap_u[0]
+                    right = i + output_size_u[0] - overlap_u[0]
+                    bottom = j + overlap_u[1]
+                    top = j + output_size_u[1] - overlap_u[1]
 
-                    col, row = int((j - min_y) // resolution) + 1, int((i - min_x) // resolution) + 1
+                    col, row = int((j - min_y) // resolution[0]) + 1, int((i - min_x) // resolution[1]) + 1
                     if out_dalle_size is not None:
                         row_d = {
                                     "id": str(f"{idx + 1}-{row}-{col}"),
@@ -317,7 +326,7 @@ class ZoneDetectionJob(PatchJobDetection):
                                     "bottom_o": df_row["bottom"],
                                     "right_o": df_row["right"],
                                     "top_o": df_row["top"],
-                                    "geometry": create_box_from_bounds(i,  i + output_size_u, j, j + output_size_u)
+                                    "geometry": create_box_from_bounds(i, i + output_size_u[0], j, j + output_size_u[1])
                                 }
                     else:
                         row_d = {
@@ -333,7 +342,7 @@ class ZoneDetectionJob(PatchJobDetection):
                                     "bottom_o": bottom,
                                     "right_o": right,
                                     "top_o": top,
-                                    "geometry": create_box_from_bounds(i,  i + output_size_u, j, j + output_size_u)
+                                    "geometry": create_box_from_bounds(i, i + output_size_u[0], j, j + output_size_u[1])
                                 }
                     tmp_list.append(row_d)
                     if out_dalle_size is not None:

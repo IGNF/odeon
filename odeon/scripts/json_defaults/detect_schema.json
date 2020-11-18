@@ -5,20 +5,23 @@
       "image": {
         "type": "object",
         "properties": {
-        "img_size_pixel": {
-          "type": "integer",
-          "default": 256,
-          "minimum": 1
-        },
-        "resolution": {
-          "type": "number",
-          "default": 0.2,
-          "minimum": 0.0001
-        }
+          "img_size_pixel": {
+            "type": "integer",
+            "default": 256,
+            "minimum": 1
+          },
+          "resolution": {
+            "type": "array",
+            "items": [{
+              "type": "number"
+            }, {
+              "type": "number"
+            }]
+          }
         },
         "default": {
           "img_size_pixel": 256,
-          "resolution": 0.2
+          "resolution": [0.2, 0.2]
         }
       },
       "zone": {

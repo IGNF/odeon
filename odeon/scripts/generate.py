@@ -147,8 +147,14 @@ class Generator(BaseTool):
 
         """
         try:
+            for elt in self.files:
 
-            files_exist(self.files)
+                if len(elt) == 0:
+
+                    raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                             "couldn't find file with poi_pattern")
+
+            files_exist(elt)
             dirs_exist([self.output_path])
 
         except OdeonError as oe:
@@ -426,6 +432,7 @@ class Generator(BaseTool):
             self.splits["test"] = test
 
         elif self.train_val_split > 0 and self.train_test_split == -1:
+
             LOGGER.debug("train/val only case")
             # case only train/val split
             train = self.df

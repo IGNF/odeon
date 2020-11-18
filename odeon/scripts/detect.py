@@ -61,8 +61,8 @@ class DetectionTool(BaseTool):
             verbosity of logger
         img_size_pixel : int
             image size of output in pixel
-        resolution : float
-            output resolution
+        resolution : list(float, float)
+            output resolution in x and y
         model_name : str
             name of te model as declared in the nn.models.build_model function
         file_name : str
