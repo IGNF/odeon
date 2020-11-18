@@ -30,7 +30,7 @@ The full json file is :
 {
   "image": {
     "image_size_pixel": 256,
-    "pixel_size_meter_per_pixel": 0.2
+    "resolution": 0.2
   },
   "sampler": {
     "input_file": "/home/data/33/ground_truth/2018/learning_zones/zone_all.shp",
@@ -45,7 +45,7 @@ The full json file is :
 
 "image" describes the size and resolution of the future samples in the dataset:
 * `image_size_pixel` (optional, integer, default value: 256): the number of pixels per side (usually a power of 2)
-*  `pixel_size_meter_per_pixel` (optional, float, default value: 0.2): the resolution, 0.2 means 0.2m per pixel
+*  `resolution` (optional, float or list of float, default value: 0.2): the resolution expressed in CRS unit, for instance 0.2 means 0.2m per pixel
 
 This information has to be consistent with the following steps : generation of the dataset and training.
 

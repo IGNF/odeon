@@ -1,25 +1,48 @@
 {
     "type": "object",
-    "properties": {"image": {"type": "object",
-                             "properties":
-                             {"image_size_pixel": {"type": "integer", "default": 256},
-                              "pixel_size_meter_per_pixel": {"type": "number", "default": 0.2}
-                              }
-                             },
-                   "sampler": {"type": "object",
-                               "properties":
-                               {"input_file":
-                                {"type": "string",
-                                 "default": "/media/ssd/datasets/ocsge/odeon_data/learning_zones/zone_33_1_crs.shp"},
-                                "output_pattern":
-                                    {"type": "string",
-                                     "default": "/media/ssd/datasets/ocsge/odeon_data/data/odeon_sample/zone_33_1.csv"},
-                                "shift": {"type": "boolean", "default": false},
-                                 "strict_inclusion": {"type": "boolean", "default": false},
-                                 "tight_mode": {"type": "boolean", "default": false}
-                                },
-                                "required": ["input_file", "output_pattern"]
-                               },
-                   "required": ["image", "sampler"]
-                   }
+    "properties": {
+        "image": {
+            "type": "object",
+            "properties": {
+                "image_size_pixel": {
+                    "type": "integer",
+                    "default": 256
+                },
+                "resolution": {
+                    "type": ["number", "array"],
+                    "items": [{
+                        "type": "number"
+                    }, {
+                        "type": "number"
+                    }],
+                    "default": 0.2
+                }
+            }
+        },
+        "sampler": {
+            "type": "object",
+            "properties": {
+                "input_file": {
+                    "type": "string"
+                },
+                "output_pattern": {
+                    "type": "string"
+                },
+                "shift": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "strict_inclusion": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "tight_mode": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["input_file", "output_pattern"]
+        }
+    },
+    "required": ["image", "sampler"]
 }

@@ -11,17 +11,14 @@
             "minimum": 1
           },
           "resolution": {
-            "type": "array",
-            "items": [{
-              "type": "number"
-            }, {
-              "type": "number"
-            }]
+              "type": ["number", "array"],
+              "items": [{
+                  "type": "number"
+              }, {
+                  "type": "number"
+              }],
+              "default": 0.2
           }
-        },
-        "default": {
-          "img_size_pixel": 256,
-          "resolution": [0.2, 0.2]
         }
       },
       "zone": {

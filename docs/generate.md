@@ -29,7 +29,7 @@ The json configuration file in input of CLI command contains 4 sections:
 ###  Image section
 ##### configuration of the output patches
 * `image_size_pixel (optional, integer, default value 256)`: pixel size of height and width 
-* `resolution (tuple of float, optional, default value [0.2, 0.2])`: resolution in x and y
+* `resolution (float or list of float, optional, default value 0.2)`: resolution in x and y in CRS unit
 
 ### Image_layers section
     A dictionary of raster layer. They will be used to
@@ -115,7 +115,7 @@ The json schema of the generation configuration file can be found at odeon/scrip
 {
   "image": {
     "image_size_pixel": 128,
-    "resolution": [0.2, 0.2]
+    "resolution": 0.2
   },
   "image_layers": {
     "RGB": {

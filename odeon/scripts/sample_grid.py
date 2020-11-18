@@ -28,7 +28,7 @@ Notes
 
 import os
 import fiona
-from numpy import linspace
+import math
 from shapely.geometry import shape, box, mapping, Point
 from tqdm import tqdm
 import odeon.commons.folder_manager as fm
@@ -47,7 +47,7 @@ class SampleGrid(BaseTool):
                  input_file,
                  output_pattern,
                  image_size_pixel,
-                 pixel_size_meter_per_pixel,
+                 resolution,
                  strict_inclusion=False,
                  shift=False,
                  tight_mode=False):
@@ -63,8 +63,8 @@ class SampleGrid(BaseTool):
             filename pattern used for each zone
         image_size_pixel : int
             number of pixel of an images
-        pixel_size_meter_per_pixel : float
-            meter per pixel
+        resolution : Union[float, list of float]
+            resolution for x and y dimension if different
         strict_inclusion : boolean
             True if the tile must be strictly included in the polygonal shape
         shift : boolean
@@ -79,7 +79,7 @@ class SampleGrid(BaseTool):
         LOGGER.debug(f"\tinput shapefile: {input_file}")
         LOGGER.debug(f"\toutput pattern: {output_pattern}")
         LOGGER.debug(f"\timage size (pixel): {image_size_pixel}")
-        LOGGER.debug(f"\tpixel size (meter per pixel): {pixel_size_meter_per_pixel}")
+        LOGGER.debug(f"\tpixel size (CRS unit): {resolution}")
         LOGGER.debug(f"\tstrict_inclusion: {strict_inclusion}")
         LOGGER.debug(f"\tshift (1 to shift centers): {shift}")
 
@@ -90,7 +90,7 @@ class SampleGrid(BaseTool):
         self.input_file = input_file
         self.output_pattern = output_pattern
         self.image_size_pixel = image_size_pixel
-        self.pixel_size_meter_per_pixel = pixel_size_meter_per_pixel
+        self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
         self.strict_inclusion = strict_inclusion
         self.shift = shift
         self.tight_mode = tight_mode
@@ -109,7 +109,7 @@ class SampleGrid(BaseTool):
         LOGGER.info("generate filename")
         filename_list = self.generate_filename(self.output_pattern, len(geometry_list))
         # get side of the expected images
-        side = self.image_size_pixel * self.pixel_size_meter_per_pixel
+        side = [self.image_size_pixel * x for x in self.resolution]
         # generate csv
         LOGGER.info("generate csv")
         self.generate_csv(geometry_list,
@@ -195,8 +195,8 @@ class SampleGrid(BaseTool):
             list of geometry (square shaped areas)
         filename_list : list
             list of filename that will
-        side : float
-            size of a square image in meter
+        side : list of float
+            size of image in CRS unit
         crs : dict
             coordinate system
         strict_inclusion : boolean
@@ -204,7 +204,7 @@ class SampleGrid(BaseTool):
         shift : boolean
             True to shift samples by half the size of a tile
         tight_mode : boolean
-         sample points stick to the upper left corner
+            sample points stick to the upper left corner
         verbose : bool
             verbose level
         """
@@ -219,50 +219,39 @@ class SampleGrid(BaseTool):
             # find limits
             x_1, y_1, x_2, y_2 = bounding_box
             if shift:
+                x_1, y_1, x_2, y_2 = x_1 + side[0] / 2, y_1 + side[1] / 2, x_2 - side[0] / 2, y_2 - side[1] / 2
 
-                x_1, y_1, x_2, y_2 = x_1 + side / 2, y_1 + side / 2, x_2 - side / 2, y_2 - side / 2
+            LOGGER.debug(f"bounding_box: {bounding_box}")
 
-            if tight_mode is True:
+            x_num, y_num = (x_2 - x_1) / side[0], (y_2 - y_1) / side[1]  # number of samples
+            LOGGER.debug(f"x_num, y_num: {x_num}, {y_num}")
 
-                x_rest = (x_2 - x_1) % side
-                x_tight = (x_2 - x_1) - x_rest
-                epsilon = x_rest / side  # make sure it's slightly superior to side * ((x_2 - x_1) // side)
-                x_2 = x_1 + x_tight + epsilon
+            coordinates = []
+            tile_joint = [0, 0]
+            if tight_mode is not True:
+                tile_joint = [
+                    ((x_2 - x_1) % side[0]) / x_num,
+                    ((y_2 - y_1) % side[1]) / y_num
+                ]
 
-                LOGGER.debug(f" y_2 - y_1: {y_2 - y_1}")
-                LOGGER.debug(f" (y_2 - y_1) % side: {(y_2 - y_1) % side }")
-
-                y_rest = (y_2 - y_1) % side
-                epsilon = y_rest / side  # make sure it's slightly superior to side * ((y_2 - y_1) // side)
-                y_1 = y_1 + y_rest - epsilon
-
-                LOGGER.debug(f" (x_2 - x_1) % side: {(x_2 - x_1) % side}")
-                LOGGER.debug(f" y_2 - y_1: {y_2 - y_1}")
-                LOGGER.debug(f" (y_2 - y_1) % side: {(y_2 - y_1) % side }")
-                LOGGER.debug(f" x_tight: {x_tight % side}")
-                # LOGGER.debug(f" y_tight % side: {y_tight % side}")
-                LOGGER.debug(f" side: {side}")
-                # LOGGER.debug(f" y_tight: {y_tight}")
-
-            x_num, y_num = (x_2 - x_1) / side, (y_2 - y_1) / side  # number of samples
-
-            coordinates = [[(x, y) for x in linspace(x_1 + side / 2, x_2 - side / 2, int(x_num))] for y in
-                           linspace(y_1 + side / 2, y_2 - side / 2, int(y_num))]
-
-            coordinates = [j for sub in coordinates for j in sub]  # transform into a list of tuple (x, y)
+            LOGGER.debug(f"tile_joint: {tile_joint}")
+            for i in range(math.ceil(x_num)):
+                for j in range(math.ceil(y_num)):
+                    coordinates.append((x_1 + (2*i+1)*side[0] / 2 + (i+1)*tile_joint[0],
+                                        y_1 + (2*j+1)*side[1] / 2 + (j+1)*tile_joint[1]))
 
             if strict_inclusion:
                 coordinates = [c for c in coordinates if SampleGrid.included(c[0], c[1], side, geometry)]
 
             SampleGrid.save_output(coordinates, filename, side, crs, verbose)
-            if verbose:
-                LOGGER.debug(f"[{filename}]: {len(coordinates)} points")
+
+            LOGGER.debug(f"[{filename}]: {len(coordinates)} points")
 
     @staticmethod
     def included(x, y, side, geometry):
 
-        tile = box(x - side / 2, y - side / 2, x + side / 2, y + side / 2)
-        return tile.intersection(geometry).area / (side * side) > 0.999
+        tile = box(x - side[0] / 2, y - side[1] / 2, x + side[0] / 2, y + side[1] / 2)
+        return tile.intersection(geometry).area / (side[0] * side[1]) > 0.999
 
     @staticmethod
     def save_output(coordinates, filename, side, crs, verbose):
@@ -275,8 +264,8 @@ class SampleGrid(BaseTool):
             list of coordinates
         filename : str
             output file containing the coordinate in csv format
-        side : float
-            size of an image
+        side : list of float
+            size of an image in CRS unit
         crs : dict
             coordinate system
         verbose : bool
@@ -286,17 +275,18 @@ class SampleGrid(BaseTool):
         # Save into a csv file
         csv_file = open(filename, 'w', encoding='utf-8', errors='ignore')
         for (x, y) in coordinates:
-            csv_file.write(f"{round(x, 6)}; {round(y, 6)}\n")
+            csv_file.write(f"{round(x, 8)}; {round(y, 8)}\n")
         if verbose:
             # Save the patch shape into a shp file
             shp_filename = filename[:-4] + "_area.shp"
             shp_schema = {'geometry': 'Polygon', 'properties': {'id_sample': 'int'}}
             shp_file = fiona.open(shp_filename, 'w', crs=crs, driver='ESRI Shapefile', schema=shp_schema)
             for i, (x, y) in enumerate(coordinates):
-                dx = side / 2
+                dx = side[0] / 2
+                dy = side[1] / 2
                 shp_file.write({
                     'properties': {'id_sample': i},
-                    'geometry': mapping(box(x - dx, y - dx, x + dx, y + dx))
+                    'geometry': mapping(box(x - dx, y - dy, x + dx, y + dy))
                 })
             # Save the patch center into a shp file
             shp_filename = filename[:-4] + "_center.shp"

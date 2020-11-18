@@ -196,7 +196,7 @@ class SampleSys(BaseTool):
                 self.patch_size,
                 self.output_path,
                 self.output_type,
-                )
+            )
 
         else:
 

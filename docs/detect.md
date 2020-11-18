@@ -42,7 +42,7 @@ end
 the size of in pixel of your input images in case of a dataset detection. The size of your
 patch window in case of a detection by zone.
 
-`resolution (optional, float, default value: 0.2, minimal value: 1)`:
+`resolution (optional, float or list of float, default value: 0.2)`:
 the resolution in x and y axis of your input patches / images in the model. A resampling will be applied
 on the fly if it's necessary.
 <details>

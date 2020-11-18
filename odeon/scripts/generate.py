@@ -74,7 +74,7 @@ class Generator(BaseTool):
              append generated data to a previous a generation output
             image_size_pixel : int
              size of patch in pixel
-            resolution : list(float, float)
+            resolution : Uniont(float, list of float)
              resolution in x and y of the output patches
 
             Returns
@@ -93,7 +93,7 @@ class Generator(BaseTool):
         self.compute_only_masks = compute_only_masks
         self.dem = dem
         self.append = append
-        self.resolution = resolution
+        self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
         self.nb_of_image_band = 0
         self.output_path = output_path
         self.meta_img = None
@@ -152,7 +152,7 @@ class Generator(BaseTool):
                 if len(elt) == 0:
 
                     raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             "couldn't find file with poi_pattern")
+                                     "couldn't find file with poi_pattern")
 
             files_exist(elt)
             dirs_exist([self.output_path])
