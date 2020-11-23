@@ -90,9 +90,9 @@ you can add an optional output shapefile wit this option, to visualize your samp
 the mask polygons. It can be useful in a monoclass case, when you want to select an ensemble of complementary patches without the
 learning class to improve the discrimination of your model.
 ![](assets/sample_sys_invert_patch.png?raw=true)
-* `buffer_size (optional, default value 50, positive integer)`: 
+* `buffer_size (optional, default value 50, positive float)`: 
 Size of the padding (space inside the extent and starting at the borders of the extent, interior margin of the global extent) value to apply to the extent 
-to avoid sampled points close to the borders.
+to avoid sampled points close to the borders. Expressed in CRS unit.
 <br/>no padding (buffer_size = 0):
 ![](assets/no_padding.png?raw=true)
 <br/>padding of 200 (buffer_size = 200):
@@ -109,7 +109,7 @@ polygon by id or by zip code.
 ### patch 
 optional patch configuration section
 
-* `resolution (optional, default value 0.2, positive float)`:  résolution (taille d'un pixel) pour la rasterisation du masque vecteur. 
+* `resolution (optional, default value 0.2, positive float of list of float)`:  resolution, size of pixel in CRS unit).
 * `tile_size_mo (optional, default vallue 38, positive integer)`: Maximum memory size to use for the sampling process. To be be clearer, the number of patch to use
 in memory during the sampling process (the tile size to use to move into the extent). 
 * `patch_size (optional, default value 256, positive integer)` : patch size in pixel of the output sample. Works also when the output_type is set to "patch" (see above)

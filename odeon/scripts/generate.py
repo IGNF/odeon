@@ -74,7 +74,7 @@ class Generator(BaseTool):
              append generated data to a previous a generation output
             image_size_pixel : int
              size of patch in pixel
-            resolution : Uniont(float, list of float)
+            resolution : Union(float, list of float)
              resolution in x and y of the output patches
 
             Returns

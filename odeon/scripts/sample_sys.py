@@ -90,7 +90,7 @@ class SampleSys(BaseTool):
         self.extent_path = extent_path
         self.filter_field = filter_field if filter_field != "" else None
         self.filter_value = filter_value if filter_value != "" else None
-        self.resolution = resolution
+        self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
         self.tile_size_mo = tile_size_mo
         self.patch_size = patch_size
         self.patch_min_density = patch_min_density
@@ -110,7 +110,6 @@ class SampleSys(BaseTool):
                 geoms, list_bbox, limit_crs = get_roi_limits_with_filter(self.extent_path,
                                                                          self.filter_value,
                                                                          self.filter_field)
-
                 self.limit_geoms.append(geoms)
 
             except OdeonError as error:
@@ -118,7 +117,6 @@ class SampleSys(BaseTool):
                 raise OdeonError(error.error_code, "something went wrong during sampling", stack_trace=error)
 
         else:
-
             geoms, list_bbox, limit_crs = get_roi_limits(self.extent_path)
             self.limit_geoms.extend(geoms)
 
@@ -158,7 +156,6 @@ class SampleSys(BaseTool):
                                          self.patch_size,
                                          self.patch_min_density,
                                          )
-
         apply_tile_functor(count_functor,
                            self.limit_geoms,
                            self.tile_size_mo,
