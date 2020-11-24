@@ -486,7 +486,7 @@ class CollectionDatasetReader:
             mne_msk = dtm_img > dsm_img
             img[mne_msk] = 0
             img *= 5  # empircally chosen factor
-            xmin, xmax = resolution, 255
+            xmin, xmax = max(resolution[0], resolution[1]), 255
             img[img < xmin] = xmin  # low pass filter
             img[img > xmax] = xmax  # high pass filter
             img = img / 255

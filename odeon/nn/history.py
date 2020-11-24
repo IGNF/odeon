@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
+from odeon.commons.exception import OdeonError, ErrorCodes
+
 matplotlib.use('agg')
 
 
@@ -32,9 +34,17 @@ class History:
         self.base_path = base_path
         self.history_file = f'{self.base_path}_history.json'
 
-        if update is True and os.path.exists(self.history_file):
-            with open(self.history_file, 'r') as file:
-                self.history_dict = json.load(file)
+        if update is True:
+
+            try:
+
+                with open(self.history_file, 'r') as file:
+                    self.history_dict = json.load(file)
+
+            except OdeonError as error:
+                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                                 f"{self.history_file} not found",
+                                 stack_trace=error)
 
     def get_current_epoch(self):
         return self.history_dict['epoch'][-1]

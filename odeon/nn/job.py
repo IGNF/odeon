@@ -140,11 +140,12 @@ class ZoneDetectionJob(PatchJobDetection):
         LOGGER.debug(df_grouped)
         LOGGER.debug(df_grouped.index.values.tolist())
         LOGGER.debug(df_grouped.columns)
-        job_done_id = df_grouped[df_grouped["job_done", "sum"] == df_grouped["job_done", "count"]]
-        LOGGER.debug(job_done_id.index.values.tolist())
+        job_done_id = df_grouped[df_grouped["job_done", "sum"] == df_grouped["job_done", "count"]].index.values.tolist()
+        LOGGER.debug(job_done_id)
         LOGGER.debug(len(job_done_id))
+        LOGGER.debug(self._df["output_id"].isin(job_done_id))
 
-        return self._df[~self._df["output_id"].isin(job_done_id)]
+        return self._df[self._df["output_id"].isin(job_done_id)]
 
     def get_todo_list(self):
 
@@ -154,17 +155,18 @@ class ZoneDetectionJob(PatchJobDetection):
 
         else:
 
-            return self._df[~self._df["output_id"].isin([self._job_done["output_id"]])]
+            return self._df[~self._df["output_id"].isin(self._job_done["output_id"].values)]
 
     def save_job(self):
 
         out = self._df
-
+        LOGGER.debug(f"length of job todo {len(out)}")
         if self._job_done is not None:
 
             out = pd.concat([out, self._job_done])
+            LOGGER.debug(f"job done: {len(self._job_done)}")
 
-        LOGGER.debug(len(out))
+        LOGGER.debug(f"lenght of total job {len(out)}")
         LOGGER.debug(out)
         LOGGER.debug(out.columns)
         LOGGER.debug(out.dtypes)
@@ -172,6 +174,7 @@ class ZoneDetectionJob(PatchJobDetection):
         out.to_file(self._job_file)
 
     def get_bounds_at(self, idx):
+
         LOGGER.debug(f"index {idx}")
         LOGGER.debug(f"indices:\n {self._df.index.values.tolist()}")
         return self.get_cell_at(idx, "geometry").bounds
@@ -182,13 +185,17 @@ class ZoneDetectionJob(PatchJobDetection):
         if len(dalle_df[dalle_df["job_done"] == 1]) == len(dalle_df):
 
             return True
+
         else:
+
             return False
 
     def mark_dalle_job_as_done(self, output_id):
 
-        self._df = self._df[~self._df["output_id"].isin([output_id])]
+        LOGGER.debug(f"dalle {output_id} done")
+        self._df.loc[self._df["output_id"] == output_id, "dalle_done"] = 1
         self._job_done = pd.concat([self._job_done, self._df[self._df["output_id"].isin([output_id])]])
+        self._df = self._df[~self._df["output_id"].isin([output_id])]
 
     @staticmethod
     def build_job(gdf, output_size, resolution, overlap=0, out_dalle_size=None):

@@ -460,13 +460,13 @@ class ZoneDetector(PatchDetector):
 
                 self.rio_ds_collection.delete_key(output_id)
                 self.job.mark_dalle_job_as_done(output_id)
+                self.job.save_job()
                 # LOGGER.info(f"{str(output_id)} removed from ds collection")
 
             if self.out_dalle_size is None:
 
                 out.close()
 
-            self.job.save_job()
             # self.write_job.save_job()
 
     def run(self):
@@ -535,4 +535,5 @@ class ZoneDetector(PatchDetector):
             LOGGER.warning(f""""job has no work to do, maybe
             your input directory or csv file is empty, or you may have set the
             interruption_recovery at true while the output directory
-            {self.output_path} contain a csv job file of previous work""")
+            {self.output_path} contain a job file of previous work completed
+            (all the work has been done)""")

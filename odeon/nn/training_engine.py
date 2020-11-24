@@ -9,6 +9,7 @@ from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_metrics
 
 from odeon import LOGGER
+from odeon.commons.exception import OdeonError, ErrorCodes
 
 
 class TrainingEngine:
@@ -44,6 +45,11 @@ class TrainingEngine:
         activate training reproducibility, by default False
     verbose : bool, optional
         verbosity, by default False
+
+    Raises
+    ------
+    OdeonError
+        ERR_TRAINER_ERROR,
     """
 
     def __init__(self, model, loss, optimizer, lr_scheduler, output_folder, output_filename,
@@ -65,7 +71,7 @@ class TrainingEngine:
         self.optimizer_filename = f'optimizer_{output_filename}'
         self.train_iou = verbose
 
-    def train(self, train_loader, val_loader):
+    def run(self, train_loader, val_loader):
 
         LOGGER.info(f'''Training:
             Model: {type(self.net).__name__}
@@ -74,7 +80,6 @@ class TrainingEngine:
             Optimizer: {type(self.optimizer).__name__}
             Learning rate: {type(self.lr_scheduler).__name__} starting at {self.optimizer.param_groups[0]['lr']}
             Save history: {self.save_history}
-            Device: {self.device}
         ''')
 
         patience_counter = 0
@@ -83,7 +88,14 @@ class TrainingEngine:
 
         # history
         base_history_file = os.path.join(self.output_folder, f'{os.path.splitext(self.output_filename)[0]}')
-        history = History(base_history_file, update=self.continue_training, train_iou=self.train_iou)
+        try:
+
+            history = History(base_history_file, update=self.continue_training, train_iou=self.train_iou)
+
+        except OdeonError as error:
+            raise OdeonError(ErrorCodes.ERR_TRAINER_ERROR,
+                             "something went wrong during training",
+                             call_stack=error)
 
         model_filepath = os.path.join(self.output_folder, self.output_filename)
         optimizer_filepath = os.path.join(self.output_folder, self.optimizer_filename)
