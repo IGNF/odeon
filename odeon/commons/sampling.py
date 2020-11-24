@@ -273,21 +273,22 @@ class SampleFunctor(BaseFunctor):
         """
 
         super(SampleFunctor, self).process_patch(image, img_mask)
-        nb_patch = int(tile_size / self.patch_size)
+        nb_patch_x = int(tile_size[0] / self.patch_size)
+        nb_patch_y = int(tile_size[1] / self.patch_size)
 
-        if nb_patch * self.patch_size != tile_size:
+        if (nb_patch_x * self.patch_size != tile_size[0]) or (nb_patch_y * self.patch_size != tile_size[1]):
 
             LOGGER.warning(f"tile size {tile_size} is not a multiple of patch size {self.patch_size}")
 
         image_masked = np.logical_and(image, img_mask).astype(rasterio.uint8)
-        patch_array = np.zeros((nb_patch, nb_patch))
+        patch_array = np.zeros((nb_patch_x, nb_patch_y))
 
-        for patch_x in range(0, nb_patch):
+        for patch_x in range(0, nb_patch_x):
 
             x_min_p = patch_x * self.patch_size
             x_max_p = patch_x * self.patch_size + self.patch_size
 
-            for patch_y in range(0, nb_patch):
+            for patch_y in range(0, nb_patch_y):
 
                 y_min_p = patch_y * self.patch_size
                 y_max_p = patch_y * self.patch_size + self.patch_size
@@ -494,21 +495,24 @@ class CountFunctor(BaseFunctor):
         None
 
         """
+        LOGGER.info(tile_size)
+        LOGGER.info(self.patch_size)
+        nb_patch_x = int(tile_size[0] / self.patch_size)
+        nb_patch_y = int(tile_size[1] / self.patch_size)
 
-        nb_patch = int(tile_size / self.patch_size)
+        if (nb_patch_x * self.patch_size != tile_size[0]) or (nb_patch_y * self.patch_size != tile_size[1]):
 
-        if nb_patch * self.patch_size != tile_size:
-
-            LOGGER.warning(f"tile size {tile_size} is not a multiple of patch size {self.patch_size}")
+            LOGGER.warning(f"tile size {tile_size} is not \
+                            a multiple of patch size {self.patch_size} on one of its axis")
 
         image_masked = np.logical_and(image, img_mask).astype(rasterio.uint8)
 
-        for patch_x in range(0, nb_patch):
+        for patch_x in range(0, nb_patch_x):
 
             x_min_p = patch_x * self.patch_size
             x_max_p = patch_x * self.patch_size + self.patch_size
 
-            for patch_y in range(0, nb_patch):
+            for patch_y in range(0, nb_patch_y):
 
                 y_min_p = patch_y * self.patch_size
                 y_max_p = patch_y * self.patch_size + self.patch_size
