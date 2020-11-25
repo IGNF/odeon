@@ -19,13 +19,6 @@ conda activate odeon
 pip install .
 ```
 
-In order to use cuda and NVIDIA devices, cudatoolkit must be installed too.
-
-```bash
-# Install cuda toolkit
-conda install cudatoolkit
-```
-
 ## Quickstart
 
 Odeon toolkit is run through main command:

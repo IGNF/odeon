@@ -38,7 +38,7 @@ class BCEWithLogitsLoss(nn.Module):
 
 class CrossEntropyWithLogitsLoss(nn.Module):
     """Cross entropy loss with logits
-    Raw logits are flattened using argmax function and CrossEntropyLoss uses a LogSoftmax function.
+    Labels are flattened using argmax function and CrossEntropyLoss uses a LogSoftmax function.
 
     Parameters
     ----------

@@ -22,7 +22,6 @@ Notes
 
 import os
 import csv
-import logging
 from sklearn.model_selection import train_test_split
 
 import torch
@@ -33,7 +32,8 @@ from torch.utils.data import DataLoader
 
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon import LOGGER
+from odeon.commons.logger.logger import get_new_logger, get_simple_handler
+from odeon.commons.guard import files_exist, dirs_exist
 from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
@@ -41,7 +41,7 @@ from odeon.nn.models import build_model
 from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 " A logger for big message "
-STD_OUT_LOGGER = get_new_logger("stdout_detection")
+STD_OUT_LOGGER = get_new_logger("stdout_training")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 
@@ -130,6 +130,7 @@ class Trainer(BaseTool):
         self.verbosity = verbosity
         self.model_name = model_name
         self.output_folder = output_folder
+        self.reproducible = reproducible
 
         if reproducible is True:
             self.random_seed = 2020
@@ -139,16 +140,11 @@ class Trainer(BaseTool):
         # read csv file with columns: image, mask
         self.train_image_files, self.train_mask_files = self.read_csv_sample_file(train_file)
         if val_file:
-
             self.val_image_files, self.val_mask_files = self.read_csv_sample_file(val_file)
-
         else:
-
             self.train_image_files, self.val_image_files, self.train_mask_files, self.val_mask_files = train_test_split(
                 self.train_image_files, self.train_mask_files, test_size=percentage_val, random_state=self.random_seed)
 
-        self.image_bands = image_bands
-        self.mask_bands = mask_bands
         self.model_filename = model_filename if model_filename is not None else f"{model_name}.pth"
         self.epochs = epochs
         self.batch_size = batch_size
@@ -162,7 +158,7 @@ class Trainer(BaseTool):
 
         # transformations
         if data_augmentation is None:
-            self.data_augmentation = ['rotation90']
+            data_augmentation = ['rotation90']
         transformation_dict = {
             "rotation90": Rotation90(),
             "rotation": Rotation(),
@@ -178,71 +174,70 @@ class Trainer(BaseTool):
 
         assert self.batch_size <= len(self.train_image_files), "batch_size must be lower than the length of training \
                                                                 dataset"
-        self.train_dataset = PatchDataset(train_image_files,
-                                          train_mask_files,
-                                          transform=Compose(self.transformation_functions),
-                                          image_bands=image_bands,
-                                          mask_bands=mask_bands)
-        self.train_dataloader = DataLoader(self.train_dataset,
+        train_dataset = PatchDataset(self.train_image_files,
+                                     self.train_mask_files,
+                                     transform=Compose(self.transformation_functions),
+                                     image_bands=image_bands,
+                                     mask_bands=mask_bands)
+        self.train_dataloader = DataLoader(train_dataset,
                                            self.batch_size,
                                            shuffle=True,
                                            num_workers=8,
                                            drop_last=True)
-        self.val_dataset = PatchDataset(val_image_files,
-                                        val_mask_files,
-                                        transform=Compose(transformation_functions),
-                                        image_bands=image_bands,
-                                        mask_bands=mask_bands)
+        val_dataset = PatchDataset(self.val_image_files,
+                                   self.val_mask_files,
+                                   transform=Compose(self.transformation_functions),
+                                   image_bands=image_bands,
+                                   mask_bands=mask_bands)
         self.val_dataloader = DataLoader(val_dataset,
                                          self.batch_size,
                                          shuffle=True,
                                          num_workers=8)
 
-        if self.image_bands is not None:
-            self.n_channels = len(self.image_bands)
+        if image_bands is not None:
+            self.n_channels = len(image_bands)
         else:
-            self.n_channels = self.get_sample_shape(self.train_dataset)['image'][0]
+            self.n_channels = self.get_sample_shape(train_dataset)['image'][0]
         if mask_bands is not None:
             self.n_classes = mask_bands
         else:
-            self.n_classes = self.get_sample_shape(self.train_dataset)['mask'][0]
+            self.n_classes = self.get_sample_shape(train_dataset)['mask'][0]
 
         self.device = device if device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
 
         STD_OUT_LOGGER.info(f"""training :
 device: {self.device}
 model: {self.model_name}
-model file: {self.file_name}
+model file: {self.model_filename}
 number of classes: {self.n_classes}
-batch size: {self.batch_size}
-number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {len(self.train_dataset)}, val: {len(self.val_dataset)})""")
+number of samples: {len(val_dataset) + len(train_dataset)} (train: {len(train_dataset)}, \
+val: {len(val_dataset)})""")
 
         self.check()
         self.configure()
 
-    def check():
+    def check(self):
 
         try:
 
-            files_exists(self.train_image_files)
-            files_exists(self.train_mask_files)
-            files_exists(self.val_image_files)
-            files_exists(self.val_mask_files)
-            files_exists(self.output_folder)
+            files_exist(self.train_image_files)
+            files_exist(self.train_mask_files)
+            files_exist(self.val_image_files)
+            files_exist(self.val_mask_files)
+            dirs_exist([self.output_folder])
 
-         except OdeonError as error:
+        except OdeonError as error:
 
             raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                              "something went wrong during training configuration",
                              stack_trace=error)
 
-    def configure():
+    def configure(self):
 
-        
-        model = build_model(self.model_name, self.n_channels, self.n_classes)
-        optimizer_function = self.get_optimizer(self.optimizer_name, model, self.init_lr)
+        self.model = build_model(self.model_name, self.n_channels, self.n_classes)
+        self.optimizer_function = self.get_optimizer(self.optimizer_name, self.model, self.init_lr)
         loss_function = self.get_loss(self.loss_name, class_weight=self.class_imbalance)
-        lr_scheduler = ReduceLROnPlateau(optimizer_function,
+        lr_scheduler = ReduceLROnPlateau(self.optimizer_function,
                                          'min',
                                          factor=0.5,
                                          patience=10,
@@ -250,9 +245,9 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
                                          cooldown=4,
                                          min_lr=1e-7)
 
-        self.trainer = TrainingEngine(model, 
+        self.trainer = TrainingEngine(self.model,
                                       loss_function,
-                                      optimizer_function,
+                                      self.optimizer_function,
                                       lr_scheduler,
                                       self.output_folder,
                                       self.model_filename,
@@ -265,10 +260,9 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
                                       device=self.device,
                                       verbose=self.verbosity)
 
-        net_params = sum(p.numel() for p in model.parameters())
-        
-        STD_OUT_LOGGER.info(f"Model parameters trainable : {net_params}")
+        net_params = sum(p.numel() for p in self.model.parameters())
 
+        STD_OUT_LOGGER.info(f"Model parameters trainable : {net_params}")
 
     def __call__(self):
         """Call the Trainer
@@ -281,16 +275,13 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
         except OdeonError as error:
 
             raise error
-        
 
         except KeyboardInterrupt:
             tmp_file = os.path.join('/tmp', 'INTERRUPTED.pth')
             tmp_optimizer_file = os.path.join('/tmp', 'optimizer_INTERRUPTED.pth')
-            torch.save(model.state_dict(), tmp_file)
-            torch.save(optimizer_function.state_dict(), tmp_optimizer_file)
-            logger.info(f"Saved interrupt as {tmp_file}")
-
-
+            torch.save(self.model.state_dict(), tmp_file)
+            torch.save(self.optimizer_function.state_dict(), tmp_optimizer_file)
+            STD_OUT_LOGGER.info(f"Saved interrupt as {tmp_file}")
 
     def read_csv_sample_file(self, file_path):
         """Read a sample CSV file and return a list of image files and a list of mask files.
@@ -311,7 +302,7 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
         if not os.path.exists(file_path):
 
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                            f"file ${file_path} does not exist.")
+                             f"file ${file_path} does not exist.")
 
         with open(file_path) as csvfile:
             sample_reader = csv.reader(csvfile)
@@ -319,7 +310,6 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
                 image_files.append(item[0])
                 mask_files.append(item[1])
         return image_files, mask_files
-
 
     def get_optimizer(self, optimizer_name, model, lr):
         """Initialize optimizer object from name
@@ -340,7 +330,6 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
             return optim.Adam(model.parameters(), lr=lr)
         elif optimizer_name == 'SGD':
             return optim.SGD(model.parameters(), lr=lr)
-
 
     def get_loss(self, loss_name, class_weight=None, use_cuda=False):
         """Initialize loss class instance
@@ -363,7 +352,7 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
 
         if loss_name == "ce":
             if class_weight is not None:
-                logger.info(f"Weights used: {class_weight}")
+                STD_OUT_LOGGER.info(f"Weights used: {class_weight}")
                 weight = torch.FloatTensor(class_weight)
                 if use_cuda:
                     weight = weight.cuda()
@@ -379,7 +368,6 @@ number of samples: {len(self.val_dataset) + len(self.train_dataset)} (train: {le
             return FocalLoss2d()
         elif loss_name == "combo":
             return ComboLoss({'bce': 0.75, 'jaccard': 0.25})
-
 
     def get_sample_shape(self, dataset):
         """get sample shape from dataloader
