@@ -45,6 +45,7 @@ STD_OUT_LOGGER = get_new_logger("stdout_training")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 
+
 class Trainer(BaseTool):
     """Main entry point of training tool
 
