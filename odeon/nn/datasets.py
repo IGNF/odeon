@@ -62,7 +62,7 @@ class PatchDataset(Dataset):
 
         # load mask file
         mask_file = self.mask_files[index]
-        msk = image_to_ndarray(mask_file, width=self.width, height=self.height)
+        msk = image_to_ndarray(mask_file, width=self.width, height=self.height, band_indices=self.mask_bands)
         sample = {"image": img, "mask": msk}
 
         # apply transforms

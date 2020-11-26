@@ -1,7 +1,7 @@
 # Train how-to
 
 ## Summary
-The train tool performs the training loop of a segmentation model. As for now, only 3 models are implemented, basic [U-Net](https://arxiv.org/abs/1505.04597v1), U-Net with [ResNet](https://arxiv.org/abs/1902.04049) as backbone and [Deeplabv3+](https://arxiv.org/abs/1802.02611) (with [MobileNetV2](https://arxiv.org/pdf/1801.04381)).
+The train tool performs the training loop of a segmentation model. As for now, only 3 models are implemented, basic [U-Net](https://arxiv.org/abs/1505.04597v1), U-Net with [ResNet](https://arxiv.org/abs/1902.04049) as backbone and [Deeplabv3+](https://arxiv.org/abs/1802.02611) (with [MobileNetV2](https://arxiv.org/pdf/1801.04381)). Basic U-Net is available in 2 versions, a [lighter version](#u-net) with a less feature channels and the [original one](#heavy-u-net).
 [Torchvision](https://pytorch.org/docs/stable/torchvision/index.html) implementations of MobileNetV2 has been adapted to accept input images with more than 3 channels.
 
 The main inputs of the training step are:
