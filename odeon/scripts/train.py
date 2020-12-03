@@ -37,7 +37,7 @@ from odeon.commons.guard import files_exist, dirs_exist
 from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
-from odeon.nn.models import build_model
+from odeon.nn.models import build_model, model_list
 from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 " A logger for big message "
@@ -88,7 +88,7 @@ class Trainer(BaseTool):
         train_file : str
             CSV file with image files in this first column and mask files in the second
         model_name : str
-            name of model within ('unet', 'deeplab')
+            name of model within ('lightunet, 'unet', 'resnetx', 'deeplab')
         output_folder : str
             path to output folder
         val_file : str, optional
@@ -219,8 +219,12 @@ val: {len(val_dataset)})""")
 
     def check(self):
 
-        try:
+        if self.model_name not in model_list:
 
+            raise OdeonError(message=f"the model name {self.model_name} does not exist",
+                             error_code=ErrorCodes.ERR_MODEL_ERROR)
+
+        try:
             files_exist(self.train_image_files)
             files_exist(self.train_mask_files)
             files_exist(self.val_image_files)

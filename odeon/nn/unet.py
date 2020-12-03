@@ -238,19 +238,18 @@ class UNet(nn.Module):
         self.n_classes = n_classes
 
         # encoder
-        self.inc = InputConv(n_channels, 8)
-        self.down1 = EncoderConv(8, 16)
-        self.down2 = EncoderConv(16, 32)
-        self.down3 = EncoderConv(32, 64)
-        self.down4 = EncoderConv(64, 128)
+        self.inc = InputConv(n_channels, 64, batch_norm=True)
+        self.down1 = EncoderConv(64, 128, batch_norm=True)
+        self.down2 = EncoderConv(128, 256, batch_norm=True)
+        self.down3 = EncoderConv(256, 512, batch_norm=True)
+        self.down4 = EncoderConv(512, 1024, batch_norm=True)
         # decoder
-        self.up1 = DecoderConv(128, 64)
-        self.up2 = DecoderConv(64, 32)
-        self.up3 = DecoderConv(32, 16)
-        self.up4 = DecoderConv(16, 8)
+        self.up1 = DecoderConv(1024, 512, batch_norm=True)
+        self.up2 = DecoderConv(512, 256, batch_norm=True)
+        self.up3 = DecoderConv(256, 128, batch_norm=True)
+        self.up4 = DecoderConv(128, 64, batch_norm=True)
 
-        # last layer
-        self.outc = OutputConv(8, n_classes)
+        self.outc = OutputConv(64, n_classes)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -267,8 +266,8 @@ class UNet(nn.Module):
         return x
 
 
-class HeavyUNet(nn.Module):
-    """HeavyUnet = U-Net with augmented number of filters
+class LightUNet(nn.Module):
+    """LightUnet = U-Net with reduced number of filters
 
     Parameters
     ----------
@@ -280,23 +279,24 @@ class HeavyUNet(nn.Module):
 
     def __init__(self, n_channels, n_classes):
 
-        super(HeavyUNet, self).__init__()
+        super(LightUNet, self).__init__()
 
         self.n_classes = n_classes
 
         # encoder
-        self.inc = InputConv(n_channels, 64, batch_norm=True)
-        self.down1 = EncoderConv(64, 128, batch_norm=True)
-        self.down2 = EncoderConv(128, 256, batch_norm=True)
-        self.down3 = EncoderConv(256, 512, batch_norm=True)
-        self.down4 = EncoderConv(512, 1024, batch_norm=True)
+        self.inc = InputConv(n_channels, 8)
+        self.down1 = EncoderConv(8, 16)
+        self.down2 = EncoderConv(16, 32)
+        self.down3 = EncoderConv(32, 64)
+        self.down4 = EncoderConv(64, 128)
         # decoder
-        self.up1 = DecoderConv(1024, 512, batch_norm=True)
-        self.up2 = DecoderConv(512, 256, batch_norm=True)
-        self.up3 = DecoderConv(256, 128, batch_norm=True)
-        self.up4 = DecoderConv(128, 64, batch_norm=True)
-        # last layer (TODO apply sigmoid for mono class or softmax for multiclass afterwards)
-        self.outc = OutputConv(64, n_classes)
+        self.up1 = DecoderConv(128, 64)
+        self.up2 = DecoderConv(64, 32)
+        self.up3 = DecoderConv(32, 16)
+        self.up4 = DecoderConv(16, 8)
+
+        # last layer
+        self.outc = OutputConv(8, n_classes)
 
     def forward(self, x):
 

@@ -1,7 +1,8 @@
 # Train how-to
 
 ## Summary
-The train tool performs the training loop of a segmentation model. As for now, only 3 models are implemented, basic [U-Net](https://arxiv.org/abs/1505.04597v1), U-Net with [ResNet](https://arxiv.org/abs/1902.04049) as backbone and [Deeplabv3+](https://arxiv.org/abs/1802.02611) (with [MobileNetV2](https://arxiv.org/pdf/1801.04381)). Basic U-Net is available in 2 versions, a [lighter version](#u-net) with a less feature channels and the [original one](#heavy-u-net).
+The train tool performs the training loop of a segmentation model. As for now, only 3 models are implemented, basic [U-Net](https://arxiv.org/abs/1505.04597v1), U-Net with [ResNet](https://arxiv.org/abs/1902.04049) as backbone and [Deeplabv3+](https://arxiv.org/abs/1802.02611) (with [MobileNetV2](https://arxiv.org/pdf/1801.04381)). Basic U-Net is available in 2 versions, a [lighter version](#light-u-net) with less feature channels and the [original one](#u-net).
+
 [Torchvision](https://pytorch.org/docs/stable/torchvision/index.html) implementations of MobileNetV2 has been adapted to accept input images with more than 3 channels.
 
 The main inputs of the training step are:
@@ -41,7 +42,7 @@ The json configuration file in input of CLI command contains 3 sections:
 
 ### Model setup
 
-* `model_name (string)`: name of model to train (values available: 'unet', 'heavyunet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet150','deeplab'). See [Model description](#model-description).
+* `model_name (string)`: name of model to train (values available: 'unet', 'lightunet', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet150','deeplab'). See [Model description](#model-description).
 * `output_folder (string)`: path to output folder. Model file and training curves with loss and IOU are stored by default. If `save_history` is set to true in `train_setup` section, a json file with values by epoch is saved.
 * `model_filename (string, optional)`: name of model file. Two files are saved during training: `${model_filename}.pth` and `optimizer_${model_filename}.pth` in order to store the `state_dict` of model and optimizer. When model improves, files are overwritten. By default, `model_filename=${model_name}.pth`.
 
@@ -122,7 +123,32 @@ Here is a minimal (without optional parameters set to default) and a full exampl
    "model": "unet"
 ```
 
-A light implementation of original U-Net ([U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597)) with a small number of feature channels model is used here.
+The original U-Net ([U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597))implementation.
+
+```python
+   # encoder
+   self.inc = InputConv(n_channels, 64, batch_norm=True)
+   self.down1 = EncoderConv(64, 128, batch_norm=True)
+   self.down2 = EncoderConv(128, 256, batch_norm=True)
+   self.down3 = EncoderConv(256, 512, batch_norm=True)
+   self.down4 = EncoderConv(512, 1024, batch_norm=True)
+   # decoder
+   self.up1 = DecoderConv(1024, 512, batch_norm=True)
+   self.up2 = DecoderConv(512, 256, batch_norm=True)
+   self.up3 = DecoderConv(256, 128, batch_norm=True)
+   self.up4 = DecoderConv(128, 64, batch_norm=True)
+
+   # last layer
+   self.outc = OutputConv(64, n_classes)
+```
+
+### Light U-Net
+
+```json
+   "model": "lightunet"
+```
+
+A light implementation of original U-Net  with a small number of feature channels model is used here.
 
 ```python
    # encoder
@@ -139,30 +165,6 @@ A light implementation of original U-Net ([U-Net: Convolutional Networks for Bio
 
    # last layer
    self.outc = OutputConv(8, n_classes)
-```
-
-### Heavy U-Net
-
-```json
-   "model": "heavyunet"
-```
-
-The U-Net implementation with original number of feature channels.
-
-```python
-   # encoder
-   self.inc = InputConv(n_channels, 64, batch_norm=True)
-   self.down1 = EncoderConv(64, 128, batch_norm=True)
-   self.down2 = EncoderConv(128, 256, batch_norm=True)
-   self.down3 = EncoderConv(256, 512, batch_norm=True)
-   self.down4 = EncoderConv(512, 1024, batch_norm=True)
-   # decoder
-   self.up1 = DecoderConv(1024, 512, batch_norm=True)
-   self.up2 = DecoderConv(512, 256, batch_norm=True)
-   self.up3 = DecoderConv(256, 128, batch_norm=True)
-   self.up4 = DecoderConv(128, 64, batch_norm=True)
-   # last layer (TODO apply sigmoid for mono class or softmax for multiclass afterwards)
-   self.outc = OutputConv(64, n_classes)
 ```
 
 ### U-Net + ResNet

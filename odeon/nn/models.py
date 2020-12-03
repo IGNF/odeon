@@ -1,7 +1,11 @@
-from odeon.nn.unet import UNet, UNetResNet, HeavyUNet
+from odeon.nn.unet import UNet, UNetResNet, LightUNet
 from odeon.nn.deeplabv3p import DeeplabV3p
 
-model_list = ["unet", "heavyunet", "resnet", "deeplab"]
+model_list = [
+    "unet", "lightunet",
+    "resnet18", "resnet34", "resnet50", "resnet101", "resnet150",
+    "deeplab"
+]
 
 
 def build_model(model_name, n_channels, n_classes, load_pretrained=False):
@@ -11,7 +15,7 @@ def build_model(model_name, n_channels, n_classes, load_pretrained=False):
     ----------
     model_name : str
         model name, possible values:
-        'unet', 'heavyunet',
+        'lightunet', 'unet',
         'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet150',
         'deeplab'
     n_channels : int
@@ -27,10 +31,10 @@ def build_model(model_name, n_channels, n_classes, load_pretrained=False):
         pytorch neural network model
     """
 
-    if model_name == 'unet':
+    if model_name == 'lightunet':
+        net = LightUNet(n_channels=n_channels, n_classes=n_classes)
+    elif model_name == 'unet':
         net = UNet(n_channels=n_channels, n_classes=n_classes)
-    elif model_name == 'heavyunet':
-        net = HeavyUNet(n_channels=n_channels, n_classes=n_classes)
     elif str.startswith(model_name, 'resnet'):
         depth = int(model_name[6:])
         net = UNetResNet(depth, n_classes=n_classes, n_channels=n_channels)
