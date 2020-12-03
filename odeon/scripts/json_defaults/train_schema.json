@@ -52,11 +52,6 @@
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
                 "device": {"type": "string"},
                 "reproducible": {"type": "boolean", "default": false}
-            },
-            "if": {
-                "properties": {"loss": {"const": "ce"}}
-            }, "then": {
-                "properties": {"class_imbalance": {"minItems": "2"}}
             }
 
     }
