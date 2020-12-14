@@ -12,11 +12,15 @@ before_script:
 flake8:
   stage: Static Analysis
   script: flake8 --max-line-length=120 odeon/
+  only:
+  - master
 
 pylint:
   stage: Static Analysis
   allow_failure: false
   script: python pylint-fail-under.py odeon/
+  only:
+  - master
 
 sphinx:
   stage: Test
@@ -31,8 +35,7 @@ sphinx:
   - rm -rf docs/api
   - sphinx-build -b html docs/. docs/_build
   only:
-  - test_sphinx
-  - dev
+  - master
 
 pages:
   stage: Deploy
@@ -50,5 +53,4 @@ pages:
     paths:
     - public
   only:
-  - test_sphinx
-  - dev
+  - master
