@@ -1,0 +1,58 @@
+{ "type": "object",
+    "properties":{
+      "io": {"type": "object",
+        "properties":{
+          "mask_path" : {"type": "string"},
+          "extent_path": {"type": "string"},
+          "output_path": {"type": "string"}},
+        "required": ["mask_path", "extent_path", "output_path"]},
+      "sampling": {
+        "type": "object",
+        "properties": {
+          "output_type": {"type": "string", "enum": ["no", "pixel", "patch"], "default": "patch"},
+          "sample_type": {"type": "string", "enum": ["pixel", "patch"], "default": "pixel"},
+          "number_of_sample": {"type": "integer", "default": 10000, "minimum": 1},
+          "invert": {"type": "boolean", "default": false},
+          "buffer_size" : {"type": "number", "default": 50, "minimum": 0},
+          "filter_field": {"type": "string", "default": ""},
+          "filter_value": {"type": "string", "default": ""}
+        },
+        "default":
+        {
+          "output_type": "patch",
+          "sample_type": "pixel",
+          "sample_size": 1000,
+          "invert": false,
+          "buffer_size" : 50,
+          "filter_field": "",
+          "filter_value": ""}
+      },
+      "patch": {
+        "type": "object",
+        "properties":
+        {
+          "resolution": {
+              "type": ["number", "array"],
+              "items": [{
+                  "type": "number"
+              }, {
+                  "type": "number"
+              }],
+              "default": 0.2
+          },
+          "tile_size_mo": {"type": "integer", "default": 38, "minimum": 1},
+          "patch_size" : {"type": "integer", "default": 256, "minimum": 1},
+          "patch_min_density": {"type": "number", "default": 0.3, "minimum": 0.0, "maximum": 1.0}
+        },
+        "default":
+        {
+          "resolution":  0.2,
+          "tile_size_mo": 38,
+          "patch_size" : 256,
+          "patch_min_density": 0.3
+        }
+      }
+    },
+  "required": ["io"]
+
+}

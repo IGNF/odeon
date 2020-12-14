@@ -1,0 +1,45 @@
+{
+    "type": "object",
+    "properties": {
+      "image": {
+        "type": "object",
+        "properties": {
+          "image_size_pixel": {
+            "type": "integer",
+            "default": 256
+          },
+          "resolution": {
+              "type": ["number", "array"],
+              "items": [{
+                  "type": "number"
+              }, {
+                  "type": "number"
+              }],
+              "default": 0.2
+          }
+        }
+      },
+      "image_layers": {
+        "type": "object",
+        "properties": {}
+      },
+      "vector_classes": {
+        "type": "object",
+        "properties": {}
+      },
+      "generator": {
+        "type": "object",
+        "properties": {
+          "output_path": {"type": "string"},
+          "poi_pattern": {"type": ["string","array"]},
+          "train_test_split": {"type": "number"},
+          "train_val_split": {"type": "number"},
+          "compute_only_masks": {"type": "boolean", "default": false},
+          "dem": {"type": "boolean", "default": true},
+          "append": {"type": "boolean", "default": true}
+        },
+        "required": ["output_path", "poi_pattern"]
+      }
+    },
+    "required": ["image_layers", "vector_classes", "generator"]
+}

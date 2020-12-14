@@ -1,0 +1,31 @@
+{
+  "image": {
+    "image_size_pixel": 256,
+    "resolution": [0.2, 0.2]
+  },
+  "image_layers": {
+    "RGB": {
+      "path": ["/home/dlsupport/data/33/ground_truth/2015/A1_RVB/rvb.vrt", "/home/dlsupport/data/33/ground_truth/2018/RVB/rvb.vrt"],
+      "bands": [1, 2, 3]
+    },
+    "CIR": {
+      "path": ["/home/dlsupport/data/33/ground_truth/2015/A2_IRC/irc.vrt", "/home/dlsupport/data/33/ground_truth/2018/IRC/irc.vrt"],
+      "bands": [1, 2, 3]
+    }
+  },
+  "vector_classes": {
+    "bitumen" : ["/home/dlsupport/data/33/ground_truth/2015/mask_bitume_33_2015_reprises.shp", "/home/dlsupport/data/33/ground_truth/2018/mask_bitume_33_2018_all.shp"],
+    "building": ["/home/dlsupport/data/33/ground_truth/2015/mask_bati_33_2015.shp", "/home/dlsupport/data/33/ground_truth/2018/mask_bati_33_2018_all.shp"],
+    "tree": ["/home/dlsupport/data/33/ground_truth/2015/mask_ligneux_33_2015_reprises.shp", "/home/dlsupport/data/33/ground_truth/2018/mask_ligneux_33_2018_zones_1_3_5.shp"],
+    "minerals": ["/home/dlsupport/data/33/ground_truth/2015/mask_mineraux_33_2015_reprises.shp", "/home/dlsupport/data/33/ground_truth/2018/mask_mineraux_33_2018_all.shp"]
+  },
+  "generator": {
+    "output_path": "/media/hd/out/test_33_bimillesime/generate",
+    "poi_pattern": ["/media/hd/out/test_33_bimillesime/sample_grid/2015*.csv", "/media/hd/out/test_33_bimillesime/sample_grid/2018*.csv"],
+    "train_test_split": 0.7,
+    "train_val_split": 0.7,
+    "compute_only_masks": false,
+    "dem": true,
+    "append": false
+  }
+}

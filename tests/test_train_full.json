@@ -1,0 +1,28 @@
+{
+    "data_source":
+    {
+        "train_file": "/home/dlsupport/data/odeon_data/test_generation/train.csv",
+        "val_file": "/home/dlsupport/data/odeon_data/test_generation/val.csv"
+    },
+    "model_setup":
+    {
+        "model_name": "unet",
+        "output_folder": "/home/dlsupport/data/odeon_data/test_generation",
+        "model_filename": "unet.pth",
+        "load_pretrained_enc": false
+    },
+    "train_setup":
+    {
+      "epochs": 300,
+      "batch_size": 16,
+      "patience": 20,
+      "save_history": false,
+      "continue_training": false,
+      "loss": "ce",
+      "class_imbalance": [0.2,0.3, 0.2],
+      "optimizer": "adam",
+      "lr": 0.001,
+      "data_augmentation": ["rotation90"]
+    }
+
+}

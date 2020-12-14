@@ -1,0 +1,48 @@
+{
+    "type": "object",
+    "properties": {
+        "image": {
+            "type": "object",
+            "properties": {
+                "image_size_pixel": {
+                    "type": "integer",
+                    "default": 256
+                },
+                "resolution": {
+                    "type": ["number", "array"],
+                    "items": [{
+                        "type": "number"
+                    }, {
+                        "type": "number"
+                    }],
+                    "default": 0.2
+                }
+            }
+        },
+        "sampler": {
+            "type": "object",
+            "properties": {
+                "input_file": {
+                    "type": "string"
+                },
+                "output_pattern": {
+                    "type": "string"
+                },
+                "shift": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "strict_inclusion": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "tight_mode": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["input_file", "output_pattern"]
+        }
+    },
+    "required": ["image", "sampler"]
+}

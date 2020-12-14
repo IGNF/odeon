@@ -1,0 +1,12 @@
+Changes
+=======
+
+0.1 (2020-12-14)
+----------------
+- add grid sampling
+- add generation of dataset
+- add systematic sampling
+- add zone detection based on extent and raster dalle
+- add patch detection
+- add documentation
+- add CI/CD with static code analysic, build doc, publish doc job

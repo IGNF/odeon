@@ -1,0 +1,12 @@
+{
+    "data_source": {
+        "train_file": "/home/dlsupport/data/odeon_data/test_generation/train.csv",
+        "val": "/home/dlsupport/data/odeon_data/test_generation/val.csv"
+    },
+    "model_setup": {
+        "model_name": "unet",
+        "output_folder": "/home/dlsupport/data/odeon_data/test_generation",
+        "filename": "unet.pth"
+    },
+    "train_setup": {}
+}
