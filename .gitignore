@@ -7,3 +7,5 @@ tests/poc_aws
 tests/poc_aws/*
 tests/fixture
 tests/fixture/*
+_build/
+docs/_build

@@ -14,33 +14,36 @@ from odeon.commons.exception import OdeonError
 
 class SampleSys(BaseTool):
     """
-    this Odeon tool computes a systematic sampling ( see https://en.wikipedia.org/wiki/Systematic_sampling)
+    Computes a systematic sampling
+
+    (see https://en.wikipedia.org/wiki/Systematic_sampling)
     on an input shape file defining the extent based on a list of geometry contained in another shape file.
-         - initialisation with the global configuration parameters
 
-         - retrieve the ROI limits  based on configuration and the associated geometries
+    The pseudo code is
 
-         - compute statistics on the ROIs
+    - initialisation with the global configuration parameters
+    - retrieve the ROI limits  based on configuration and the associated geometries
+    - compute statistics on the ROIs
 
-             - retrieve the associated Functor class and initialize the object to get
-              pixel based or patch based statistics
-             - For each geometry:
+      - retrieve the associated Functor class and initialize the object to get
+        pixel based or patch based statistics
+      - For each geometry:
 
-                - compute the associated bounding box
-                - for each block of each ROI included in the bounding box of the geometry:
+        - compute the associated bounding box
+        - for each block of each ROI included in the bounding box of the geometry:
 
-                   - compute by block the number of patch or pixel and accumulate the result
+          - compute by block the number of patch or pixel and accumulate the result
 
-             - Retrieving of the computed global statistics
+        - Retrieving of the computed global statistics
 
-         - sampling on the global extent
+    - sampling on the global extent
 
-            - computation of the sampling rate (total number of pixel / number of sample)
-            - configuration of the sampling functor (pixel based or patch based)
-            - for each tile containing in the global extent:
+      - computation of the sampling rate (total number of pixel / number of sample)
+      - configuration of the sampling functor (pixel based or patch based)
+      - for each tile containing in the global extent:
 
-                - sampling of pixels contained in the intersection of mask and extent.
-                - writing / updating of the output files with the sampled pixels.
+        - sampling of pixels contained in the intersection of mask and extent.
+        - writing / updating of the output files with the sampled pixels.
 
     """
 
