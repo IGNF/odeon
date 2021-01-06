@@ -10,3 +10,8 @@ Changes
 - add patch detection
 - add documentation
 - add CI/CD with static code analysic, build doc, publish doc job
+
+0.1.1 (2021-01-06)
+------------------
+-fix issue 16
+-fix resolution change in detection
