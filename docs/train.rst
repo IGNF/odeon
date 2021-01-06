@@ -8,7 +8,8 @@ Summary
 The train tool performs the training loop of a segmentation model. As for now,
 only 3 models are implemented :
  
-* basic `U-Net <https://arxiv.org/abs/1505.04597v1>`_
+* classic `U-Net <https://arxiv.org/abs/1505.04597v1>`_
+* a light version of the standard Unet with much less parameter
 * U-Net with `ResNet`_ as backbone
 * `Deeplabv3+`_ (with `MobileNetV2`_ as backbone)
   

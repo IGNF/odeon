@@ -14,6 +14,7 @@ flake8:
   script: flake8 --max-line-length=120 odeon/
   only:
   - master
+  - merge_requests
 
 pylint:
   stage: Static Analysis
@@ -21,6 +22,7 @@ pylint:
   script: python pylint-fail-under.py odeon/
   only:
   - master
+  - merge_requests
 
 sphinx:
   stage: Test
@@ -36,6 +38,7 @@ sphinx:
   - sphinx-build -b html docs/. docs/_build
   only:
   - master
+  - merge_requests
 
 pages:
   stage: Deploy
@@ -54,5 +57,4 @@ pages:
     - public
   only:
   - master
-  - merge_requests
   - tags

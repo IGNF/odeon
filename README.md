@@ -8,12 +8,22 @@ sensing images (aerial and/or satellite) with as many layers as you wish.
 
 ## Installation
 
-These instruction assume that you already have [conda](https://conda.io/) installed.
+These instructions assume that you already have [conda](https://conda.io/) installed.
 
 First, download and extract a copy of odeon from [repository](https://gitlab.com/dai-projets/odeon-landcover).
 Then navigate to the root of the odeon directory in a terminal and run the following:
 
 ```bash
+# Clone repository
+git clone git@gitlab.com:dai-projets/odeon-landcover.git
+or
+git clone https://gitlab.com/dai-projets/odeon-landcover.git
+or
+download a release at https://gitlab.com/dai-projets/odeon-landcover/-/releases
+
+# Go to the root project folder
+cd odeon-landcover
+
 # Install the environment
 conda env create --file=environment.yml
 
@@ -23,6 +33,8 @@ conda activate odeon
 # Install snorkel in the environment
 pip install .
 ```
+## Documentation
+You can find the documentation of the project at [https://dai-projets.gitlab.io/odeon-landcover/](https://dai-projets.gitlab.io/odeon-landcover/)
 
 ## Quickstart
 

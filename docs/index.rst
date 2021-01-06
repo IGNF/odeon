@@ -22,18 +22,15 @@ Then navigate to the root of the odeon directory in a terminal and run the follo
 **Install and activate the environment**
 
 .. code-block:: console
-   
+
+   $ clone repository https://gitlab.com/dai-projets/odeon-landcover
+   $ cd odeon-landcover
    $ conda env create --file=environment.yml
    $ conda activate odeon
-
+   $ pip install .
 
 In order to use cuda and NVIDIA devices, cudatoolkit must be installed too.
 
-**Install cudatoolkit**
-
-.. code-block:: console
-   
-   $ conda install cudatoolkit
 
 Quickstart
 ==========
@@ -41,7 +38,7 @@ Quickstart
 Odeon toolkit is run through main command:
 
 .. code-block:: console
-   
+
    $ odeon
      usage: odeon [-h] -c CONFIG [-v] {sample_grid,trainer}
      odeon: error: the following arguments are required: tool, -c/--config

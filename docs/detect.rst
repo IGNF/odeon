@@ -160,10 +160,10 @@ Dataset Section
 .. warning::
    required if Zone section is not filled
 
-`path (required, string)`: The path of your dataset, or a csv 
+``path (required, string)``: The path of your dataset, or a csv
 with a list of your patch files on the first column.
 
-`image_bands (optional, array)`: a list of integer representing the band
+``image_bands (optional, array)``: a list of integer representing the band
 to extract from your raster(s)
 
 .. details:: "Example of Dataset configuration"
@@ -190,7 +190,8 @@ A raster layer is declared as follow: ::
      "bands": a list of integer representing the band to extract from your raster(s)
   }
 
-``extent (required, string or array)``: A shape file with one or more
+``extent (required, string or array)``: A geo-polygon file compatible with the fiona library
+(such as ESRI shapefile, geojson, geopackage) with one or more
 region of interest representing the zone(s) where the detection will be done.
 
 ``out_dalle_size (optional, integer)``: you can use it if you want an
@@ -213,7 +214,7 @@ One patch of its patch
 ``dem``: if set to true and a "DTM" and "DSM" band are declared in sources,
 it will compute a digital elevation model ("DSM" - "DTM") to replace them
 
-``margin_zone (optionan integer, default 0, minimum 0)``: slice window with
+``margin_zone (optional, integer, default 0, minimum 0)``: slice window with
 an overlapping height and width, to keep only the center of detection as
 output. 
 It normally brings better overall performance on overall accuracy, beause

@@ -169,8 +169,8 @@ def raster_to_ndarray_from_dataset(src,
     " compute the new affine transform "
     if scaled_width != width or scaled_height != height:
 
-        side_x = (img.shape[0] * resolution) / 2
-        side_y = (img.shape[1] * resolution) / 2
+        side_x = (img.shape[0] * resolution[0]) / 2
+        side_y = (img.shape[1] * resolution[1]) / 2
         bounds = src.bounds
         center_x, center_y = get_center_from_bound(bounds.left, bounds.bottom, bounds.right, bounds.top)
         left, bottom, right, top = center_x - side_x, center_y - side_y, center_x + side_x, center_y + side_y
