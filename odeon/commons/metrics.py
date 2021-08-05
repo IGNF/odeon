@@ -1,6 +1,10 @@
 import numpy as np
 
 
+class Metrics():
+    pass
+
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self, name, fmt=':f'):
