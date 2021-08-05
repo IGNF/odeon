@@ -1,0 +1,21 @@
+{
+    "type": "object",
+    "properties": {
+        "stats_setup": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "output_path":{"type": "string"},
+                "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
+                "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
+                "data_augmentation": {"type":["string", "array"]},
+                "bins" : {"type":"array"},
+                "nbr_bins": {"type": "number", "default": 10},
+                "bit_depth": {"type": "string", "default": "8 bits"},
+                "batch_size" : {"type":"number", "default": 1},
+                "num_workers" : {"type":"number", "default": 1}
+            },
+            "required": ["input_path", "output_path"]
+        }
+    }
+}

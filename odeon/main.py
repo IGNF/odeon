@@ -18,7 +18,7 @@ def parse_arguments():
 
     """
 
-    available_tools = ['sample_grid', 'train', 'generate', 'sample_sys', 'detect']
+    available_tools = ['sample_grid', 'sample_sys', 'stats', 'generate', 'train', 'detect']
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
     parser.add_argument("-c", "--config", action='store', type=str, help="json configuration file (required)",
@@ -86,20 +86,22 @@ def main():
 
         return 0
 
-    elif tool == "train":
+    elif tool == "sample_sys":
 
-        from odeon.scripts.train import Trainer
+        from odeon.scripts.sample_sys import SampleSys
 
-        with Timer("Train model"):
+        with Timer("Systematic sampling"):
 
             try:
 
-                datasource_conf = conf.get('data_source')
-                model_conf = conf.get('model_setup')
-                train_conf = conf.get('train_setup')
-                trainer = Trainer(verbosity, **datasource_conf, **model_conf, **train_conf)
-                trainer()
-                return 0
+                io = conf["io"]
+                sampling = conf["sampling"]
+                patch = conf["patch"]
+                LOGGER.debug(io)
+                LOGGER.debug(sampling)
+                LOGGER.debug(patch)
+                sample_sys = SampleSys(**io, **sampling, **patch)
+                sample_sys()
 
             except OdeonError as oe:
 
@@ -127,22 +129,36 @@ def main():
                 LOGGER.error(oe)
                 return oe.error_code
 
-    elif tool == "sample_sys":
+    elif tool == "stats":
 
-        from odeon.scripts.sample_sys import SampleSys
+        from odeon.scripts.stats import Stats
 
-        with Timer("Systematic sampling"):
+        with Timer("Statistics"):
+
+            try:
+                stats_conf = conf['stats_setup']
+                statistics = Stats(**stats_conf)
+                statistics()
+                return 0
+
+            except OdeonError as oe:
+                LOGGER.error(oe)
+                return oe.error_code
+
+    elif tool == "train":
+
+        from odeon.scripts.train import Trainer
+
+        with Timer("Train model"):
 
             try:
 
-                io = conf["io"]
-                sampling = conf["sampling"]
-                patch = conf["patch"]
-                LOGGER.debug(io)
-                LOGGER.debug(sampling)
-                LOGGER.debug(patch)
-                sample_sys = SampleSys(**io, **sampling, **patch)
-                sample_sys()
+                datasource_conf = conf.get('data_source')
+                model_conf = conf.get('model_setup')
+                train_conf = conf.get('train_setup')
+                trainer = Trainer(verbosity, **datasource_conf, **model_conf, **train_conf)
+                trainer()
+                return 0
 
             except OdeonError as oe:
 

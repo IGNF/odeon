@@ -57,7 +57,8 @@ More information could be found in the documentation
     Dataset Generation <generate.rst>
     Training <train.rst>
     Detection <detect.rst>
-
+    Stats <stats.rst>
+    
 .. toctree::
     :caption: Advanced Feature
     :maxdepth: 1
