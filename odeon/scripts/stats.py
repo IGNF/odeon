@@ -273,7 +273,7 @@ class Stats(BaseTool):
 
 
 if __name__ == '__main__':
-    input_path = "/home/SPeillet/OCSGE/outputs/generation/subset_train"
+    input_path = "/home/SPeillet/OCSGE/outputs/generation/train"
     output_path = "/home/SPeillet/OCSGE/stats.html"
     stats = Stats(input_path, output_path)
     stats()

@@ -98,7 +98,12 @@ class Statistics():
                             input dataset are in {BIT_DEPTH}.""")
 
         self.nbr_bins = nbr_bins
-        self.bins, self.norm_bins = self.get_bins(bins)
+        self.bins = self.get_bins(bins)
+
+        # To compute the stats for the images bands.
+        self.min = [float('inf')] * self.nbr_bands
+        self.max = [-float('inf')] * self.nbr_bands
+        self._sum = self._sumSq = self.means = np.zeros(self.nbr_bands)  # Variables to compute the mean and std.
 
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -143,8 +148,7 @@ class Statistics():
         if bins is None:
             bins = [round((i/self.nbr_bins) * max_pixel_value, 3) for i in range(self.nbr_bins)]
             bins.append(max_pixel_value)
-        bins_norm = [round(x/max_pixel_value, 3) for x in bins]
-        return bins, bins_norm
+        return bins
 
     def create_data_for_stats(self):
         """Create dataframes and list to store the computed statistics.
@@ -165,16 +169,7 @@ class Statistics():
                                            columns=['share multilabel', 'avg nb class in patch', 'avg entropy'])
         df_global_stats.loc['all classes', 'share multilabel'] = 0
 
-        header_list = []
-        for idx_band in range(1, self.nbr_bands+1):
-            header_list.extend([f'band_{idx_band}_min',
-                                f'band_{idx_band}_max',
-                                f'band_{idx_band}_mean',
-                                f'band_{idx_band}_std'])
-
-        for idx_class in range(1, self.nbr_classes+1):
-            header_list.append(f'class_{idx_class}')
-
+        header_list = [f'class {i}' for i in range(1, self.nbr_classes+1)]
         df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=header_list)
 
         df_bands_stats = pd.DataFrame(index=[f'band {i}' for i in range(1, self.nbr_bands+1)],
@@ -200,24 +195,30 @@ class Statistics():
         stat_dataloader = DataLoader(self.dataset, self.batch_size, shuffle=False, num_workers=self.num_workers)
 
         index = 0
-        for sample in tqdm(stat_dataloader, leave=True):
+        for sample in tqdm(stat_dataloader, desc='First pass', leave=True):
             for image, mask in zip(sample['image'], sample['mask']):
-                image = image.numpy().swapaxes(0, 2).swapaxes(0, 1)
+                image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
                 mask = mask.numpy().swapaxes(0, 2).swapaxes(0, 1)
-                for idx_band in range(1, self.nbr_bands+1):
-                    vect_band = image[:, :, idx_band-1].flatten()
-                    self.df_dataset.loc[index, f'band_{idx_band}_min'] = np.min(vect_band)
-                    self.df_dataset.loc[index, f'band_{idx_band}_max'] = np.max(vect_band)
-                    self.df_dataset.loc[index, f'band_{idx_band}_mean'] = np.mean(vect_band)
-                    self.df_dataset.loc[index, f'band_{idx_band}_std'] = np.std(vect_band)
+                for idx_band in range(self.nbr_bands):
+                    vect_band = image[:, :, idx_band].flatten()
+
+                    cr_min = np.min(vect_band)
+                    if cr_min < self.min[idx_band]:
+                        self.min[idx_band] = cr_min
+
+                    cr_max = np.max(vect_band)
+                    if cr_max > self.max[idx_band]:
+                        self.max[idx_band] = cr_max
+
+                    self._sum[idx_band] += np.sum(vect_band)
 
                     # Cumulative addition by band of the histograms of each image.
-                    current_bins_counts = np.histogram(vect_band, self.norm_bins)[0]
-                    self.bands_hists[idx_band-1] = np.add(self.bands_hists[idx_band-1], current_bins_counts)
+                    current_bins_counts = np.histogram(vect_band, self.bins)[0]
+                    self.bands_hists[idx_band] = np.add(self.bands_hists[idx_band], current_bins_counts)
 
                 for idx_class in range(1, self.nbr_classes+1):
                     vect_class = mask[:, :, idx_class-1].flatten()
-                    self.df_dataset.loc[index, f'class_{idx_class}'] = np.count_nonzero(vect_class)
+                    self.df_dataset.loc[index, f'class {idx_class}'] = np.count_nonzero(vect_class)
                 index += 1
 
                 # Information storage for statistics.
@@ -246,6 +247,16 @@ class Statistics():
                         sample_entropy_wlc = entropy(vect_normalize_wlc)
                     list_entropy_wlc.append(sample_entropy_wlc)
 
+        self.means = self._sum / self.nbr_total_pixel
+
+        # Second pass to compute variance:
+        for sample in tqdm(stat_dataloader, desc='Second pass', leave=True):
+            for image, _ in zip(sample['image'], sample['mask']):
+                image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
+                for idx_band in range(self.nbr_bands):
+                    vect_band = image[:, :, idx_band].flatten()
+                    self._sumSq[idx_band] += np.sum(np.square(vect_band - self.means[idx_band]))
+
         self.df_global_stats.loc['all classes', 'share multilabel'] /= self.nbr_total_pixel
         self.df_global_stats.loc['all classes', 'avg nb class in patch'] = np.mean(nb_class_in_patch)
         self.df_global_stats.loc['all classes', 'avg entropy'] = np.nanmean(list_entropy)
@@ -259,53 +270,38 @@ class Statistics():
         """
         Compute statistics on bands and classes from the data collected during the stage scan_dataset.
         """
-        # Selection of columns to calculate stats by bands or by classes.
-        cols_bands = self.df_dataset.columns.values[:(self.nbr_bands*4)]  # 4 here is the number of stats
-        cols_classes = self.df_dataset.columns.values[-self.nbr_classes:]
-
         # Statistics on image bands
-        for col in cols_bands:
-            idx_band, stat = col.split('_')[1:]
-            if stat == 'min':  # We take the minimum of the minimums (for normalization)
-                self.df_bands_stats.loc[f'band {idx_band}', stat] = \
-                    self.to_pixel_input_range(self.df_dataset[col].min())
-            elif stat == 'max':  # We take the maximum of the maximums (for the normalization)
-                self.df_bands_stats.loc[f'band {idx_band}', stat] = \
-                    self.to_pixel_input_range(self.df_dataset[col].max())
-            elif stat == 'std':  # For the standard deviation we take the average of the calculated standard deviations.
-                self.df_bands_stats.loc[f'band {idx_band}', stat] = \
-                    self.to_pixel_input_range(self.df_dataset[col].mean())
-            else:  # For the mean, we take the average value of the calculated means.
-                self.df_bands_stats.loc[f'band {idx_band}', stat] = \
-                    self.to_pixel_input_range(self.df_dataset[col].mean())
+        for i in range(self.nbr_bands):
+            self.df_bands_stats.loc[f'band {i+1}', 'min'] = self.min[i]
+            self.df_bands_stats.loc[f'band {i+1}', 'max'] = self.max[i]
+            self.df_bands_stats.loc[f'band {i+1}', 'mean'] = self.means[i]
+            self.df_bands_stats.loc[f'band {i+1}', 'std'] = np.sqrt((self._sumSq[i] / (self.nbr_total_pixel - 1)))
 
         # Divide the histogram binscounts by the number of images in the dataset. Division element wise.
         self.bands_hists = [(band_hist/len(self.dataset)).astype(int) for band_hist in self.bands_hists]
 
         # Statistics on classes in masks
-        for col in cols_classes:
-            idx_class = col.split('_')[-1]
-
+        for col in self.df_dataset.columns:
             # Ratio of the number of pixels belonging to a class to the total number of pixels in the dataset.
             class_freq = self.df_dataset[col].sum() / self.nbr_total_pixel
-            self.df_classes_stats.loc[f'class {idx_class}', 'pixel freq'] = class_freq
+            self.df_classes_stats.loc[col, 'pixel freq'] = class_freq
             # For the rest of the stats, if the class is not present in any of the masks then the stats are set to zero
 
             # Frequency ratio for each class with L1 normalization
-            self.df_classes_stats.loc[f'class {idx_class}', 'regu L1'] = 1 / (class_freq) if class_freq != 0 else 0
+            self.df_classes_stats.loc[col, 'regu L1'] = 1 / (class_freq) if class_freq != 0 else 0
 
             # Frequency ratio for each class with L2 normalization
-            self.df_classes_stats.loc[f'class {idx_class}', 'regu L2'] = \
+            self.df_classes_stats.loc[col, 'regu L2'] = \
                 1 / np.sqrt((class_freq)) if class_freq != 0 else 0
 
             # Frequency at which a class is part of at least 5% of an image
-            self.df_classes_stats.loc[f'class {idx_class}', 'freq 5% pixel'] = \
+            self.df_classes_stats.loc[col, 'freq 5% pixel'] = \
                 (self.df_dataset[col][self.df_dataset[col] > 0.05 * self.nbr_pixels_per_patch].count())\
                 / len(self.dataset)
 
             # Area under the Lorenz curve of the pixel distribution by class
             x = self.df_dataset[col]
-            self.df_classes_stats.loc[f'class {idx_class}', 'auc'] = \
+            self.df_classes_stats.loc[col, 'auc'] = \
                 2 * np.sum(np.cumsum(np.sort(x))/np.sum(x))/len(self.dataset) if np.sum(x != 0) else 0
 
     def to_pixel_input_range(self, value):
