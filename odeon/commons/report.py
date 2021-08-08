@@ -322,6 +322,7 @@ class Stats_Report(Report):
         """Create a report in the markdown format.
         """
         self.rounded_stats()  # Rounded the values in the dataframes.
+
         md_text = '# ODEON - Statistics' + \
             '\n\n' + \
             '## Image bands statistics' + \
@@ -329,6 +330,8 @@ class Stats_Report(Report):
             df_to_md(self.input_object.df_bands_stats) + \
             '\n\n' + \
             '* Statistics computed on the bands of the images: min, max, mean, std for each band.' + \
+            f'* Percent of zeros pixels in dataset images: \
+                {round(self.input_object.zeros_pixels, ROUND_DECIMALS)} %.' + \
             '\n\n' + \
             '## Classes statistics' + \
             '\n\n' + \
@@ -338,13 +341,13 @@ class Stats_Report(Report):
             - regu L1: Class-Balanced Loss Based on Effective Number of Samples 1/frequency(i)
             - regu L2: Class-Balanced Loss Based on Effective Number of
             Samples 1/sqrt(frequency(i))
-            - pixel_freq: Overall share of pixels labeled with a given class.
-            - sample_freq_5%pixel: Share of samples with at least
+            - pixel freq: Overall share of pixels labeled with a given class.
+            - sample freq 5%pixel: Share of samples with at least
                 5% pixels of a given class.
                 The lesser, the more concentrated on a few samples a class is.
             - auc: Area under the Lorenz curve of the pixel distribution of a
                 given class across samples. The lesser, the more concentrated
-                on a few samples a class is. Equals pixel_freq if the class is
+                on a few samples a class is. Equals pixel freq if the class is
                 the samples are either full of or empty from the class. Equals
                 1 if the class is homogeneously distributed across samples.""" + \
             '\n\n' + \
@@ -354,11 +357,12 @@ class Stats_Report(Report):
             '\n\n' + \
             """* Statistics computed on the globality of the dataset: (either with all classes or without the
             last class if we are not in the binary case)
-            - Percentage of pixels shared by several classes (share_multilabel)
-            - the number of classes in an image (avg_nb_class_in_patch)
-            - the average entropy (avg_entropy)""" + \
+            - Percentage of pixels shared by several classes (share multilabel)
+            - the number of classes in an image (avg nb class in patch)
+            - the average entropy (avg entropy)""" + \
             '\n\n' + \
             f'![Images bands histograms]({self.input_object.plot_hist(generate=True)})'
+
         with open(self.input_object.output_path, "w") as output_file:
             output_file.write(md_text)
 
@@ -379,7 +383,8 @@ class Stats_Report(Report):
 
             """ + \
             df_to_html(self.input_object.df_bands_stats) + \
-            """<p>Statistics computed on the bands of the images: min, max, mean, std for each band</p>
+            f"""<p>Statistics computed on the bands of the images: min, max, mean, std for each band.</p>
+            <p>Percent of zeros pixels in dataset images: {round(self.input_object.zeros_pixels, ROUND_DECIMALS)} %.</p>
 
             <h2>Classes statistics</h2>
             """ + \
@@ -389,12 +394,12 @@ class Stats_Report(Report):
             <ul>
                 <li>regu L1: Class-Balanced Loss Based on Effective Number of Samples 1/frequency(i)</li>
                 <li>regu L2: Class-Balanced Loss Based on Effective Number of Samples 1/sqrt(frequency(i))</li>
-                <li>pixel_freq: Overall share of pixels labeled with a given class.</li>
-                <li>sample_freq_5%pixel: Share of samples with at least 5% pixels of a given class.
+                <li>pixel freq: Overall share of pixels labeled with a given class.</li>
+                <li>sample freq 5%pixel: Share of samples with at least 5% pixels of a given class.
                 The lesser, the more concentrated on a few samples a class is.</li>
                 <li>auc: Area under the Lorenz curve of the pixel distribution of a given class across samples.
                 The lesser, the more concentrated on a few samples a class is.
-                Equals pixel_freq if the class is the samples are either full of or empty from the class.
+                Equals pixel freq if the class is the samples are either full of or empty from the class.
                 Equals 1 if the class is homogeneously distributed across samples.</li>
             </ul>
 
@@ -408,9 +413,9 @@ class Stats_Report(Report):
             last class if we are not in the binary case)</p>
 
             <ul>
-                <li>Percentage of pixels shared by several classes (share_multilabel)</li>
-                <li>the number of classes in an image (avg_nb_class_in_patch)</li>
-                <li>the average entropy (avg_entropy)</li>
+                <li>Percentage of pixels shared by several classes (share multilabel)</li>
+                <li>the number of classes in an image (avg nb class in patch)</li>
+                <li>the average entropy (avg entropy)</li>
             </ul>
 
             <h2>Image bands histograms</h2>

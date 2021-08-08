@@ -11,6 +11,7 @@
                 "data_augmentation": {"type":["string", "array"]},
                 "bins" : {"type":"array"},
                 "nbr_bins": {"type": "number", "default": 10},
+                "get_skewness_kurtosis" :  {"type": "boolean", "default": false},
                 "bit_depth": {"type": "string", "default": "8 bits"},
                 "batch_size" : {"type":"number", "default": 1},
                 "num_workers" : {"type":"number", "default": 1}

@@ -3,7 +3,7 @@ Statistics class to compute descriptive statistics on a dataset.
 
     Statistics are computed on :
         * the bands of the images: min, max, mean, std and the total histograms
-            for each band.
+            for each band. (Skewness and kurtosis are optional).
         * the classes present in the masks:
             - regu L1: Class-Balanced Loss Based on Effective Number of
               Samples 1/frequency(i)
@@ -15,14 +15,14 @@ Statistics class to compute descriptive statistics on a dataset.
                 The lesser, the more concentrated on a few samples a class is.
             - auc: Area under the Lorenz curve of the pixel distribution of a
                 given class across samples. The lesser, the more concentrated
-                on a few samples a class is. Equals pixel_freq if the class is
+                on a few samples a class is. Equals pixel freq if the class is
                 the samples are either full of or empty from the class. Equals
                 1 if the class is homogeneously distributed across samples.
         * the globality of the dataset: (either with all classes or without the
           last class if we are not in the binary case)
-            - Percentage of pixels shared by several classes (share_multilabel)
-            - the number of classes in an image (avg_nb_class_in_patch)
-            - the average entropy (avg_entropy)
+            - Percentage of pixels shared by several classes (share multilabel)
+            - the number of classes in an image (avg nb class in patch)
+            - the average entropy (avg entropy)
 
     As output, the instance of this class can either generate a JSON file
     containing the computed statistics or display directly in console the
@@ -42,7 +42,8 @@ from odeon.commons.report import Report_Factory
 BATCH_SIZE = 1
 NUM_WORKERS = 1
 BIT_DEPTH = '8 bits'
-NBR_BINS = 10
+GET_SKEWNESS_KURTOSIS = False
+NBR_BINS = 15
 
 
 class Statistics():
@@ -50,9 +51,10 @@ class Statistics():
     def __init__(self,
                  dataset,
                  output_path=None,
+                 get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
+                 bit_depth=BIT_DEPTH,
                  bins=None,
                  nbr_bins=NBR_BINS,
-                 bit_depth=BIT_DEPTH,
                  batch_size=BATCH_SIZE,
                  num_workers=NUM_WORKERS):
         """
@@ -68,6 +70,8 @@ class Statistics():
             List of the bins to build the histograms of the image bands.
         nbr_bins: int.
             If bins is not given in input, the list of bins will be created with the nbr_bins defined here.
+        get_skewness_kurtosis: bool
+            Boolean to compute or not skewness and kurtosis.
         bit_depth: str
             The number of bits used to represent each pixel in an image.
         batch_size: int
@@ -96,14 +100,18 @@ class Statistics():
             LOGGER.warning(f"""WARNING: the pixel depth input in the configuration file is not correct.
                             For the rest of the computations we will consider that the images in your
                             input dataset are in {BIT_DEPTH}.""")
-
+        self.zeros_pixels = 0
         self.nbr_bins = nbr_bins
         self.bins = self.get_bins(bins)
+        self.get_skewness_kurtosis = get_skewness_kurtosis
 
         # To compute the stats for the images bands.
         self.min = [float('inf')] * self.nbr_bands
         self.max = [-float('inf')] * self.nbr_bands
-        self._sum = self._sumSq = self.means = np.zeros(self.nbr_bands)  # Variables to compute the mean and std.
+        self._sum = self._sumSq = self.means = self.std = np.zeros(self.nbr_bands)  # Vars to compute the mean and std.
+        if self.get_skewness_kurtosis:
+            self.skewness = np.zeros(self.nbr_bands)
+            self.kurtosis = np.zeros(self.nbr_bands)
 
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -172,8 +180,11 @@ class Statistics():
         header_list = [f'class {i}' for i in range(1, self.nbr_classes+1)]
         df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=header_list)
 
-        df_bands_stats = pd.DataFrame(index=[f'band {i}' for i in range(1, self.nbr_bands+1)],
-                                      columns=['min', 'max', 'mean', 'std'])
+        if self.get_skewness_kurtosis:
+            header_bands = ['min', 'max', 'mean', 'std', 'skewness', 'kurtosis']
+        else:
+            header_bands = ['min', 'max', 'mean', 'std']
+        df_bands_stats = pd.DataFrame(index=[f'band {i}' for i in range(1, self.nbr_bands+1)], columns=header_bands)
 
         df_classes_stats = pd.DataFrame(index=[f'class {i}' for i in range(1, self.nbr_classes+1)],
                                         columns=['regu L1', 'regu L2', 'pixel freq', 'freq 5% pixel', 'auc'])
@@ -198,6 +209,7 @@ class Statistics():
         for sample in tqdm(stat_dataloader, desc='First pass', leave=True):
             for image, mask in zip(sample['image'], sample['mask']):
                 image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
+                self.zeros_pixels += np.count_nonzero(np.sum(image, axis=2) == 0)
                 mask = mask.numpy().swapaxes(0, 2).swapaxes(0, 1)
                 for idx_band in range(self.nbr_bands):
                     vect_band = image[:, :, idx_band].flatten()
@@ -257,6 +269,19 @@ class Statistics():
                     vect_band = image[:, :, idx_band].flatten()
                     self._sumSq[idx_band] += np.sum(np.square(vect_band - self.means[idx_band]))
 
+        self.std = np.sqrt((self._sumSq / (self.nbr_total_pixel - 1)))
+
+        # Third pass to compute sknewness and kurtosis
+        if self.get_skewness_kurtosis:
+            for sample in tqdm(stat_dataloader, desc='Third pass', leave=True):
+                for image, _ in zip(sample['image'], sample['mask']):
+                    image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
+                    for idx_band in range(self.nbr_bands):
+                        vect_band = image[:, :, idx_band].flatten()
+                        vect_band_std = (vect_band - self.means[idx_band]) / self.std[idx_band]
+                        self.skewness[idx_band] += np.sum(np.power(vect_band_std, 3))
+                        self.kurtosis[idx_band] += np.sum(np.power(vect_band_std, 4))
+
         self.df_global_stats.loc['all classes', 'share multilabel'] /= self.nbr_total_pixel
         self.df_global_stats.loc['all classes', 'avg nb class in patch'] = np.mean(nb_class_in_patch)
         self.df_global_stats.loc['all classes', 'avg entropy'] = np.nanmean(list_entropy)
@@ -275,7 +300,12 @@ class Statistics():
             self.df_bands_stats.loc[f'band {i+1}', 'min'] = self.min[i]
             self.df_bands_stats.loc[f'band {i+1}', 'max'] = self.max[i]
             self.df_bands_stats.loc[f'band {i+1}', 'mean'] = self.means[i]
-            self.df_bands_stats.loc[f'band {i+1}', 'std'] = np.sqrt((self._sumSq[i] / (self.nbr_total_pixel - 1)))
+            self.df_bands_stats.loc[f'band {i+1}', 'std'] = self.std[i]
+            if self.get_skewness_kurtosis:
+                self.df_bands_stats.loc[f'band {i+1}', 'skewness'] = self.skewness[i] / self.nbr_total_pixel
+                self.df_bands_stats.loc[f'band {i+1}', 'kurtosis'] = self.kurtosis[i] / self.nbr_total_pixel
+
+        self.zeros_pixels /= self.nbr_total_pixel
 
         # Divide the histogram binscounts by the number of images in the dataset. Division element wise.
         self.bands_hists = [(band_hist/len(self.dataset)).astype(int) for band_hist in self.bands_hists]
@@ -321,10 +351,24 @@ class Statistics():
         return value * self.depth_dict[self.bit_depth]
 
     def plot_hist(self, generate=False):
-        labels = []
-        for i in range(len(self.bins)):
-            if i < len(self.bins) - 1:
-                labels.append(f'{str(self.bins[i])}-{str(self.bins[i+1])}')
+        """Plot histograms with the bands distributions.
+        The histograms can be directly plot or save in an image with '.png' format.
+
+        Parameters
+        ----------
+        generate : bool, optional
+            Option to know if the histograms have to be plot or save in an image, by default False
+
+        Returns
+        -------
+        str
+            Path where the output image will be stored.
+        """
+        if len(self.bins) <= 20:
+            labels = []
+            for i in range(len(self.bins)):
+                if i < len(self.bins) - 1:
+                    labels.append(f'{str(self.bins[i])}-{str(self.bins[i+1])}')
 
         n_plots = self.nbr_bands
         n_cols = 3
@@ -335,14 +379,14 @@ class Statistics():
             plt.subplot(n_rows, n_cols, i+1)
             c = [float(i) / float(self.nbr_bands), 0.0, float(self.nbr_bands-i) / float(self.nbr_bands)]
             plt.bar(range(len(self.bands_hists[i])), self.bands_hists[i], width=0.8, linewidth=2, capsize=20, color=c)
-            plt.xticks(range(len(self.bands_hists[i])), labels, rotation=35)
+            if len(self.bins) <= 20:
+                plt.xticks(range(len(self.bands_hists[i])), labels, rotation=35)
             plt.title(f'Distribution of pixel for band {i+1}')
             plt.xlabel("Pixel bins")
             if i % n_cols == 0:
                 plt.ylabel("Pixels count")
 
         if generate:
-            # A remplacer par un chemin pour stocker le rapport
             output_path = os.path.join(os.path.dirname(self.output_path), 'stats_hists.png')
             plt.savefig(output_path)
             return output_path

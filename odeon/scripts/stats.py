@@ -21,7 +21,8 @@ from odeon.nn.datasets import PatchDataset
 BATCH_SIZE = 1
 NUM_WORKERS = 1
 BIT_DEPTH = '8 bits'
-NBR_BINS = 10
+NBR_BINS = 15
+GET_SKEWNESS_KURTOSIS = False
 
 
 class Stats(BaseTool):
@@ -35,9 +36,11 @@ class Stats(BaseTool):
                  data_augmentation=None,
                  bins=None,
                  nbr_bins=NBR_BINS,
+                 get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
                  bit_depth=BIT_DEPTH,
                  batch_size=BATCH_SIZE,
                  num_workers=NUM_WORKERS):
+
         """Init function of Stats class.
 
         Parameters
@@ -56,6 +59,8 @@ class Stats(BaseTool):
             List of the bins to build the histograms of the image bands.
         nbr_bins: int.
             If bins is not given in input, the list of bins will be created with the nbr_bins defined here.
+        get_skewness_kurtosis: bool
+            Boolean to compute or not skewness and kurtosis.
         bit_depth: str
             The number of bits used to represent each pixel in an image.
         batch_size: int
@@ -66,7 +71,9 @@ class Stats(BaseTool):
         self.input_path = input_path
         self.output_path = output_path
         self.bins = bins
+        self.nbr_bins = nbr_bins
         self.bit_depth = bit_depth
+        self.get_skewness_kurtosis = get_skewness_kurtosis
         # self.device = self.check_device(device)
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -133,9 +140,10 @@ class Stats(BaseTool):
 
         self.statistics = Statistics(dataset=self.dataset,
                                      output_path=self.output_path,
-                                     bins=self.bins,
-                                     nbr_bins=nbr_bins,
+                                     get_skewness_kurtosis=self.get_skewness_kurtosis,
                                      bit_depth=self.bit_depth,
+                                     bins=self.bins,
+                                     nbr_bins=self.nbr_bins,
                                      batch_size=self.batch_size,
                                      num_workers=self.num_workers)
 
@@ -171,18 +179,18 @@ class Stats(BaseTool):
 
     def list_files_from_dir(self, input_path):
         """List files in a diretory and return a list of image files and a list of mask files.
-        Dataest directory should contain and 'img' folder and a 'msk' folder.
-        Images and masks should have the same name.
+        Dataset directory should contain and 'img' folder and a 'msk' folder.
+        Images and masks should have the same names.
 
         Parameters
         ----------
         input_path : str
-            path to the dataset directory.
+            Path to the dataset directory.
 
         Returns
         -------
         Tuple[list, list]
-            a list of image pathes and a list of mask pathes
+            A list of image pathes and a list of mask pathes.
         """
 
         path_img = os.path.join(input_path, 'img')
@@ -275,5 +283,5 @@ class Stats(BaseTool):
 if __name__ == '__main__':
     input_path = "/home/SPeillet/OCSGE/outputs/generation/train"
     output_path = "/home/SPeillet/OCSGE/stats.html"
-    stats = Stats(input_path, output_path)
+    stats = Stats(input_path, output_path, get_skewness_kurtosis=True)
     stats()

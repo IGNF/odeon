@@ -25,6 +25,7 @@ Images bands statistics
 -----------------------
 - ``min``, ``max``: minimum and maximum pixel values for each bands. 
 - ``mean``, ``std``: mean and standard deviation of the pixel distribution of each band.
+- ``skewness``, ``kurtosis``: skewness and kurtosis of the pixel distribution of each band. (optional)
 - histograms of pixels distributions per band with selected bins.  
 
 Classes statistics  
@@ -35,21 +36,21 @@ Classes statistics
     Samples 1/sqrt(frequency(i))
 - ``pixel freq``: Overall share of pixels labeled with a given class.
 - ``freq 5%pixel``: Share of samples with at least 5% pixels of a given class. The lesser, the more concentrated on a few samples a class is.
-- ``auc``: Area under the Lorenz curve of the pixel distribution of a given class across samples. The lesser, the more concentrated on a few samples a class is. Equals pixel_freq if the class is the samples are either full of or empty from the class. Equals 1 if the class is homogeneously distributed across samples.
+- ``auc``: Area under the Lorenz curve of the pixel distribution of a given class across samples. The lesser, the more concentrated on a few samples a class is. Equals pixel freq if the class is the samples are either full of or empty from the class. Equals 1 if the class is homogeneously distributed across samples.
 
 Statistics based on the overall dataset
 ---------------------------------------
 
 Global statistics are computed either with all classes or without the last class if we are not in a binary case.
 
-- ``share_multilabel``: Percentage of pixels shared by several classes
-- ``avg_nb_class_in_patch``: Mean of the number of classes present in each sample 
-- ``avg_entropy``: Mean of the class distribution entropy for each sample. For each sample, the entropy is at least 0 if a single class is represented and at most log(C) with C the number of classes. The entropy of a sample is log(C) if every class is equally represented. The greater the entropy, the semantically richer the sample is.
+- ``share multilabel``: Percentage of pixels shared by several classes
+- ``avg nb class in patch``: Mean of the number of classes present in each sample 
+- ``avg entropy``: Mean of the class distribution entropy for each sample. For each sample, the entropy is at least 0 if a single class is represented and at most log(C) with C the number of classes. The entropy of a sample is log(C) if every class is equally represented. The greater the entropy, the semantically richer the sample is.
 
 Json file content
 =================
 
-**minimalist json** (the minimum configuration required to start the sampling)
+**minimalist json** (the minimum configuration required to start to compute the statistics)
 
 .. code-block:: json
 
@@ -96,6 +97,8 @@ Json file content
             List of the bins to build the histograms of the image bands.
         nbr_bins: int.
             If bins is not given in input, the list of bins will be created with the nbr_bins defined here.
+        get_skewness_kurtosis: bool
+            Boolean to compute or not skewness and kurtosis.
         bit_depth: str
             The number of bits used to represent each pixel in an image.
         batch_size: int
