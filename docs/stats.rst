@@ -75,7 +75,8 @@ Json file content
         "image_bands": [0, 1, 2],
         "mask_bands": [0, 1, 3, 4]
         "data_augmentation": "rotation",
-        "bins": [0, 50, 100, 150, 200, 255],
+        "nbr_bins": 20,
+        "get_skewness_kurtosis": true,
         "bit_depth": "8 bits",
         "batch_size" : 1,
         "num_workers": 1
