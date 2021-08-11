@@ -94,6 +94,10 @@ output_param (required)
 ``output_type (required, string, one value among 'bit', 'uint8', 'float32')``:
 type of your output predictions, between bit, 8 bits integer and float 32 bits.
 
+.. warning::
+   With an output_type 'bit', the outputs will be hard probilities.
+   Whereas with 'uint8', 'float32' the outputs will be soft probilities.
+
 ``sparse_mode (optional, boolean, default value false)``: rather output
 sparse geotif files, to minimize space occupation on disk. This option
 is only used in combination of output_type set as 'bit' and threshold.

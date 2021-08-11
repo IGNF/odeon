@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import entropy
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from odeon.commons.report import Report_Factory
+from odeon.commons.report_factory import Report_Factory
 
 BATCH_SIZE = 1
 NUM_WORKERS = 1
@@ -385,6 +385,8 @@ class Statistics():
             plt.xlabel("Pixel bins")
             if i % n_cols == 0:
                 plt.ylabel("Pixels count")
+
+        plt.tight_layout(pad=3.0)
 
         if generate:
             output_path = os.path.join(os.path.dirname(self.output_path), 'stats_hists.png')
