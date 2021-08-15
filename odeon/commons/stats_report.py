@@ -107,6 +107,16 @@ class Stats_Report(Report):
         with open(self.html_file, "r") as reader:
             begin_html = reader.read()
 
+        header_html = """
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <title>ODEON Statistics</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js">
+        </script>
+        """
         end_html = '</div></div></body></html>'
 
         stats_html = """
@@ -158,6 +168,7 @@ class Stats_Report(Report):
             f'<p><img alt="Images bands histograms" src={self.input_object.plot_hist(generate=True)} /></p>'
 
         with open(self.input_object.output_path, "w") as output_file:
+            output_file.write(header_html)
             output_file.write(begin_html)
             output_file.write(stats_html)
             output_file.write(end_html)

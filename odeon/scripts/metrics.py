@@ -18,47 +18,56 @@ The metrics computed are in each case :
     - KL Divergence
 
 * Multi-class case:
-    - 1 versus all: same metrics as the binary case for each class.
-    - Macro (1 versus all then all cms stacked): same metrics as the binary case for the sum of all classes.
-    - Micro : Precision, Recall, F1 Score (confusion matrix but no ROC curve).
+    - Per class: same metrics as the binary case for each class.
+    - Macro : same metrics as the binary case for the sum of all classes.
+    - Micro : Precision, Recall, F1 Score and IoU.
 
 * Multi-labels case:
-    - Same as the multi-class case but without the global confusion matrix in  micro analysis.
+    - Same as the multi-class case but with a threshold for each class insteas to use argmax to binarise predictions.
 """
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import auc
-from sklearn.calibration import calibration_curve
 import itertools
 from abc import ABC, abstractmethod
-# from odeon.commons.metrics import Metrics
+from odeon.commons.report_factory import Report_Factory
 
-DEFAULTS_VARS = {'roc_range': np.arange(0, 1.1, 0.1),
+FIGSIZE = (8, 6)
+DEFAULTS_VARS = {'threshold': 0.5,
+                 'threshold_range': np.arange(0, 1.0025, 0.0025),
                  'nb_calibration_bins': 10,
-                 'bit_depth': '8 bits',
-                 'batch_size': 1,
-                 'num_workers': 1}
+                 'bit_depth': '8 bits'}
 
 
 class Metrics(ABC):
 
     def __init__(self,
-                 mask_files,
-                 pred_files,
+                 masks,
+                 preds,
                  output_path,
+                 nbr_class,
+                 class_labels=None,
+                 threshold=DEFAULTS_VARS['threshold'],
+                 threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
-                 batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers']):
+                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins']):
 
-        self.mask_files = mask_files
-        self.pred_files = pred_files
+        self.masks = masks
+        self.preds = preds
         self.output_path = output_path
+        self.nbr_class = nbr_class
+        if all(class_labels):
+            self.class_labels = class_labels
+        else:
+            self.class_labels = [f'class {i}' for i in range(self.nbr_class)]
+
+        self.class_ids = np.arange(self.nbr_class)  # Each class is identified by a number
+        self.threshold = threshold
+        self.threshold_range = threshold_range
         self.bit_depth = bit_depth
         self.nb_calibration_bins = nb_calibration_bins
-        self.batch_size = batch_size
-        self.num_workers = num_workers
+
+        self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
 
         self.depth_dict = {'keep':  1,
                            '8 bits': 255,
@@ -66,8 +75,12 @@ class Metrics(ABC):
                            '14 bits': 16383,
                            '16 bits': 65535}
 
+        self.type_prob, self.in_prob_range = self.get_info_pred()
+
+        self.report = Report_Factory(self)
+
     def __call__(self):
-        pass
+        self.report.create_report()
 
     @abstractmethod
     def create_data_for_metrics(self):
@@ -77,114 +90,147 @@ class Metrics(ABC):
     def binarize(self):
         pass
 
+    def get_confusion_matrix(self, truth, pred):
+        """
+        Return confusion matrix
+        In binary case:
+         [['tp' 'fn']
+          ['fp' 'tn']]
+
+        Parameters
+        ----------
+        truth : [type]
+            [description]
+        pred : [type]
+            [description]
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        assert isinstance(truth, (np.ndarray, np.generic)) and isinstance(pred, (np.ndarray, np.generic))
+        cm = np.zeros([self.nbr_class, self.nbr_class], dtype=np.float64)
+        for i, class_i in enumerate(self.class_ids):
+            for j, class_j in enumerate(self.class_ids):
+                cm[i, j] = np.sum(np.logical_and(truth == class_i, pred == class_j))
+        return np.flip(cm)
+
     @abstractmethod
     def get_metrics_from_cm(self):
         pass
 
+    def get_metrics_from_obs(self, tp, fn, fp, tn):
+
+        # Accuracy
+        if tp != 0 or tn != 0:
+            accuracy = (tp + tn) / (tp + fp + tn + fn)
+        else:
+            accuracy = 0.0
+
+        # Specificity
+        if tn != 0:
+            specificity = tn / (tn + fp)
+        else:
+            specificity = 0.0
+
+        # Precision, Recall, F1-Score and IoU
+        if tp != 0:
+            precision = tp / (tp + fp)
+            recall = tp / (tp + fn)
+            f1_score = (2 * tp) / (2 * tp + fp + fn)
+            iou = tp / (tp + fp + fn)
+        else:
+            precision = 0.0
+            recall = 0.0
+            f1_score = 0.0
+            iou = 0.0
+
+        if fp != 0:
+            fpr = fp / (fp + tn)
+        else:
+            fpr = 0.0
+
+        return {'Accuracy': accuracy,
+                'Precision': precision,
+                'Recall': recall,
+                'Specificity': specificity,
+                'F1-Score': f1_score,
+                'IoU': iou,
+                'FPR': fpr}
+
+    def get_info_pred(self):
+        """
+            Tests on the first tenth of the predictions to check if inputs preds are in soft or in hard,
+            and if pixels values are the expected range value.
+        """
+        pred_samples = self.preds[:len(self.preds)//10]
+        if len(pred_samples) == 1:
+            pred_samples = list(pred_samples)
+        nuniques = 0
+        maxu = - float('inf')
+        for pred in pred_samples:
+            cr_nuniques = np.unique(pred.flatten())
+            if len(cr_nuniques) > nuniques:
+                nuniques = len(cr_nuniques)
+            if max(cr_nuniques) > maxu:
+                maxu = max(cr_nuniques)
+
+        type_prob = 'soft' if nuniques > self.nbr_class else 'hard'
+        in_prob_range = True if maxu <= 1 else False
+        return type_prob, in_prob_range
+
+    def to_prob_range(self, value):
+        return value / self.depth_dict[self.bit_depth]
+
     def plot_confusion_matrix(self,
                               cm,
-                              target_names=None,
                               title='Confusion matrix',
                               cmap=None,
-                              normalize=True):
+                              normalize=True,
+                              name_plot='confusion_matrix.png'):
         """
-        from https://stackoverflow.com/questions/19233771/sklearn-plot-confusion-matrix-with-labels.
-        Given a sklearn confusion matrix (cm), make a nice plot.
+        Given a sklearn confusion matrix (cm), return a nice plot.
 
         Arguments
         ---------
         cm:           confusion matrix from sklearn.metrics.confusion_matrix
 
-        target_names: given classification classes such as [0, 1, 2]
-                    the class names, for example: ['high', 'medium', 'low']
-
         title:        the text to display at the top of the matrix
 
         cmap:         the gradient of the values displayed from matplotlib.pyplot.cm
-                    see http://matplotlib.org/examples/color/colormaps_reference.html
-                    plt.get_cmap('jet') or plt.cm.Blues
-
         normalize:    If False, plot the raw numbers
-                    If True, plot the proportions
-
-        Usage
-        -----
-        plot_confusion_matrix(cm           = cm,                  # confusion matrix created by
-                                                                # sklearn.metrics.confusion_matrix
-                            normalize    = True,                # show proportions
-                            target_names = y_labels_vals,       # list of names of the classes
-                            title        = best_estimator_name) # title of graph
+                      If True, plot the proportions
         """
-        accuracy = np.trace(cm) / np.sum(cm).astype('float')
-        misclass = 1 - accuracy
 
         if cmap is None:
             cmap = plt.get_cmap('Blues')
 
-        plt.figure(figsize=(8, 6))
-        plt.imshow(cm, interpolation='nearest', cmap=cmap)
+        plt.figure(figsize=FIGSIZE)
+        plt.imshow(cm, cmap=cmap)
         plt.title(title)
         plt.colorbar()
 
-        if target_names is not None:
-            tick_marks = np.arange(len(target_names))
-            plt.xticks(tick_marks, target_names, rotation=45)
-            plt.yticks(tick_marks, target_names)
+        tick_marks = np.arange(self.nbr_class)
+        plt.xticks(ticks=tick_marks, labels=self.class_labels)
+        plt.yticks(tick_marks, self.class_labels)
 
         if normalize:
-            cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            cm = cm.astype('float') / np.sum(cm.flatten())
 
         thresh = cm.max() / 1.5 if normalize else cm.max() / 2
         for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
             if normalize:
-                plt.text(j, i, "{:0.4f}".format(cm[i, j]), horizontalalignment="center",
+                plt.text(j, i, "{:0.3f}".format(cm[i, j]), horizontalalignment="center",
                          color="white" if cm[i, j] > thresh else "black")
             else:
                 plt.text(j, i, "{:,}".format(cm[i, j]),
                          horizontalalignment="center",
                          color="white" if cm[i, j] > thresh else "black")
-        plt.tight_layout()
+        plt.tight_layout(pad=3)
         plt.ylabel('True label')
-        plt.xlabel('Predicted label\naccuracy={:0.4f}; misclass={:0.4f}'.format(accuracy, misclass))
-        plt.show()
+        plt.xlabel('Predicted label', va='top')
 
-    def plot_PR_curve(self, precision, recall, generate=True, name_plot='pr_curve.png'):
-        plt.figure(figsize=(7, 5))
-        plt.title('Precision-Recall Curve')
-        plt.plot(recall, precision)
-        plt.plot([1, 0], [0, 1], 'r--')
-        plt.ylabel('Precision')
-        plt.xlabel('Recall')
-        plt.legend()
-
-        if generate:
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-            plt.savefig(output_path)
-            return output_path
-        else:
-            plt.show()
-
-    def plot_ROC_curve(self, fpr, tpr, generate=True, name_plot='roc_curve.png'):
-
-        roc_auc = auc(fpr, tpr)
-
-        plt.figure(figsize=(7, 5))
-        plt.title('Roc Curve')
-        plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
-        plt.plot([0, 1], [0, 1], 'r--')
-        plt.ylabel('True Positive Rate')
-        plt.xlabel('False Positive Rate')
-        plt.legend()
-
-        if generate:
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-            plt.savefig(output_path)
-            return output_path
-        else:
-            plt.show()
-
-    def plot_calibration_curve(self, mask, pred, n_bins=None):
-        if n_bins is None:
-            n_bins = self.nb_calibration_bins
-        fraction_of_positives, mean_predicted_value = calibration_curve(mask, pred, n_bins)
-        pass
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path

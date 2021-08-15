@@ -1,190 +1,148 @@
+import os
 import numpy as np
 import pandas as pd
-from PIL import Image
+import matplotlib.pyplot as plt
+from sklearn.metrics import auc
 from metrics import Metrics, DEFAULTS_VARS
+from tqdm import tqdm
+
+FIGSIZE = (8, 6)
 
 
 class BC_Metrics(Metrics):
 
     def __init__(self,
-                 mask_files,
-                 pred_files,
+                 masks,
+                 preds,
                  output_path,
-                 threshold,
+                 nbr_class,
+                 class_labels=None,
+                 threshold=DEFAULTS_VARS['threshold'],
+                 threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 roc_range=DEFAULTS_VARS['roc_range'],
-                 batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers']):
+                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins']):
 
-        super().__init__(mask_files=mask_files,
-                         pred_files=pred_files,
+        super().__init__(masks=masks,
+                         preds=preds,
                          output_path=output_path,
+                         nbr_class=nbr_class,
+                         class_labels=class_labels,
+                         threshold=threshold,
+                         threshold_range=threshold_range,
                          bit_depth=bit_depth,
-                         batch_size=batch_size,
-                         num_workers=num_workers)
+                         nb_calibration_bins=nb_calibration_bins)
 
-        self.nbr_class = 2  # Crée un moyen de récupérer proprement le nombre de classes.
-        self.obs_names = ['tp', 'fn', 'fp', 'tn']
-        self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
-        self.cms = np.zeros((self.nbr_class, self.nbr_class))
-        self.threshold = threshold
-        self.roc_range = roc_range
-        self.type_prob, self.in_prob_range = self.get_info_pred()
-        self.df_dataset, self.df_roc_metrics, self.cms = self.create_data_for_metrics()
-        self.get_metrics_ROC()
-        self.plot_confusion_matrix(self.cms[self.threshold])
-        self.plot_ROC_curve(self.df_roc_metrics['FPR'], self.df_roc_metrics['Recall'], generate=False)
-        self.plot_PR_curve(self.df_roc_metrics['Precision'], self.df_roc_metrics['Recall'], generate=False)
-
-    def get_info_pred(self):
-        """
-            Make test on the first tenth of the predictions to check if inputs preds are in soft or in hard.
-        """
-        pred_samples = self.pred_files[:len(self.pred_files)//10]
-        if len(pred_samples) == 1:
-            pred_samples = list(pred_samples)
-        nuniques = 0
-        maxu = - float('inf')
-        for path_pred in pred_samples:
-            with Image.open(path_pred) as pred:
-                pred = np.array(pred)
-                cr_nuniques = np.unique(pred.flatten())
-                if len(cr_nuniques) > nuniques:
-                    nuniques = len(cr_nuniques)
-                if max(cr_nuniques) > maxu:
-                    maxu = max(cr_nuniques)
-
-        type_prob = 'soft' if nuniques > 2 else 'hard'
-        in_prob_range = True if maxu <= 1 else False
-        return type_prob, in_prob_range
-
-    def to_prob_range(self, value):
-        return value / self.depth_dict[self.bit_depth]
+        self.df_thresholds, self.cms, self.df_report_metrics = self.create_data_for_metrics()
+        self.get_metrics_by_threshold()
 
     def create_data_for_metrics(self):
-        df_dataset = pd.DataFrame(index=range(len(self.pred_files)), columns=['pred', 'mask'] + self.metrics_names)
-        df_dataset['pred'] = self.pred_files
-        df_dataset['mask'] = self.mask_files
-
-        df_roc_metrics = pd.DataFrame(index=range(len(self.roc_range)),
-                                      columns=(['threshold'] + self.obs_names + self.metrics_names))
-        df_roc_metrics['threshold'] = self.roc_range
+        df_thresholds = pd.DataFrame(index=range(len(self.threshold_range)),
+                                     columns=(['threshold'] + self.metrics_names))
+        df_thresholds['threshold'] = self.threshold_range
         cms = {}
-        return df_dataset, df_roc_metrics, cms
+        df_report_metrics = pd.DataFrame(index=['Values'], columns=self.metrics_names[:-1])
+        return df_thresholds, cms, df_report_metrics
 
     def binarize(self, prediction, threshold):
+        pred = prediction.copy()
         if not self.in_prob_range:
-            tmp = np.array(prediction, dtype=np.float32) / 255  # in case of pred in unint8 format.
-        tmp[tmp > threshold] = 1
-        tmp[tmp <= threshold] = 0
-        return tmp
+            pred = self.to_prob_range(pred)
 
-    def get_metrics_by_sample(self):
-        for mask_file, pred_file in zip(self.mask_files, self.pred_files):
-            with Image.open(mask_file) as mask_img:
-                mask = np.array(mask_img)
-            with Image.open(pred_file) as pred_img:
-                pred = np.array(pred_img)
+        pred[pred < threshold] = 0
+        pred[pred >= threshold] = 1
 
-            pred = self.binarize(pred, self.threshold)
-            cm = self.get_confusion_matrix(mask.flatten(), pred.flatten())
-            self.cms += cm
-            cr_metrics = self.get_metrics_from_cm(cm)
+        return pred
 
-            for metric_name in self.metrics_names:
-                self.df_dataset.loc[self.df_dataset['pred'] == pred_file, metric_name] = cr_metrics[metric_name]
+    def get_metrics_by_threshold(self):
 
-    def get_metrics_ROC(self):
-
-        for threshold in self.roc_range:
-
-            threshold_metrics = {name: 0 for name in (self.obs_names + self.metrics_names)}
-
-            for mask_file, pred_file in zip(self.mask_files, self.pred_files):
-
-                with Image.open(mask_file) as mask_img:
-                    mask = np.array(mask_img)
-
-                with Image.open(pred_file) as pred_img:
-                    pred = np.array(pred_img)
+        for threshold in tqdm(self.threshold_range, leave=True):
+            self.cms[threshold] = np.zeros([self.nbr_class, self.nbr_class])
+            for mask, pred in zip(self.masks, self.preds):
                 pred = self.binarize(pred, threshold)
                 cm = self.get_confusion_matrix(mask.flatten(), pred.flatten())
-                self.cms[threshold] = cm
-                cr_metrics = self.get_metrics_from_cm(cm)
-                threshold_metrics.update({
-                    name: threshold_metrics[name] + cr_metrics[name] for name in (self.obs_names + self.metrics_names)})
+                self.cms[threshold] += cm
+            cr_metrics = self.get_metrics_from_cm(self.cms[threshold])
 
-            for metric, metric_value in threshold_metrics.items():
-                self.df_roc_metrics.loc[self.df_roc_metrics['threshold'] == threshold, metric] = \
-                    metric_value / len(self.mask_files)
+            for metric, metric_value in cr_metrics.items():
+                self.df_thresholds.loc[self.df_thresholds['threshold'] == threshold, metric] = metric_value
 
-    def get_confusion_matrix(self, prediction, target):
-        """Returns the confusion matrix for one class or threshold.
-        TP (true positives): the number of correctly classified pixels (1 -> 1)
-        TN (true negatives): the number of correctly not classified pixels (0 -> 0)
-        FP (false positives): the number of pixels wrongly classified (0 -> 1)
-        FN (false negatives): the number of pixels wrongly not classifed (1 -> 0)
-
-        Parameters
-        ----------
-        prediction : ndarray
-            binary inference
-        target : ndarray
-            binary ground truth
-
-        Returns
-        -------
-        ndarray
-            confusion matrix [[TP,FN],[FP,TN]]
-        """
-        tp = np.sum(np.logical_and(target, prediction))
-        tn = np.sum(np.logical_not(np.logical_or(target, prediction)))
-        fp = np.sum(prediction[target == 0] == 1)
-        fn = np.sum(prediction[target == 1] == 0)
-        return np.array([[tp, fn], [fp, tn]])
+        self.df_report_metrics.loc['Values'] = \
+            self.df_thresholds.loc[self.df_thresholds['threshold'] == self.threshold, self.metrics_names[:-1]].values
 
     def get_metrics_from_cm(self, cm):
         tp, fn, fp, tn = cm.ravel()
+        return self.get_metrics_from_obs(tp, fn, fp, tn)
 
-        # Accuracy
-        if tp != 0 or tn != 0:
-            accuracy = (tp + tn) / (tp + fp + tn + fn)
-        else:
-            accuracy = 0
+    def plot_PR_curve(self, precision, recall, name_plot='pr_curve.png'):
 
-        # Specificity
-        if tn != 0:
-            specificity = tn/(tn + fp)
-        else:
-            specificity = 0
+        precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
+        idx = np.argsort(recall)
+        recall, precision = recall[idx], precision[idx]
+        pr_auc = auc(recall, precision)
 
-        # Precision, Recall, F1-Score and IoU
-        if tp != 0:
-            precision = tp / (tp + fp)
-            recall = tp/(tp + fn)
-            f1_score = (2 * tp) / (2 * tp + fp + fn)
-            iou = tp / (tp + fp + fn)
-        else:
-            precision = 0
-            recall = 0
-            f1_score = 0
-            iou = 0
+        plt.figure(figsize=FIGSIZE)
+        plt.title('Precision-Recall Curve')
+        plt.plot(recall, precision, label='AUC = %0.3f' % pr_auc)
+        plt.plot([1, 0], [0, 1], 'r--')
+        plt.ylabel('Precision')
+        plt.xlabel('Recall')
+        plt.legend()
+        plt.grid(True)
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
 
-        # False Positive Rate (FPR)
-        if fp != 0:
-            fpr = fp / (fp + tn)
-        else:
-            fpr = 0
+    def plot_ROC_curve(self, fpr, tpr, name_plot='roc_curve.png'):
 
-        return {'tp': tp,
-                'fn': fn,
-                'fp': fp,
-                'tn': tn,
-                'Accuracy': accuracy,
-                'Precision': precision,
-                'Recall': recall,
-                'Specificity': specificity,
-                'F1-Score': f1_score,
-                'IoU': iou,
-                'FPR': fpr}
+        # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
+        # fpr, tpr = np.insert(fpr.to_numpy(), 0, 0), np.insert(tpr.to_numpy(), 0, 0)
+        fpr, tpr = fpr[::-1], tpr[::-1]
+        roc_auc = auc(fpr, tpr)
 
+        plt.figure(figsize=FIGSIZE)
+        plt.title('Roc Curve')
+        plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
+        plt.plot([0, 1], [0, 1], 'r--')
+        plt.ylabel('True Positive Rate')
+        plt.xlabel('False Positive Rate')
+        plt.legend()
+        plt.grid(True)
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
+
+    def plot_calibration_curve(self, n_bins=None, name_plot='calibration_curves.png'):
+
+        if n_bins is None:
+            n_bins = self.nb_calibration_bins
+
+        bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
+        bins_labels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        hist_counts = np.zeros(len(bins) - 1)
+        bin_sums = np.zeros(len(bins))
+        bin_true = np.zeros(len(bins))
+        bin_total = np.zeros(len(bins))
+
+        for mask, pred in tqdm(zip(self.masks, self.preds), desc='Calibration curves', leave=True):
+            pred.copy()
+            if not self.in_prob_range:
+                pred = self.to_prob_range(pred)
+            hist_counts += np.histogram(pred.flatten(), bins=bins)[0]
+            binids = np.digitize(pred.flatten(), bins) - 1
+            bin_sums += np.bincount(binids, weights=pred.flatten(), minlength=len(bins))
+            bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(bins))
+            bin_total += np.bincount(binids, minlength=len(bins))
+
+        nonzero = bin_total != 0
+        prob_true = bin_true[nonzero] / bin_total[nonzero]
+        prob_pred = bin_sums[nonzero] / bin_total[nonzero]
+
+        plt.figure(figsize=(16, 8))
+        plt.subplot(211)
+        plt.plot(prob_true, prob_pred, "s-")
+        plt.subplot(212)
+        plt.bar(list(range(len(hist_counts))), hist_counts, tick_label=bins_labels)
+
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path

@@ -12,7 +12,7 @@ The metrics computed are in each case :
     - F1 Score
     - IoU
     - Dice
-    - AUC Score
+    - AUC Score for ROC and PR curves
     - Expected Calibration Error (ECE)
     - Calibration Curve
     - KL Divergence
@@ -32,11 +32,8 @@ from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from metrics_factory import Metrics_Factory
-# from odeon.commons.metrics import Metrics
-
-ROC_RANGE = np.arange(0, 1.1, 0.1)
-BATCH_SIZE = 1
-NUM_WORKERS = 1
+from PIL import Image
+from metrics import DEFAULTS_VARS
 
 
 class CLI_Metrics(BaseTool):
@@ -46,31 +43,38 @@ class CLI_Metrics(BaseTool):
                  pred_path,
                  output_path,
                  type_classifier,
-                 threshold,
-                 batch_size=BATCH_SIZE,
-                 num_workers=NUM_WORKERS):
+                 class_labels=None,
+                 threshold=DEFAULTS_VARS['threshold'],
+                 threshold_range=DEFAULTS_VARS['threshold_range'],
+                 bit_depth=DEFAULTS_VARS['bit_depth'],
+                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins']):
 
         self.mask_path = mask_path
         self.pred_path = pred_path
         self.output_path = output_path
         self.type_classifier = type_classifier
+        self.class_labels = class_labels,
         self.threshold = threshold
-        self.batch_size = batch_size
-        self.num_workers = num_workers
+        self.threshold_range = threshold_range
+        self.bit_depth = bit_depth
+        self.nb_calibration_bins = nb_calibration_bins
 
-        self.mask_files, self.pred_files = self.files_from_input_paths()
+        self.mask_files, self.pred_files = self.get_files_from_input_paths()
+        self.height, self.width, self.nbr_class = self.get_samples_shapes()
+        self.masks, self.preds = self.get_array_from_files()
 
-        self.metrics = Metrics_Factory(self.type_classifier)(mask_files=self.mask_files,
-                                                             pred_files=self.pred_files,
+        self.metrics = Metrics_Factory(self.type_classifier)(masks=self.masks,
+                                                             preds=self.preds,
                                                              output_path=self.output_path,
+                                                             nbr_class=self.nbr_class,
+                                                             class_labels=self.class_labels,
                                                              threshold=self.threshold,
-                                                             batch_size=self.batch_size,
-                                                             num_workers=self.num_workers)
+                                                             threshold_range=self.threshold_range)
 
     def __call__(self):
         self.metrics()
 
-    def files_from_input_paths(self):
+    def get_files_from_input_paths(self):
         if not os.path.exists(self.mask_path):
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
                              f"Masks folder ${self.mask_path} does not exist.")
@@ -106,13 +110,54 @@ class CLI_Metrics(BaseTool):
                 LOGGER.warning(f'Problem of matching names between mask {msk} and prediction {pred}.')
         return mask_files, pred_files
 
+    def get_samples_shapes(self):
+        mask_file, pred_file = self.mask_files[0], self.pred_files[0]
+
+        with Image.open(mask_file) as mask_img:
+            mask = np.array(mask_img)
+        with Image.open(pred_file) as pred_img:
+            pred = np.array(pred_img)
+
+        assert mask.shape == pred.shape, "Mask shape and prediction shape should be the same."
+        if len(mask.shape) == 2:
+            nbr_class = 2
+        else:
+            nbr_class = mask.shape[-1]
+        return mask.shape[0], mask.shape[1], nbr_class
+
+    def get_array_from_files(self):
+        """[summary]
+        WARNING : Need to cast masks and preds from uint8 to float to use this metrics tool!!
+        Returns
+        -------
+        [type]
+            [description]
+        """
+        if self.nbr_class == 2:
+            masks = np.zeros([len(self.mask_files), self.height, self.width])
+            preds = np.zeros([len(self.mask_files), self.height, self.width])
+
+        else:
+            masks = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
+            preds = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
+
+        for index, sample in enumerate(zip(self.mask_files, self.pred_files)):
+            assert os.path.basename(sample[0]) == os.path.basename(sample[1]), \
+             "Each mask should have its corresponding prediction with the same name."
+
+            with Image.open(sample[0]) as mask_img:
+                masks[index] = np.array(mask_img, dtype=np.float32)
+
+            with Image.open(sample[1]) as pred_img:
+                preds[index] = np.array(pred_img, dtype=np.float32)
+        return masks, preds
+
 
 if __name__ == '__main__':
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    output_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/outputs'
-    print('------------------------------------------------------------------------------ ')
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary case', threshold=0.5)
+    output_path = '/home/SPeillet/OCSGE/metrics.html'
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary case')
     metrics()
 
