@@ -1,7 +1,7 @@
-from odeon.commons.report import Report
+from odeon.commons.reports.report import Report
 
 
-class BC_Metrics_Report(Report):
+class Report_Binary(Report):
 
     def __init__(self, input_object):
         """Init function of a Metric_Report object.

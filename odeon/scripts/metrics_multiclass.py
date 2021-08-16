@@ -2,17 +2,19 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.metrics import auc
 from metrics import Metrics, DEFAULTS_VARS
 # from tqdm import tqdm
 # from odeon.commons.metrics import Metrics
 
 
-class MC_1L_Metrics(Metrics):
+class Metrics_Multiclass(Metrics):
 
     def __init__(self,
                  masks,
                  preds,
                  output_path,
+                 type_classifier,
                  nbr_class,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
@@ -23,6 +25,7 @@ class MC_1L_Metrics(Metrics):
         super().__init__(masks=masks,
                          preds=preds,
                          output_path=output_path,
+                         type_classifier=type_classifier,
                          nbr_class=nbr_class,
                          class_labels=class_labels,
                          threshold=threshold,
@@ -44,15 +47,10 @@ class MC_1L_Metrics(Metrics):
                                        columns=self.metrics_names[:-1])
         return df_report_classes, df_report_micro, df_report_macro
 
-    def binarize(self, mask, pred):
-        if not self.in_prob_range:
-            pred = self.to_prob_range(pred)
-        return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
-
     def get_cm_micro(self):
         cm_micro = np.zeros([self.nbr_class, self.nbr_class])
         for mask, pred in zip(self.masks, self.preds):
-            mask, pred = self.binarize(mask, pred)
+            mask, pred = self.binarize(self.type_classifier, pred, mask=mask)
             cm = self.get_confusion_matrix(mask.flatten(), pred.flatten())
             cm_micro += cm
         return cm_micro
@@ -114,7 +112,65 @@ class MC_1L_Metrics(Metrics):
 
         self.df_report_macro.loc['Values'] = list(self.metrics_macro.values())[:-1]
 
-    def plot_calibration_curve(self, n_bins=None, name_plot='mc_1l_calibration_curves.png'):
+    def plot_ROC_PR_per_class(self, name_plot='roc_pr_curves.png'):
+
+        vect_classes = {}
+        for i, class_i in enumerate(self.class_labels):
+            vects = {'Recall': [],
+                     'FPR': [],
+                     'Precision': []}
+            for threshold in self.threshold_range:
+                cms = np.zeros([2, 2])
+                for mask, pred in zip(self.masks, self.preds):
+                    class_mask = mask[:, :, i]
+                    class_pred = pred[:, :, i]
+                    bin_pred = self.binarize('Binary', class_pred, threshold=threshold)
+                    cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
+                    cms += cm
+                cr_metrics = self.get_metrics_from_obs(cms[0][0],
+                                                       cms[0][1],
+                                                       cms[1][0],
+                                                       cms[1][1])
+                vects['Recall'].append(cr_metrics['Recall'])
+                vects['FPR'].append(cr_metrics['FPR'])
+                vects['Precision'].append(cr_metrics['Precision'])
+            vect_classes[class_i] = vects
+
+        plt.figure(figsize=(16, 8))
+        plt.subplot(121)
+        for class_i in self.class_labels:
+            fpr = np.array(vect_classes[class_i]['FPR'])[::-1]
+            tpr = np.array(vect_classes[class_i]['Recall'])[::-1]
+            roc_auc = auc(fpr, tpr)
+            plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}')
+        plt.plot([0, 1], [0, 1], 'r--')
+        plt.ylabel('True Positive Rate')
+        plt.xlabel('False Positive Rate')
+        plt.title('Roc Curves')
+        plt.legend()
+        plt.grid(True)
+
+        plt.subplot(122)
+        for class_i in self.class_labels:
+            precision = np.array(vect_classes[class_i]['Precision'])
+            recall = np.array(vect_classes[class_i]['Recall'])
+            precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
+            idx = np.argsort(recall)
+            recall, precision = recall[idx], precision[idx]
+            pr_auc = auc(recall, precision)
+            plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}')
+        plt.plot([1, 0], [0, 1], 'r--')
+        plt.title('Precision-Recall Curve')
+        plt.ylabel('Precision')
+        plt.xlabel('Recall')
+        plt.legend()
+        plt.grid(True)
+
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
+
+    def plot_calibration_curve(self, n_bins=None, name_plot='multiclass_calibration_curves.png'):
 
         if n_bins is None:
             n_bins = self.nb_calibration_bins

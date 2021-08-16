@@ -9,14 +9,14 @@ from tqdm import tqdm
 FIGSIZE = (8, 6)
 
 
-class BC_Metrics(Metrics):
+class Metrics_Binary(Metrics):
 
     def __init__(self,
                  masks,
                  preds,
                  output_path,
+                 type_classifier,
                  nbr_class,
-                 
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -26,6 +26,7 @@ class BC_Metrics(Metrics):
         super().__init__(masks=masks,
                          preds=preds,
                          output_path=output_path,
+                         type_classifier=type_classifier,
                          nbr_class=nbr_class,
                          class_labels=class_labels,
                          threshold=threshold,
@@ -44,22 +45,12 @@ class BC_Metrics(Metrics):
         df_report_metrics = pd.DataFrame(index=['Values'], columns=self.metrics_names[:-1])
         return df_thresholds, cms, df_report_metrics
 
-    def binarize(self, prediction, threshold):
-        pred = prediction.copy()
-        if not self.in_prob_range:
-            pred = self.to_prob_range(pred)
-
-        pred[pred < threshold] = 0
-        pred[pred >= threshold] = 1
-
-        return pred
-
     def get_metrics_by_threshold(self):
 
         for threshold in tqdm(self.threshold_range, leave=True):
             self.cms[threshold] = np.zeros([self.nbr_class, self.nbr_class])
             for mask, pred in zip(self.masks, self.preds):
-                pred = self.binarize(pred, threshold)
+                pred = self.binarize(self.type_classifier, pred, threshold=threshold)
                 cm = self.get_confusion_matrix(mask.flatten(), pred.flatten())
                 self.cms[threshold] += cm
             cr_metrics = self.get_metrics_from_cm(self.cms[threshold])
@@ -74,7 +65,7 @@ class BC_Metrics(Metrics):
         tp, fn, fp, tn = cm.ravel()
         return self.get_metrics_from_obs(tp, fn, fp, tn)
 
-    def plot_PR_curve(self, precision, recall, name_plot='pr_curve.png'):
+    def plot_PR_curve(self, precision, recall, name_plot='binary_pr_curve.png'):
 
         precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
         idx = np.argsort(recall)
@@ -93,7 +84,7 @@ class BC_Metrics(Metrics):
         plt.savefig(output_path)
         return output_path
 
-    def plot_ROC_curve(self, fpr, tpr, name_plot='roc_curve.png'):
+    def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png'):
 
         # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
         # fpr, tpr = np.insert(fpr.to_numpy(), 0, 0), np.insert(tpr.to_numpy(), 0, 0)
@@ -112,7 +103,7 @@ class BC_Metrics(Metrics):
         plt.savefig(output_path)
         return output_path
 
-    def plot_calibration_curve(self, n_bins=None, name_plot='calibration_curves.png'):
+    def plot_calibration_curve(self, n_bins=None, name_plot='binary_calibration_curves.png'):
 
         if n_bins is None:
             n_bins = self.nb_calibration_bins

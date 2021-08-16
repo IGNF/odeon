@@ -66,10 +66,13 @@ class CLI_Metrics(BaseTool):
         self.metrics = Metrics_Factory(self.type_classifier)(masks=self.masks,
                                                              preds=self.preds,
                                                              output_path=self.output_path,
+                                                             type_classifier=self.type_classifier,
                                                              nbr_class=self.nbr_class,
                                                              class_labels=self.class_labels,
                                                              threshold=self.threshold,
-                                                             threshold_range=self.threshold_range)
+                                                             threshold_range=self.threshold_range,
+                                                             bit_depth=self.bit_depth,
+                                                             nb_calibration_bins=self.nb_calibration_bins)
 
     def __call__(self):
         self.metrics()
@@ -179,11 +182,12 @@ if __name__ == '__main__':
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
     # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary case')
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
+
     # Cas multiclass avec du soft
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multi-class mono-label')
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
     metrics()
 

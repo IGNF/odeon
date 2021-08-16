@@ -1,7 +1,7 @@
-from odeon.commons.report import Report
+from odeon.commons.reports.report import Report
 
 
-class MC_1L_Metrics_Report(Report):
+class Report_Multiclass(Report):
 
     def __init__(self, input_object):
         """Init function of a Metric_Report object.
@@ -58,7 +58,7 @@ class MC_1L_Metrics_Report(Report):
                     self.input_object.cm_macro,
                     nbr_class=2,
                     name_plot='cm_macro.png',
-                    cmap='summer')} /></p>'
+                    cmap='summer')} /></p>
 
             <h2>Micro Strategy</h2>
             <h3>* Metrics</h3>
@@ -67,14 +67,17 @@ class MC_1L_Metrics_Report(Report):
             <p><img alt="Macro Confusion Matrix" src={
                 self.input_object.plot_confusion_matrix(
                     self.input_object.cm_micro,
-                    name_plot='cm_micro.png')} /></p>'
+                    name_plot='cm_micro.png')} /></p>
 
             <h2>Per class Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_classes))}
             <h3>* Calibration Curve</h3>
             <p><img alt="Calibration Curve" src={
-                self.input_object.plot_calibration_curve()} /></p>'
+                self.input_object.plot_calibration_curve()} /></p>
+            <h3>* ROC and PR Curves</h3>
+            <p><img alt="ROC and PR Curves" src={
+                self.input_object.plot_ROC_PR_per_class()} /></p>
             """
         with open(self.input_object.output_path, "w") as output_file:
             output_file.write(header_html)

@@ -1,12 +1,10 @@
-from bc_metrics import BC_Metrics
-from mc_1l_metrics import MC_1L_Metrics
-from mc_ml_metrics import MC_ML_Metrics
+from metrics_binary import Metrics_Binary
+from metrics_multiclass import Metrics_Multiclass
 
 
 def Metrics_Factory(type_classifier):
 
-    metrics = {"Binary case": BC_Metrics,
-               "Multi-class mono-label": MC_1L_Metrics,
-               "Multi-class multi-label": MC_ML_Metrics}
+    metrics = {"Binary": Metrics_Binary,
+               "Multiclass": Metrics_Multiclass}
 
     return metrics[type_classifier]

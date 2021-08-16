@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import entropy
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from odeon.commons.report_factory import Report_Factory
+from odeon.commons.reports.report_factory import Report_Factory
 
 BATCH_SIZE = 1
 NUM_WORKERS = 1

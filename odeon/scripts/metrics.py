@@ -28,7 +28,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itertools
 from abc import ABC, abstractmethod
-from odeon.commons.report_factory import Report_Factory
+from odeon import LOGGER
+from odeon.commons.reports.report_factory import Report_Factory
 
 FIGSIZE = (8, 6)
 DEFAULTS_VARS = {'threshold': 0.5,
@@ -43,6 +44,7 @@ class Metrics(ABC):
                  masks,
                  preds,
                  output_path,
+                 type_classifier,
                  nbr_class,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
@@ -53,7 +55,9 @@ class Metrics(ABC):
         self.masks = masks
         self.preds = preds
         self.output_path = output_path
+        self.type_classifier = type_classifier
         self.nbr_class = nbr_class
+
         if all(class_labels):
             self.class_labels = class_labels
         else:
@@ -74,7 +78,6 @@ class Metrics(ABC):
                            '16 bits': 65535}
 
         self.type_prob, self.in_prob_range = self.get_info_pred()
-
         self.report = Report_Factory(self)
 
     def __call__(self):
@@ -85,10 +88,25 @@ class Metrics(ABC):
         pass
 
     @abstractmethod
-    def binarize(self):
+    def get_metrics_from_cm(self):
         pass
 
-    def get_confusion_matrix(self, truth, pred):
+    def binarize(self, type_classifier, prediction, mask=None, threshold=None):
+        pred = prediction.copy()
+        if not self.in_prob_range:
+            pred = self.to_prob_range(pred)
+        if type_classifier == 'Multiclass':
+            assert mask is not None
+            return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
+        elif type_classifier == 'Binary':
+            assert threshold is not None
+            pred[pred < threshold] = 0
+            pred[pred >= threshold] = 1
+            return pred
+        else:
+            LOGGER.error('ERROR: type_classifier should be Binary or Multiclass')
+
+    def get_confusion_matrix(self, truth, pred, nbr_class=None):
         """
         Return confusion matrix
         In binary case:
@@ -108,15 +126,17 @@ class Metrics(ABC):
             [description]
         """
         assert isinstance(truth, (np.ndarray, np.generic)) and isinstance(pred, (np.ndarray, np.generic))
-        cm = np.zeros([self.nbr_class, self.nbr_class], dtype=np.float64)
-        for i, class_i in enumerate(self.class_ids):
-            for j, class_j in enumerate(self.class_ids):
+        if nbr_class is None:
+            nbr_class = self.nbr_class
+            class_ids = self.class_ids
+        else:
+            class_ids = list(range(nbr_class))
+
+        cm = np.zeros([nbr_class, nbr_class], dtype=np.float64)
+        for i, class_i in enumerate(class_ids):
+            for j, class_j in enumerate(class_ids):
                 cm[i, j] = np.sum(np.logical_and(truth == class_i, pred == class_j))
         return np.flip(cm)
-
-    @abstractmethod
-    def get_metrics_from_cm(self):
-        pass
 
     def get_metrics_from_obs(self, tp, fn, fp, tn):
 
@@ -189,7 +209,7 @@ class Metrics(ABC):
                               normalize=True,
                               name_plot='confusion_matrix.png'):
         """
-        Given a sklearn confusion matrix (cm), return a nice plot.
+        Given a confusion matrix (cm) in np.ndarray, return its plot.
 
         Arguments
         ---------
@@ -231,7 +251,7 @@ class Metrics(ABC):
                          color="white" if cm[i, j] > thresh else "black")
         plt.tight_layout(pad=3)
         plt.ylabel('True label')
-        plt.xlabel('Predicted label', va='top')
+        plt.xlabel('Predicted label')
 
         output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.savefig(output_path)

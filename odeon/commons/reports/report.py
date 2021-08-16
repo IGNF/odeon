@@ -10,7 +10,7 @@ import pandas as pd
 from odeon import LOGGER
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 
-HTML_FILE = 'odeon/commons/jupyter_layout.html'
+HTML_FILE = 'odeon/commons/reports/jupyter_layout.html'
 PADDING = 1
 ROUND_DECIMALS = 3
 

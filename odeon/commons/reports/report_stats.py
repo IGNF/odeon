@@ -1,8 +1,8 @@
 import json
-from odeon.commons.report import Report
+from odeon.commons.reports.report import Report
 
 
-class Stats_Report(Report):
+class Report_Stats(Report):
     """Class to make report with the results of an object Statistics.
     """
     def __init__(self, input_object):
