@@ -1,6 +1,9 @@
+import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from metrics import Metrics, DEFAULTS_VARS
+# from tqdm import tqdm
 # from odeon.commons.metrics import Metrics
 
 
@@ -30,9 +33,10 @@ class MC_1L_Metrics(Metrics):
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
         self.cm_micro = self.get_cm_micro()
         self.metrics_by_class, self.metrics_micro, self.metrics_macro = self.get_metrics_from_cm()
+        self.metrics_to_df_reports()
 
     def create_data_for_metrics(self):
-        df_report_classes = pd.DataFrame(index=[class_name for class_name in self.classes_labels],
+        df_report_classes = pd.DataFrame(index=[class_name for class_name in self.class_labels],
                                          columns=self.metrics_names[:-1])
         df_report_micro = pd.DataFrame(index=['Values'],
                                        columns=['Precision', 'Recall', 'F1-Score', 'IoU'])
@@ -41,6 +45,8 @@ class MC_1L_Metrics(Metrics):
         return df_report_classes, df_report_micro, df_report_macro
 
     def binarize(self, mask, pred):
+        if not self.in_prob_range:
+            pred = self.to_prob_range(pred)
         return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
 
     def get_cm_micro(self):
@@ -53,7 +59,7 @@ class MC_1L_Metrics(Metrics):
 
     def get_obs_by_class_from_cm(self, cm):
         obs_by_class = {}
-        for i, class_i in enumerate(self.classes):
+        for i, class_i in enumerate(self.class_labels):
             obs_by_class[class_i] = {'tp': cm[i, i],
                                      'fn': np.sum(cm[i, :]) - cm[i, i],
                                      'fp': np.sum(cm[:, i]) - cm[i, i],
@@ -74,11 +80,13 @@ class MC_1L_Metrics(Metrics):
         self.cms_classes = np.zeros([self.nbr_class, 2, 2])
 
         metrics_by_class = {}
-        for i, class_i in enumerate(self.classes):
+        for i, class_i in enumerate(self.class_labels):
             self.cms_classes[i] = np.array([[obs_by_class[class_i]['tp'], obs_by_class[class_i]['fn']],
                                             [obs_by_class[class_i]['fp'], obs_by_class[class_i]['tn']]])
-            metrics_by_class[class_i] = self.get_metrics_from_obs(self.cms_classes[i].ravel())
-
+            metrics_by_class[class_i] = self.get_metrics_from_obs(obs_by_class[class_i]['tp'],
+                                                                  obs_by_class[class_i]['fn'],
+                                                                  obs_by_class[class_i]['fp'],
+                                                                  obs_by_class[class_i]['tn'])
         self.cm_macro = np.sum(self.cms_classes, axis=0)
 
         # We will only look at Precision, Recall, F1-Score and IoU.
@@ -88,6 +96,88 @@ class MC_1L_Metrics(Metrics):
                                                   obs_micro['fp'],
                                                   0)
 
-        metrics_macro = self.get_metrics_from_obs(self.cm_macro.ravel())
+        metrics_macro = self.get_metrics_from_obs(self.cm_macro[0][0],
+                                                  self.cm_macro[0][1],
+                                                  self.cm_macro[1][0],
+                                                  self.cm_macro[1][1])
 
         return metrics_by_class, metrics_micro, metrics_macro
+
+    def metrics_to_df_reports(self):
+        for class_i in self.class_labels:
+            self.df_report_classes.loc[class_i] = list(self.metrics_by_class[class_i].values())[:-1]
+
+        self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
+                                              self.metrics_micro['Recall'],
+                                              self.metrics_micro['F1-Score'],
+                                              self.metrics_micro['IoU']]
+
+        self.df_report_macro.loc['Values'] = list(self.metrics_macro.values())[:-1]
+
+    def plot_calibration_curve(self, n_bins=None, name_plot='mc_1l_calibration_curves.png'):
+
+        if n_bins is None:
+            n_bins = self.nb_calibration_bins
+        bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
+        dict_hist_counts, dict_prob_true, dict_prob_pred = {}, {}, {}
+
+        for i, class_i in enumerate(self.class_labels):
+            hist_counts = np.zeros(len(bins) - 1)
+            bin_sums = np.zeros(len(bins))
+            bin_true = np.zeros(len(bins))
+            bin_total = np.zeros(len(bins))
+
+            for mask, pred in zip(self.masks, self.preds):
+                pred = pred.copy()[:, :, i]
+                mask = mask.copy()[:, :, i]
+
+                if not self.in_prob_range:
+                    pred = self.to_prob_range(pred)
+                # For plot 2, bincounts for histogram of prediction
+                hist_counts += np.histogram(pred.flatten(), bins=bins)[0]
+
+                # For plot 1
+                # Indices of the bins where the predictions will be in there.
+                binids = np.digitize(pred.flatten(), bins) - 1
+                # Bins counts of indices times the values of the predictions.
+                bin_sums += np.bincount(binids, weights=pred.flatten(), minlength=len(bins))
+                # Bins counts of indices times the values of the masks.
+                bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(bins))
+                # Total number observation per bins.
+                bin_total += np.bincount(binids, minlength=len(bins))
+
+            nonzero = bin_total != 0  # Avoid to display null bins.
+            prob_true = bin_true[nonzero] / bin_total[nonzero]
+            prob_pred = bin_sums[nonzero] / bin_total[nonzero]
+
+            dict_hist_counts[class_i] = hist_counts
+            dict_prob_true[class_i] = prob_true
+            dict_prob_pred[class_i] = prob_pred
+
+        # Normalize dict_hist_counts to put the values between 0 and 1:
+        total_pixel = np.sum(dict_hist_counts[self.class_labels[0]])
+        dict_hist_counts = {key: value / total_pixel for key, value in dict_hist_counts.items()}
+
+        plt.figure(figsize=(16, 8))
+        # Plot 1: calibration curves
+        plt.subplot(211)
+        plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+        for class_i in self.class_labels:
+            plt.plot(dict_prob_true[class_i], dict_prob_pred[class_i], "s-", label=class_i)
+        plt.legend(loc="lower right")
+        plt.title('Calibration plots  (reliability curve)')
+        plt.ylabel('Fraction of positives')
+        plt.xlabel('Probalities')
+
+        # Plot 2: Hist of predictions distributions
+        plt.subplot(212)
+        for class_i in self.class_labels:
+            plt.hist(dict_hist_counts[class_i], bins=bins, histtype="step", label=class_i, lw=2)
+        plt.ylabel('Count')
+        plt.xlabel('Mean predicted value')
+        plt.legend(loc="upper center")
+        plt.tight_layout(pad=3)
+
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path

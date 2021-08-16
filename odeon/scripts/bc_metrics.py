@@ -16,6 +16,7 @@ class BC_Metrics(Metrics):
                  preds,
                  output_path,
                  nbr_class,
+                 
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -117,32 +118,51 @@ class BC_Metrics(Metrics):
             n_bins = self.nb_calibration_bins
 
         bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
-        bins_labels = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         hist_counts = np.zeros(len(bins) - 1)
         bin_sums = np.zeros(len(bins))
         bin_true = np.zeros(len(bins))
         bin_total = np.zeros(len(bins))
 
-        for mask, pred in tqdm(zip(self.masks, self.preds), desc='Calibration curves', leave=True):
-            pred.copy()
+        for mask, pred in zip(self.masks, self.preds):
+            pred = pred.copy()
             if not self.in_prob_range:
                 pred = self.to_prob_range(pred)
+            # For plot 2, bincounts for histogram of prediction
             hist_counts += np.histogram(pred.flatten(), bins=bins)[0]
+
+            # For plot 1
+            # Indices of the bins where the predictions will be in there.
             binids = np.digitize(pred.flatten(), bins) - 1
+            # Bins counts of indices times the values of the predictions.
             bin_sums += np.bincount(binids, weights=pred.flatten(), minlength=len(bins))
+            # Bins counts of indices times the values of the masks.
             bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(bins))
+            # Total number observation per bins.
             bin_total += np.bincount(binids, minlength=len(bins))
 
-        nonzero = bin_total != 0
+        nonzero = bin_total != 0  # Avoid to display null bins.
         prob_true = bin_true[nonzero] / bin_total[nonzero]
         prob_pred = bin_sums[nonzero] / bin_total[nonzero]
 
+        # Normalize hist_counts to put the values between 0 and 1:
+        hist_counts /= np.sum(hist_counts)
+
         plt.figure(figsize=(16, 8))
         plt.subplot(211)
-        plt.plot(prob_true, prob_pred, "s-")
-        plt.subplot(212)
-        plt.bar(list(range(len(hist_counts))), hist_counts, tick_label=bins_labels)
+        # Plot 1: calibration curves
+        plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+        plt.plot(prob_true, prob_pred, "s-", label="Class 1")
+        plt.legend(loc="lower right")
+        plt.title('Calibration plots  (reliability curve)')
+        plt.ylabel('Fraction of positives')
+        plt.xlabel('Probalities')
 
+        plt.subplot(212)
+        # Plot 2: Hist of predictions distributions
+        plt.hist(hist_counts, histtype="step", bins=bins, label="Class 1", lw=2)
+        plt.ylabel('Count')
+        plt.xlabel('Mean predicted value')
+        plt.legend(loc="upper center")
         output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.savefig(output_path)
         return output_path

@@ -9,11 +9,9 @@ The metrics computed are in each case :
     - Precision
     - Recall
     - Specificity
-    - F1 Score
+    - F1 Score / Dice
     - IoU
-    - Dice
     - AUC Score
-    - Expected Calibration Error (ECE)
     - Calibration Curve
     - KL Divergence
 
@@ -59,7 +57,7 @@ class Metrics(ABC):
         if all(class_labels):
             self.class_labels = class_labels
         else:
-            self.class_labels = [f'class {i}' for i in range(self.nbr_class)]
+            self.class_labels = [f'class {i + 1}' for i in range(self.nbr_class)]
 
         self.class_ids = np.arange(self.nbr_class)  # Each class is identified by a number
         self.threshold = threshold
@@ -185,6 +183,7 @@ class Metrics(ABC):
 
     def plot_confusion_matrix(self,
                               cm,
+                              nbr_class=None,
                               title='Confusion matrix',
                               cmap=None,
                               normalize=True,
@@ -202,7 +201,6 @@ class Metrics(ABC):
         normalize:    If False, plot the raw numbers
                       If True, plot the proportions
         """
-
         if cmap is None:
             cmap = plt.get_cmap('Blues')
 
@@ -210,10 +208,14 @@ class Metrics(ABC):
         plt.imshow(cm, cmap=cmap)
         plt.title(title)
         plt.colorbar()
-
-        tick_marks = np.arange(self.nbr_class)
-        plt.xticks(ticks=tick_marks, labels=self.class_labels)
-        plt.yticks(tick_marks, self.class_labels)
+        if nbr_class is not None:
+            tick_marks = np.arange(nbr_class)
+            plt.xticks(tick_marks, labels=[0, 1])
+            plt.yticks(tick_marks, labels=[0, 1])
+        else:
+            tick_marks = np.arange(self.nbr_class)
+            plt.xticks(tick_marks, labels=self.class_labels)
+            plt.yticks(tick_marks, self.class_labels)
 
         if normalize:
             cm = cm.astype('float') / np.sum(cm.flatten())
@@ -222,7 +224,7 @@ class Metrics(ABC):
         for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
             if normalize:
                 plt.text(j, i, "{:0.3f}".format(cm[i, j]), horizontalalignment="center",
-                         color="white" if cm[i, j] > thresh else "black")
+                         color="white" if cm[i, j] > thresh and cmap == plt.get_cmap('Blues') else "black")
             else:
                 plt.text(j, i, "{:,}".format(cm[i, j]),
                          horizontalalignment="center",

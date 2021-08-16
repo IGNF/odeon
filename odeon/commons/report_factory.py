@@ -1,5 +1,6 @@
 from odeon.commons.stats_report import Stats_Report
 from odeon.commons.bc_metrics_report import BC_Metrics_Report
+from odeon.commons.mc_1l_metrics_report import MC_1L_Metrics_Report
 
 
 def Report_Factory(input_object):
@@ -16,5 +17,6 @@ def Report_Factory(input_object):
         An object making the report.
     """
     reports = {"Statistics": Stats_Report,
-               "BC_Metrics": BC_Metrics_Report}
+               "BC_Metrics": BC_Metrics_Report,
+               "MC_1L_Metrics": MC_1L_Metrics_Report}
     return reports[input_object.__class__.__name__](input_object)

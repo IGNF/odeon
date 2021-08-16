@@ -30,9 +30,9 @@ import csv
 import numpy as np
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
+from odeon.commons.image import image_to_ndarray
 from odeon.commons.exception import OdeonError, ErrorCodes
 from metrics_factory import Metrics_Factory
-from PIL import Image
 from metrics import DEFAULTS_VARS
 
 
@@ -113,13 +113,20 @@ class CLI_Metrics(BaseTool):
     def get_samples_shapes(self):
         mask_file, pred_file = self.mask_files[0], self.pred_files[0]
 
-        with Image.open(mask_file) as mask_img:
-            mask = np.array(mask_img)
-        with Image.open(pred_file) as pred_img:
-            pred = np.array(pred_img)
+        if not os.path.exists(mask_file):
+            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                             f"File ${mask_file} does not exist.")
+        else:
+            mask = image_to_ndarray(mask_file)
+
+        if not os.path.exists(pred_file):
+            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                             f"File ${pred_file} does not exist.")
+        else:
+            pred = image_to_ndarray(pred_file)
 
         assert mask.shape == pred.shape, "Mask shape and prediction shape should be the same."
-        if len(mask.shape) == 2:
+        if mask.shape[-1] == 1:
             nbr_class = 2
         else:
             nbr_class = mask.shape[-1]
@@ -144,20 +151,39 @@ class CLI_Metrics(BaseTool):
         for index, sample in enumerate(zip(self.mask_files, self.pred_files)):
             assert os.path.basename(sample[0]) == os.path.basename(sample[1]), \
              "Each mask should have its corresponding prediction with the same name."
+            mask_file, pred_file = sample[0], sample[1]
 
-            with Image.open(sample[0]) as mask_img:
-                masks[index] = np.array(mask_img, dtype=np.float32)
+            if not os.path.exists(mask_file):
+                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                                 f"File ${mask_file} does not exist.")
+            else:
+                if self.nbr_class == 2:
+                    masks[index] = image_to_ndarray(mask_file)[:, :, 0].astype(np.float32)
+                else:
+                    masks[index] = image_to_ndarray(mask_file).astype(np.float32)
 
-            with Image.open(sample[1]) as pred_img:
-                preds[index] = np.array(pred_img, dtype=np.float32)
+            if not os.path.exists(pred_file):
+                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                                 f"File ${pred_file} does not exist.")
+            else:
+                if self.nbr_class == 2:
+                    preds[index] = image_to_ndarray(pred_file)[:, :, 0].astype(np.float32)
+                else:
+                    preds[index] = image_to_ndarray(pred_file).astype(np.float32)
         return masks, preds
 
 
 if __name__ == '__main__':
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
-    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
-    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    output_path = '/home/SPeillet/OCSGE/metrics.html'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary case')
+    # Cas binaire avec du soft
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
+    # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary case')
+    # Cas multiclass avec du soft
+    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
+    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
+    output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multi-class mono-label')
     metrics()
 
