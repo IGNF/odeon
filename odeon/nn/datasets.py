@@ -16,12 +16,15 @@ class MetricsDataset(Dataset):
     def __init__(self,
                  mask_files,
                  pred_files,
+                 nbr_class,
                  width=None,
                  height=None):
         self.mask_files = mask_files
         self.pred_files = pred_files
+        self.nbr_class = nbr_class
         self.width = width
         self.height = height
+        self.patch_size = width * height
 
     def __len__(self):
 
@@ -31,14 +34,17 @@ class MetricsDataset(Dataset):
 
         # load mask file
         mask_file = self.mask_files[index]
-        msk = image_to_ndarray(mask_file, width=self.width, height=self.height)
-
-        # load pred file
         pred_file = self.pred_files[index]
-        pred = image_to_ndarray(pred_file, width=self.width, height=self.height)
+
+        if self.nbr_class == 2:
+            msk = image_to_ndarray(mask_file)[:, :, 0].astype(np.float32)
+            pred = image_to_ndarray(pred_file)[:, :, 0].astype(np.float32)
+        else:
+            msk = image_to_ndarray(mask_file).astype(np.float32)
+            pred = image_to_ndarray(pred_file).astype(np.float32)
 
         assert os.path.basename(mask_file) == os.path.basename(pred_file)
-        sample = {"msk": msk, "pred": pred, "name_file": mask_file}
+        sample = {"mask": msk, "pred": pred, "name_file": mask_file}
 
         return sample
 

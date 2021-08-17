@@ -32,6 +32,7 @@ from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.image import image_to_ndarray
 from odeon.commons.exception import OdeonError, ErrorCodes
+from odeon.nn.datasets import MetricsDataset
 from metrics_factory import Metrics_Factory
 from metrics import DEFAULTS_VARS
 
@@ -66,13 +67,17 @@ class CLI_Metrics(BaseTool):
 
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
-        self.masks, self.preds = self.get_array_from_files()
+        # self.masks, self.preds = self.get_array_from_files()
 
-        self.metrics = Metrics_Factory(self.type_classifier)(masks=self.masks,
-                                                             preds=self.preds,
+        metrics_dataset = MetricsDataset(self.mask_files,
+                                         self.pred_files,
+                                         nbr_class=self.nbr_class,
+                                         width=self.width,
+                                         height=self.height)
+
+        self.metrics = Metrics_Factory(self.type_classifier)(dataset=metrics_dataset,
                                                              output_path=self.output_path,
                                                              type_classifier=self.type_classifier,
-                                                             nbr_class=self.nbr_class,
                                                              class_labels=self.class_labels,
                                                              threshold=self.threshold,
                                                              threshold_range=self.threshold_range,
@@ -142,45 +147,45 @@ class CLI_Metrics(BaseTool):
             nbr_class = mask.shape[-1]
         return mask.shape[0], mask.shape[1], nbr_class
 
-    def get_array_from_files(self):
-        """[summary]
-        WARNING : Need to cast masks and preds from uint8 to float to use this metrics tool!!
-        Returns
-        -------
-        [type]
-            [description]
-        """
-        if self.nbr_class == 2:
-            masks = np.zeros([len(self.mask_files), self.height, self.width])
-            preds = np.zeros([len(self.mask_files), self.height, self.width])
+    # def get_array_from_files(self):
+    #     """[summary]
+    #     WARNING : Need to cast masks and preds from uint8 to float to use this metrics tool!!
+    #     Returns
+    #     -------
+    #     [type]
+    #         [description]
+    #     """
+    #     if self.nbr_class == 2:
+    #         masks = np.zeros([len(self.mask_files), self.height, self.width])
+    #         preds = np.zeros([len(self.mask_files), self.height, self.width])
 
-        else:
-            masks = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
-            preds = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
+    #     else:
+    #         masks = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
+    #         preds = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
 
-        for index, sample in enumerate(zip(self.mask_files, self.pred_files)):
-            assert os.path.basename(sample[0]) == os.path.basename(sample[1]), \
-             "Each mask should have its corresponding prediction with the same name."
-            mask_file, pred_file = sample[0], sample[1]
+    #     for index, sample in enumerate(zip(self.mask_files, self.pred_files)):
+    #         assert os.path.basename(sample[0]) == os.path.basename(sample[1]), \
+    #          "Each mask should have its corresponding prediction with the same name."
+    #         mask_file, pred_file = sample[0], sample[1]
 
-            if not os.path.exists(mask_file):
-                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                                 f"File ${mask_file} does not exist.")
-            else:
-                if self.nbr_class == 2:
-                    masks[index] = image_to_ndarray(mask_file)[:, :, 0].astype(np.float32)
-                else:
-                    masks[index] = image_to_ndarray(mask_file).astype(np.float32)
+    #         if not os.path.exists(mask_file):
+    #             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+    #                              f"File ${mask_file} does not exist.")
+    #         else:
+    #             if self.nbr_class == 2:
+    #                 masks[index] = image_to_ndarray(mask_file)[:, :, 0].astype(np.float32)
+    #             else:
+    #                 masks[index] = image_to_ndarray(mask_file).astype(np.float32)
 
-            if not os.path.exists(pred_file):
-                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                                 f"File ${pred_file} does not exist.")
-            else:
-                if self.nbr_class == 2:
-                    preds[index] = image_to_ndarray(pred_file)[:, :, 0].astype(np.float32)
-                else:
-                    preds[index] = image_to_ndarray(pred_file).astype(np.float32)
-        return masks, preds
+    #         if not os.path.exists(pred_file):
+    #             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+    #                              f"File ${pred_file} does not exist.")
+    #         else:
+    #             if self.nbr_class == 2:
+    #                 preds[index] = image_to_ndarray(pred_file)[:, :, 0].astype(np.float32)
+    #             else:
+    #                 preds[index] = image_to_ndarray(pred_file).astype(np.float32)
+    #     return masks, preds
 
 
 if __name__ == '__main__':

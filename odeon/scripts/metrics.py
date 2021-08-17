@@ -30,6 +30,7 @@ import itertools
 from abc import ABC, abstractmethod
 from odeon import LOGGER
 from odeon.commons.reports.report_factory import Report_Factory
+from torch.utils.data import DataLoader
 
 FIGSIZE = (8, 6)
 DEFAULTS_VARS = {'threshold': 0.5,
@@ -39,20 +40,13 @@ DEFAULTS_VARS = {'threshold': 0.5,
                  'batch_size': 1,
                  'num_workers': 1}
 
-from torch.utils.data import DataLoader
-
-metrics_dataloader = DataLoader(self.dataset, self.batch_size, shuffle=False, num_workers=self.num_workers)
-for sample in metrics_dataloader:
-
 
 class Metrics(ABC):
 
     def __init__(self,
-                 masks,
-                 preds,
+                 dataset,
                  output_path,
                  type_classifier,
-                 nbr_class,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -61,11 +55,10 @@ class Metrics(ABC):
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers']):
 
-        self.masks = masks
-        self.preds = preds
         self.output_path = output_path
         self.type_classifier = type_classifier
-        self.nbr_class = nbr_class
+        self.dataset = dataset
+        self.nbr_class = self.dataset.nbr_class
 
         if all(class_labels):
             self.class_labels = class_labels
@@ -82,6 +75,12 @@ class Metrics(ABC):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
+        self.metricsloader = DataLoader(self.dataset,
+                                        self.batch_size,
+                                        shuffle=False,
+                                        num_workers=self.num_workers,
+                                        collate_fn=self.collate_fn)
+
         self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
 
         self.depth_dict = {'keep':  1,
@@ -95,6 +94,9 @@ class Metrics(ABC):
 
     def __call__(self):
         self.report.create_report()
+
+    def collate_fn(self, batch):
+        return [data for data in batch]
 
     @abstractmethod
     def create_data_for_metrics(self):
@@ -195,12 +197,13 @@ class Metrics(ABC):
             Tests on the first tenth of the predictions to check if inputs preds are in soft or in hard,
             and if pixels values are the expected range value.
         """
-        pred_samples = self.preds[:len(self.preds)//10]
-        if len(pred_samples) == 1:
-            pred_samples = list(pred_samples)
         nuniques = 0
         maxu = - float('inf')
-        for pred in pred_samples:
+        max_steps = len(self.dataset) // 10
+
+        for i in range(max_steps):
+            sample = self.dataset[i]
+            pred = sample['pred']
             cr_nuniques = np.unique(pred.flatten())
             if len(cr_nuniques) > nuniques:
                 nuniques = len(cr_nuniques)

@@ -11,11 +11,9 @@ from tqdm import tqdm
 class Metrics_Multiclass(Metrics):
 
     def __init__(self,
-                 masks,
-                 preds,
+                 dataset,
                  output_path,
                  type_classifier,
-                 nbr_class,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -24,11 +22,9 @@ class Metrics_Multiclass(Metrics):
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers']):
 
-        super().__init__(masks=masks,
-                         preds=preds,
+        super().__init__(dataset=dataset,
                          output_path=output_path,
                          type_classifier=type_classifier,
-                         nbr_class=nbr_class,
                          class_labels=class_labels,
                          threshold=threshold,
                          threshold_range=threshold_range,
@@ -36,10 +32,11 @@ class Metrics_Multiclass(Metrics):
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
                          num_workers=num_workers)
-
+        self.batch_size = 1
+        self.num_workers = 1
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
         self.scan_dataset()
-        self.metrics_by_class, self.metrics_micor, self.metrics_macro = self.get_metrics_from_cm()
+        self.metrics_by_class, self.metrics_micro, self.metrics_macro = self.get_metrics_from_cm()
         self.metrics_to_df_reports()
 
     def create_data_for_metrics(self):
@@ -71,39 +68,41 @@ class Metrics_Multiclass(Metrics):
 
                 cms_one_class = np.zeros([2, 2])
 
-                for mask, pred in zip(self.masks, self.preds):
+                for batch in self.metricsloader:
+                    for sample in batch:
+                        mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
-                    class_mask = mask.copy()[:, :, i]
-                    class_pred = pred.copy()[:, :, i]
-                    bin_pred = self.binarize('Binary', class_pred, threshold=threshold)
-                    cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
-                    cms_one_class += cr_cm
+                        class_mask = mask.copy()[:, :, i]
+                        class_pred = pred.copy()[:, :, i]
+                        bin_pred = self.binarize('Binary', class_pred, threshold=threshold)
+                        cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
+                        cms_one_class += cr_cm
 
-                    # To compute only once data for cm micro.
-                    if threshold == self.threshold_range[0] and i == 0:
-                        # Compute cm micro for every sample and stack the results to a total micro cm.
-                        mask_micro, pred_micro = self.binarize(self.type_classifier, pred.copy(), mask=mask)
-                        cm = self.get_confusion_matrix(mask_micro.flatten(), pred_micro.flatten())
-                        self.cm_micro += cm
+                        # To compute only once data for cm micro.
+                        if threshold == self.threshold_range[0] and i == 0:
+                            # Compute cm micro for every sample and stack the results to a total micro cm.
+                            mask_micro, pred_micro = self.binarize(self.type_classifier, pred.copy(), mask=mask)
+                            cm = self.get_confusion_matrix(mask_micro.flatten(), pred_micro.flatten())
+                            self.cm_micro += cm
 
-                    # To compute only once per class calibration curves.
-                    if threshold == self.threshold_range[0]:
-                        pred_hist = pred.copy()[:, :, i]
-                        mask_hist = mask.copy()[:, :, i]
+                        # To compute only once per class calibration curves.
+                        if threshold == self.threshold_range[0]:
+                            pred_hist = pred.copy()[:, :, i]
+                            mask_hist = mask.copy()[:, :, i]
 
-                        if not self.in_prob_range:
-                            pred_hist = self.to_prob_range(pred_hist)
+                            if not self.in_prob_range:
+                                pred_hist = self.to_prob_range(pred_hist)
 
-                        # Bincounts for histogram of prediction
-                        hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
-                        # Indices of the bins where the predictions will be in there.
-                        binids = np.digitize(pred_hist.flatten(), self.bins) - 1
-                        # Bins counts of indices times the values of the predictions.
-                        bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
-                        # Bins counts of indices times the values of the masks.
-                        bin_true += np.bincount(binids, weights=mask_hist.flatten(), minlength=len(self.bins))
-                        # Total number observation per bins.
-                        bin_total += np.bincount(binids, minlength=len(self.bins))
+                            # Bincounts for histogram of prediction
+                            hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
+                            # Indices of the bins where the predictions will be in there.
+                            binids = np.digitize(pred_hist.flatten(), self.bins) - 1
+                            # Bins counts of indices times the values of the predictions.
+                            bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
+                            # Bins counts of indices times the values of the masks.
+                            bin_true += np.bincount(binids, weights=mask_hist.flatten(), minlength=len(self.bins))
+                            # Total number observation per bins.
+                            bin_total += np.bincount(binids, minlength=len(self.bins))
 
                 cr_metrics = self.get_metrics_from_obs(cms_one_class[0][0],
                                                        cms_one_class[0][1],
