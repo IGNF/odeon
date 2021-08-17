@@ -1,3 +1,4 @@
+import os
 from torch.utils.data import Dataset
 from skimage.util import img_as_float
 import rasterio
@@ -8,6 +9,38 @@ from odeon.nn.transforms import ToDoubleTensor, ToPatchTensor, ToWindowTensor
 from odeon import LOGGER
 from odeon.commons.rasterio import affine_to_ndarray
 from odeon.commons.folder_manager import create_folder
+
+
+class MetricsDataset(Dataset):
+
+    def __init__(self,
+                 mask_files,
+                 pred_files,
+                 width=None,
+                 height=None):
+        self.mask_files = mask_files
+        self.pred_files = pred_files
+        self.width = width
+        self.height = height
+
+    def __len__(self):
+
+        return len(self.pred_files)
+
+    def __getitem__(self, index):
+
+        # load mask file
+        mask_file = self.mask_files[index]
+        msk = image_to_ndarray(mask_file, width=self.width, height=self.height)
+
+        # load pred file
+        pred_file = self.pred_files[index]
+        pred = image_to_ndarray(pred_file, width=self.width, height=self.height)
+
+        assert os.path.basename(mask_file) == os.path.basename(pred_file)
+        sample = {"msk": msk, "pred": pred, "name_file": mask_file}
+
+        return sample
 
 
 class PatchDataset(Dataset):

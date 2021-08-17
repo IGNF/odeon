@@ -35,7 +35,14 @@ FIGSIZE = (8, 6)
 DEFAULTS_VARS = {'threshold': 0.5,
                  'threshold_range': np.arange(0, 1.0025, 0.0025),
                  'nb_calibration_bins': 10,
-                 'bit_depth': '8 bits'}
+                 'bit_depth': '8 bits',
+                 'batch_size': 1,
+                 'num_workers': 1}
+
+from torch.utils.data import DataLoader
+
+metrics_dataloader = DataLoader(self.dataset, self.batch_size, shuffle=False, num_workers=self.num_workers)
+for sample in metrics_dataloader:
 
 
 class Metrics(ABC):
@@ -50,7 +57,9 @@ class Metrics(ABC):
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins']):
+                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
+                 batch_size=DEFAULTS_VARS['batch_size'],
+                 num_workers=DEFAULTS_VARS['num_workers']):
 
         self.masks = masks
         self.preds = preds
@@ -68,6 +77,10 @@ class Metrics(ABC):
         self.threshold_range = threshold_range
         self.bit_depth = bit_depth
         self.nb_calibration_bins = nb_calibration_bins
+        self.bins = np.linspace(0., 1. + 1e-8, self.nb_calibration_bins + 1)
+
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
         self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
 

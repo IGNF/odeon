@@ -47,7 +47,9 @@ class CLI_Metrics(BaseTool):
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins']):
+                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
+                 batch_size=DEFAULTS_VARS['batch_size'],
+                 num_workers=DEFAULTS_VARS['num_workers']):
 
         self.mask_path = mask_path
         self.pred_path = pred_path
@@ -58,6 +60,9 @@ class CLI_Metrics(BaseTool):
         self.threshold_range = threshold_range
         self.bit_depth = bit_depth
         self.nb_calibration_bins = nb_calibration_bins
+
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
@@ -72,7 +77,9 @@ class CLI_Metrics(BaseTool):
                                                              threshold=self.threshold,
                                                              threshold_range=self.threshold_range,
                                                              bit_depth=self.bit_depth,
-                                                             nb_calibration_bins=self.nb_calibration_bins)
+                                                             nb_calibration_bins=self.nb_calibration_bins,
+                                                             batch_size=self.batch_size,
+                                                             num_workers=self.num_workers)
 
     def __call__(self):
         self.metrics()
@@ -189,5 +196,8 @@ if __name__ == '__main__':
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
     metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
+
     metrics()
 
+    from datetime import datetime
+    print("end = ", datetime.now())

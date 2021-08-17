@@ -21,7 +21,9 @@ class Metrics_Binary(Metrics):
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins']):
+                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
+                 batch_size=DEFAULTS_VARS['batch_size'],
+                 num_workers=DEFAULTS_VARS['num_workers']):
 
         super().__init__(masks=masks,
                          preds=preds,
@@ -32,7 +34,9 @@ class Metrics_Binary(Metrics):
                          threshold=threshold,
                          threshold_range=threshold_range,
                          bit_depth=bit_depth,
-                         nb_calibration_bins=nb_calibration_bins)
+                         nb_calibration_bins=nb_calibration_bins,
+                         batch_size=batch_size,
+                         num_workers=num_workers)
 
         self.df_thresholds, self.cms, self.df_report_metrics = self.create_data_for_metrics()
         self.get_metrics_by_threshold()
@@ -47,16 +51,48 @@ class Metrics_Binary(Metrics):
 
     def get_metrics_by_threshold(self):
 
-        for threshold in tqdm(self.threshold_range, leave=True):
+        hist_counts = np.zeros(len(self.bins) - 1)
+        bin_sums = np.zeros(len(self.bins))
+        bin_true = np.zeros(len(self.bins))
+        bin_total = np.zeros(len(self.bins))
+
+        for threshold in tqdm(self.threshold_range, desc='Tresholds', leave=False):
             self.cms[threshold] = np.zeros([self.nbr_class, self.nbr_class])
             for mask, pred in zip(self.masks, self.preds):
-                pred = self.binarize(self.type_classifier, pred, threshold=threshold)
-                cm = self.get_confusion_matrix(mask.flatten(), pred.flatten())
+
+                # Compute cm on every sample
+                pred_cm = pred.copy()
+                pred_cm = self.binarize(self.type_classifier, pred_cm, threshold=threshold)
+                cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten())
                 self.cms[threshold] += cm
+
+                # To calcultate info for calibrations curves only once.
+                if threshold == self.threshold_range[0]:
+                    pred_hist = pred.copy()
+                    if not self.in_prob_range:
+                        pred_hist = self.to_prob_range(pred_hist)
+                    # bincounts for histogram of prediction
+                    hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
+
+                    # Indices of the bins where the predictions will be in there.
+                    binids = np.digitize(pred_hist.flatten(), self.bins) - 1
+                    # Bins counts of indices times the values of the predictions.
+                    bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
+                    # Bins counts of indices times the values of the masks.
+                    bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(self.bins))
+                    # Total number observation per bins.
+                    bin_total += np.bincount(binids, minlength=len(self.bins))
+
             cr_metrics = self.get_metrics_from_cm(self.cms[threshold])
 
             for metric, metric_value in cr_metrics.items():
                 self.df_thresholds.loc[self.df_thresholds['threshold'] == threshold, metric] = metric_value
+
+        # Normalize hist_counts to put the values between 0 and 1:
+        self.hist_counts = hist_counts / np.sum(hist_counts)
+        nonzero = bin_total != 0  # Avoid to display null bins.
+        self.prob_true = bin_true[nonzero] / bin_total[nonzero]
+        self.prob_pred = bin_sums[nonzero] / bin_total[nonzero]
 
         self.df_report_metrics.loc['Values'] = \
             self.df_thresholds.loc[self.df_thresholds['threshold'] == self.threshold, self.metrics_names[:-1]].values
@@ -103,46 +139,13 @@ class Metrics_Binary(Metrics):
         plt.savefig(output_path)
         return output_path
 
-    def plot_calibration_curve(self, n_bins=None, name_plot='binary_calibration_curves.png'):
-
-        if n_bins is None:
-            n_bins = self.nb_calibration_bins
-
-        bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
-        hist_counts = np.zeros(len(bins) - 1)
-        bin_sums = np.zeros(len(bins))
-        bin_true = np.zeros(len(bins))
-        bin_total = np.zeros(len(bins))
-
-        for mask, pred in zip(self.masks, self.preds):
-            pred = pred.copy()
-            if not self.in_prob_range:
-                pred = self.to_prob_range(pred)
-            # For plot 2, bincounts for histogram of prediction
-            hist_counts += np.histogram(pred.flatten(), bins=bins)[0]
-
-            # For plot 1
-            # Indices of the bins where the predictions will be in there.
-            binids = np.digitize(pred.flatten(), bins) - 1
-            # Bins counts of indices times the values of the predictions.
-            bin_sums += np.bincount(binids, weights=pred.flatten(), minlength=len(bins))
-            # Bins counts of indices times the values of the masks.
-            bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(bins))
-            # Total number observation per bins.
-            bin_total += np.bincount(binids, minlength=len(bins))
-
-        nonzero = bin_total != 0  # Avoid to display null bins.
-        prob_true = bin_true[nonzero] / bin_total[nonzero]
-        prob_pred = bin_sums[nonzero] / bin_total[nonzero]
-
-        # Normalize hist_counts to put the values between 0 and 1:
-        hist_counts /= np.sum(hist_counts)
+    def plot_calibration_curve(self, name_plot='binary_calibration_curves.png'):
 
         plt.figure(figsize=(16, 8))
         plt.subplot(211)
         # Plot 1: calibration curves
         plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-        plt.plot(prob_true, prob_pred, "s-", label="Class 1")
+        plt.plot(self.prob_true, self.prob_pred, "s-", label="Class 1")
         plt.legend(loc="lower right")
         plt.title('Calibration plots  (reliability curve)')
         plt.ylabel('Fraction of positives')
@@ -150,7 +153,7 @@ class Metrics_Binary(Metrics):
 
         plt.subplot(212)
         # Plot 2: Hist of predictions distributions
-        plt.hist(hist_counts, histtype="step", bins=bins, label="Class 1", lw=2)
+        plt.hist(self.hist_counts, histtype="step", bins=self.bins, label="Class 1", lw=2)
         plt.ylabel('Count')
         plt.xlabel('Mean predicted value')
         plt.legend(loc="upper center")
