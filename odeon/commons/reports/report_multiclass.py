@@ -56,9 +56,8 @@ class Report_Multiclass(Report):
             <p><img alt="Macro Confusion Matrix" src={
                 self.input_object.plot_confusion_matrix(
                     self.input_object.cm_macro,
-                    nbr_class=2,
-                    name_plot='cm_macro.png',
-                    cmap='summer')} /></p>
+                    labels=['Positive', 'Negative'],
+                    name_plot='cm_macro.png')} /></p>
 
             <h2>Micro Strategy</h2>
             <h3>* Metrics</h3>
@@ -67,6 +66,7 @@ class Report_Multiclass(Report):
             <p><img alt="Macro Confusion Matrix" src={
                 self.input_object.plot_confusion_matrix(
                     self.input_object.cm_micro,
+                    labels=self.input_object.class_labels,
                     name_plot='cm_micro.png')} /></p>
 
             <h2>Per class Strategy</h2>

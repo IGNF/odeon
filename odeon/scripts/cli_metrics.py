@@ -13,8 +13,7 @@ The metrics computed are in each case :
     - IoU
     - Dice
     - AUC Score for ROC and PR curves
-    - Expected Calibration Error (ECE)
-    - Calibration Curve
+    - Calibration Curves
     - KL Divergence
 
 * Multi-class case:
@@ -50,6 +49,7 @@ class CLI_Metrics(BaseTool):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
+                 normalize=DEFAULTS_VARS['normalize'],
                  compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
@@ -65,6 +65,7 @@ class CLI_Metrics(BaseTool):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.normalize = normalize
         self.compute_ROC_PR_curves = compute_ROC_PR_curves
         self.get_metrics_per_patch = get_metrics_per_patch
 
@@ -87,6 +88,7 @@ class CLI_Metrics(BaseTool):
                                                              nb_calibration_bins=self.nb_calibration_bins,
                                                              batch_size=self.batch_size,
                                                              num_workers=self.num_workers,
+                                                             normalize=normalize,
                                                              compute_ROC_PR_curves=self.compute_ROC_PR_curves,
                                                              get_metrics_per_patch=self.get_metrics_per_patch)
 
@@ -156,10 +158,10 @@ if __name__ == '__main__':
 
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
     # Cas binaire avec du soft
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
+    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
+    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
+    output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
 
     # Cas binaire avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/msk'
@@ -168,10 +170,10 @@ if __name__ == '__main__':
     # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary', compute_ROC_PR_curves=False)
 
     # Cas multiclass avec du soft
-    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
-    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
-    output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
+    # output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
 
     # Cas multiclass avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'

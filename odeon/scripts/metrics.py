@@ -25,8 +25,8 @@ The metrics computed are in each case :
 """
 import os
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
-import itertools
 from abc import ABC, abstractmethod
 from odeon import LOGGER
 from odeon.commons.reports.report_factory import Report_Factory
@@ -38,6 +38,7 @@ DEFAULTS_VARS = {'threshold': 0.5,
                  'bit_depth': '8 bits',
                  'batch_size': 1,
                  'num_workers': 1,
+                 'normalize': True,
                  'compute_ROC_PR_curves': True,
                  'get_metrics_per_patch': True}
 
@@ -55,6 +56,7 @@ class Metrics(ABC):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
+                 normalize=DEFAULTS_VARS['normalize'],
                  compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
@@ -77,6 +79,7 @@ class Metrics(ABC):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.normalize = normalize
         self.compute_ROC_PR_curves = compute_ROC_PR_curves
         self.get_metrics_per_patch = get_metrics_per_patch
 
@@ -220,58 +223,133 @@ class Metrics(ABC):
     def to_prob_range(self, value):
         return value / self.depth_dict[self.bit_depth]
 
-    def plot_confusion_matrix(self,
-                              cm,
-                              nbr_class=None,
-                              title='Confusion matrix',
-                              cmap=None,
-                              normalize=True,
-                              name_plot='confusion_matrix.png'):
+    def heatmap(self, data, row_labels, col_labels, ax=None,
+                cbar_kw={}, cbarlabel="", **kwargs):
         """
-        Given a confusion matrix (cm) in np.ndarray, return its plot.
+        Create a heatmap from a numpy array and two lists of labels.
+        Code from : https://matplotlib.org/stable/gallery/images_contours_and_fields/image_annotated_heatmap.html
 
-        Arguments
-        ---------
-        cm:           confusion matrix from sklearn.metrics.confusion_matrix
-
-        title:        the text to display at the top of the matrix
-
-        cmap:         the gradient of the values displayed from matplotlib.pyplot.cm
-        normalize:    If False, plot the raw numbers
-                      If True, plot the proportions
+        Parameters
+        ----------
+        data
+            A 2D numpy array of shape (N, M).
+        row_labels
+            A list or array of length N with the labels for the rows.
+        col_labels
+            A list or array of length M with the labels for the columns.
+        ax
+            A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
+            not provided, use current axes or create a new one.  Optional.
+        cbar_kw
+            A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
+        cbarlabel
+            The label for the colorbar.  Optional.
+        **kwargs
+            All other arguments are forwarded to `imshow`.
         """
-        if cmap is None:
-            cmap = plt.get_cmap('Blues')
 
-        plt.figure(figsize=FIGSIZE)
-        plt.imshow(cm, cmap=cmap)
-        plt.title(title)
-        plt.colorbar()
-        if nbr_class is not None:
-            tick_marks = np.arange(nbr_class)
-            plt.xticks(tick_marks, labels=[0, 1])
-            plt.yticks(tick_marks, labels=[0, 1])
+        if not ax:
+            ax = plt.gca()
+
+        # Plot the heatmap
+        im = ax.imshow(data, **kwargs)
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+        cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+
+        # We want to show all ticks...
+        ax.set_xticks(np.arange(data.shape[1]))
+        ax.set_yticks(np.arange(data.shape[0]))
+        # ... and label them with the respective list entries.
+        ax.set_xticklabels(col_labels)
+        ax.set_yticklabels(row_labels)
+        ax.set_ylabel('Actual Class')
+        # Let the horizontal axes labeling appear on top.
+        ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
+
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=-30, ha="right", rotation_mode="anchor")
+
+        # Turn spines off and create white grid.
+        for edge, spine in ax.spines.items():
+            spine.set_visible(False)
+
+        ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        return im, cbar
+
+    def annotate_heatmap(self, im, data=None, valfmt="{x:.3f}",
+                         textcolors=("black", "white"), threshold=None, **textkw):
+        """
+        A function to annotate a heatmap.
+
+        Parameters
+        ----------
+        im
+            The AxesImage to be labeled.
+        data
+            Data used to annotate.  If None, the image's data is used.  Optional.
+        valfmt
+            The format of the annotations inside the heatmap.  This should either
+            use the string format method, e.g. "$ {x:.2f}", or be a
+            `matplotlib.ticker.Formatter`.  Optional.
+        textcolors
+            A pair of colors.  The first is used for values below a threshold,
+            the second for those above.  Optional.
+        threshold
+            Value in data units according to which the colors from textcolors are
+            applied.  If None (the default) uses the middle of the colormap as
+            separation.  Optional.
+        **kwargs
+            All other arguments are forwarded to each call to `text` used to create
+            the text labels.
+        """
+
+        if not isinstance(data, (list, np.ndarray)):
+            data = im.get_array()
+
+        # Normalize the threshold to the images color range.
+        if threshold is not None:
+            threshold = im.norm(threshold)
         else:
-            tick_marks = np.arange(self.nbr_class)
-            plt.xticks(tick_marks, labels=self.class_labels)
-            plt.yticks(tick_marks, self.class_labels)
+            threshold = im.norm(data.max())/2.
 
-        if normalize:
+        # Set default alignment to center, but allow it to be
+        # overwritten by textkw.
+        kw = dict(horizontalalignment="center", verticalalignment="center")
+        kw.update(textkw)
+
+        # Get the formatter in case a string is supplied
+        if isinstance(valfmt, str):
+            valfmt = matplotlib.ticker.StrMethodFormatter(valfmt)
+
+        # Loop over the data and create a `Text` for each "pixel".
+        # Change the text's color depending on the data.
+        texts = []
+        for i in range(data.shape[0]):
+            for j in range(data.shape[1]):
+                kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+                text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
+                texts.append(text)
+
+        return texts
+
+    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
+
+        if self.normalize:
             cm = cm.astype('float') / np.sum(cm.flatten())
 
-        thresh = cm.max() / 1.5 if normalize else cm.max() / 2
-        for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
-            if normalize:
-                plt.text(j, i, "{:0.3f}".format(cm[i, j]), horizontalalignment="center",
-                         color="white" if cm[i, j] > thresh and cmap == plt.get_cmap('Blues') else "black")
-            else:
-                plt.text(j, i, "{:,}".format(cm[i, j]),
-                         horizontalalignment="center",
-                         color="white" if cm[i, j] > thresh else "black")
-        plt.tight_layout(pad=3)
-        plt.ylabel('True label')
-        plt.xlabel('Predicted label')
+        fig, ax = plt.subplots()
+        cbarlabel = 'Coefficients values'
+        im, _ = self.heatmap(cm, labels, labels, ax=ax, cmap=cmap, cbarlabel=cbarlabel)
+        _ = self.annotate_heatmap(im)
 
+        fig.tight_layout(pad=3)
         output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.title('Predicted class', fontsize=10)
         plt.savefig(output_path)
         return output_path

@@ -21,6 +21,7 @@ class Metrics_Multiclass(Metrics):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
+                 normalize=DEFAULTS_VARS['normalize'],
                  compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
@@ -34,6 +35,7 @@ class Metrics_Multiclass(Metrics):
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
                          num_workers=num_workers,
+                         normalize=normalize,
                          compute_ROC_PR_curves=compute_ROC_PR_curves,
                          get_metrics_per_patch=get_metrics_per_patch)
 
@@ -49,9 +51,7 @@ class Metrics_Multiclass(Metrics):
         self.cm_micro = self.scan_dataset()
         self.metrics_by_class, self.metrics_micro, self.metrics_macro, self.cms_classes, self.cm_macro = \
             self.get_metrics_from_cm(self.cm_micro)
-
         self.metrics_to_df_reports()
-        print(self.df_dataset)
 
     def create_data_for_metrics(self):
         df_report_classes = pd.DataFrame(index=[class_name for class_name in self.class_labels],

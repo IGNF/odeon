@@ -22,6 +22,7 @@ class Metrics_Binary(Metrics):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
+                 normalize=DEFAULTS_VARS['normalize'],
                  compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
@@ -35,6 +36,7 @@ class Metrics_Binary(Metrics):
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
                          num_workers=num_workers,
+                         normalize=normalize,
                          compute_ROC_PR_curves=compute_ROC_PR_curves,
                          get_metrics_per_patch=get_metrics_per_patch)
 
@@ -45,7 +47,6 @@ class Metrics_Binary(Metrics):
                                            columns=(['name_file'] + self.metrics_names[:-1]))
 
         self.get_metrics_by_threshold()
-        print(self.df_dataset)
 
     def create_data_for_metrics(self):
         df_thresholds = pd.DataFrame(index=range(len(self.threshold_range)),
@@ -180,6 +181,29 @@ class Metrics_Binary(Metrics):
         plt.ylabel('Count')
         plt.xlabel('Mean predicted value')
         plt.legend(loc="upper center")
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
+
+    def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png'):
+
+        bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        n_plot = len(self.metrics_names[:-1])
+        n_cols = 3
+        n_rows = ((n_plot - 1) // n_cols) + 1
+
+        plt.figure(figsize=(7 * n_cols, 6 * n_rows))
+        for i, metric in enumerate(self.metrics_names[:-1]):
+            values = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0]
+            plt.subplot(n_rows, n_cols, i+1)
+            c = [float(i) / float(n_plot), 0.0, float(n_plot-i) / float(n_plot)]
+            plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
+            plt.xticks(range(len(self.bins)), bins)
+            plt.title(f'{metric}', fontsize=13)
+            plt.xlabel("Values bins")
+            plt.grid()
+            plt.ylabel("Samples count")
+        plt.tight_layout(pad=3)
         output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.savefig(output_path)
         return output_path

@@ -57,7 +57,9 @@ class Report_Binary(Report):
             <h2>Confusion Matrix</h2>
             <p><img alt="Confusion Matrix" src={
                 self.input_object.plot_confusion_matrix(
-                    self.input_object.cms[self.input_object.threshold])} /></p>'
+                    self.input_object.cms[self.input_object.threshold],
+                    labels=['Positive', 'Negative'],
+                    name_plot='cm_binary.png')} /></p>'
 
             <h2>Roc Curve</h2>
             <p><img alt="Roc Curve" src={
@@ -72,6 +74,10 @@ class Report_Binary(Report):
             <h2>Calibration Curve</h2>
             <p><img alt="Calibration Curve" src={
                 self.input_object.plot_calibration_curve()} /></p>'
+
+            <h2>Metrics Histograms</h2>
+            <p><img alt="Metrics Histograms" src={
+                self.input_object.plot_dataset_metrics_histograms()} /></p>'
             """
         with open(self.input_object.output_path, "w") as output_file:
             output_file.write(header_html)
