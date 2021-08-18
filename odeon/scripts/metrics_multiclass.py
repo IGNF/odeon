@@ -20,7 +20,9 @@ class Metrics_Multiclass(Metrics):
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers']):
+                 num_workers=DEFAULTS_VARS['num_workers'],
+                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
         super().__init__(dataset=dataset,
                          output_path=output_path,
@@ -31,13 +33,25 @@ class Metrics_Multiclass(Metrics):
                          bit_depth=bit_depth,
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
-                         num_workers=num_workers)
-        self.batch_size = 1
-        self.num_workers = 1
+                         num_workers=num_workers,
+                         compute_ROC_PR_curves=compute_ROC_PR_curves,
+                         get_metrics_per_patch=get_metrics_per_patch)
+
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
-        self.scan_dataset()
-        self.metrics_by_class, self.metrics_micro, self.metrics_macro = self.get_metrics_from_cm()
+
+        if self.get_metrics_per_patch:
+            header = ['name_file'] + \
+                     ['macro_' + name_column for name_column in self.metrics_names[:-1]] + \
+                     ['micro_' + name_column for name_column in ['Precision', 'Recall', 'F1-Score', 'IoU']] + \
+                     [class_i + name_column for class_i in self.class_labels for name_column in self.metrics_names[:-1]]
+            self.df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=header)
+
+        self.cm_micro = self.scan_dataset()
+        self.metrics_by_class, self.metrics_micro, self.metrics_macro, self.cms_classes, self.cm_macro = \
+            self.get_metrics_from_cm(self.cm_micro)
+
         self.metrics_to_df_reports()
+        print(self.df_dataset)
 
     def create_data_for_metrics(self):
         df_report_classes = pd.DataFrame(index=[class_name for class_name in self.class_labels],
@@ -49,11 +63,11 @@ class Metrics_Multiclass(Metrics):
         return df_report_classes, df_report_micro, df_report_macro
 
     def scan_dataset(self):
-        self.cm_micro = np.zeros([self.nbr_class, self.nbr_class])
+        cm_micro = np.zeros([self.nbr_class, self.nbr_class])
         self.vect_classes = {}
         self.dict_hist_counts, self.dict_prob_true, self.dict_prob_pred = {}, {}, {}
 
-        for i, class_i in tqdm(enumerate(self.class_labels), desc='Metrics per class', leave=True):
+        for i, class_i in tqdm(enumerate(self.class_labels), desc='Metrics processing time', leave=True):
             # Dict for PR and ROC curves.
             vects = {'Recall': [],
                      'FPR': [],
@@ -64,45 +78,58 @@ class Metrics_Multiclass(Metrics):
             bin_true = np.zeros(len(self.bins))
             bin_total = np.zeros(len(self.bins))
 
-            for threshold in tqdm(self.threshold_range, desc='Thresholds', leave=True):
-
+            for threshold in tqdm(self.threshold_range, desc=class_i, leave=True):
                 cms_one_class = np.zeros([2, 2])
 
-                for batch in self.metricsloader:
-                    for sample in batch:
-                        mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
+                dataset_index = 0
+                for sample in self.dataset:
+                    mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
-                        class_mask = mask.copy()[:, :, i]
-                        class_pred = pred.copy()[:, :, i]
-                        bin_pred = self.binarize('Binary', class_pred, threshold=threshold)
-                        cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
-                        cms_one_class += cr_cm
+                    class_mask = mask.copy()[:, :, i]
+                    class_pred = pred.copy()[:, :, i]
+                    bin_pred = self.binarize('Binary', class_pred, threshold=threshold)
+                    cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
+                    cms_one_class += cr_cm
 
-                        # To compute only once data for cm micro.
-                        if threshold == self.threshold_range[0] and i == 0:
-                            # Compute cm micro for every sample and stack the results to a total micro cm.
-                            mask_micro, pred_micro = self.binarize(self.type_classifier, pred.copy(), mask=mask)
-                            cm = self.get_confusion_matrix(mask_micro.flatten(), pred_micro.flatten())
-                            self.cm_micro += cm
+                    # To compute only once data for cm micro.
+                    if threshold == self.threshold and i == 0:
+                        # Compute cm micro for every sample and stack the results to a total micro cm.
+                        mask_micro, pred_micro = self.binarize(self.type_classifier, pred.copy(), mask=mask)
+                        cm = self.get_confusion_matrix(mask_micro.flatten(), pred_micro.flatten())
+                        cm_micro += cm
 
-                        # To compute only once per class calibration curves.
-                        if threshold == self.threshold_range[0]:
-                            pred_hist = pred.copy()[:, :, i]
-                            mask_hist = mask.copy()[:, :, i]
+                        # Compute metrics per patch
+                        if self.get_metrics_per_patch:
+                            metrics_by_class, metrics_micro, metrics_macro, _, _ = self.get_metrics_from_cm(cm)
+                            self.df_dataset.loc[dataset_index, 'name_file'] = name_file
+                            for name_column in self.metrics_names[:-1]:
+                                self.df_dataset.loc[dataset_index, 'macro_' + name_column] = metrics_macro[name_column]
+                            for name_column in ['Precision', 'Recall', 'F1-Score', 'IoU']:
+                                self.df_dataset.loc[dataset_index, 'micro_' + name_column] = metrics_micro[name_column]
+                            for label in self.class_labels:
+                                for name_column in self.metrics_names[:-1]:
+                                    self.df_dataset.loc[dataset_index, label + name_column] = \
+                                        metrics_by_class[label][name_column]
+                            dataset_index += 1
 
-                            if not self.in_prob_range:
-                                pred_hist = self.to_prob_range(pred_hist)
+                    # To compute only once per class calibration curves.
+                    if threshold == self.threshold:
+                        pred_hist = pred.copy()[:, :, i]
+                        mask_hist = mask.copy()[:, :, i]
 
-                            # Bincounts for histogram of prediction
-                            hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
-                            # Indices of the bins where the predictions will be in there.
-                            binids = np.digitize(pred_hist.flatten(), self.bins) - 1
-                            # Bins counts of indices times the values of the predictions.
-                            bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
-                            # Bins counts of indices times the values of the masks.
-                            bin_true += np.bincount(binids, weights=mask_hist.flatten(), minlength=len(self.bins))
-                            # Total number observation per bins.
-                            bin_total += np.bincount(binids, minlength=len(self.bins))
+                        if not self.in_prob_range:
+                            pred_hist = self.to_prob_range(pred_hist)
+
+                        # Bincounts for histogram of prediction
+                        hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
+                        # Indices of the bins where the predictions will be in there.
+                        binids = np.digitize(pred_hist.flatten(), self.bins) - 1
+                        # Bins counts of indices times the values of the predictions.
+                        bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
+                        # Bins counts of indices times the values of the masks.
+                        bin_true += np.bincount(binids, weights=mask_hist.flatten(), minlength=len(self.bins))
+                        # Total number observation per bins.
+                        bin_total += np.bincount(binids, minlength=len(self.bins))
 
                 cr_metrics = self.get_metrics_from_obs(cms_one_class[0][0],
                                                        cms_one_class[0][1],
@@ -124,6 +151,8 @@ class Metrics_Multiclass(Metrics):
             self.dict_prob_true[class_i] = prob_true
             self.dict_prob_pred[class_i] = prob_pred
 
+        return cm_micro
+
     def get_obs_by_class_from_cm(self, cm):
         obs_by_class = {}
         for i, class_i in enumerate(self.class_labels):
@@ -140,21 +169,21 @@ class Metrics_Multiclass(Metrics):
                      'fp': np.sum(np.tril(cm, k=-1))}
         return obs_micro
 
-    def get_metrics_from_cm(self):
-        obs_by_class = self.get_obs_by_class_from_cm(self.cm_micro)
-        obs_micro = self.get_obs_micro_from_cm(self.cm_micro)
+    def get_metrics_from_cm(self, cm_micro):
+        obs_by_class = self.get_obs_by_class_from_cm(cm_micro)
+        obs_micro = self.get_obs_micro_from_cm(cm_micro)
 
-        self.cms_classes = np.zeros([self.nbr_class, 2, 2])
+        cms_classes = np.zeros([self.nbr_class, 2, 2])
 
         metrics_by_class = {}
         for i, class_i in enumerate(self.class_labels):
-            self.cms_classes[i] = np.array([[obs_by_class[class_i]['tp'], obs_by_class[class_i]['fn']],
-                                            [obs_by_class[class_i]['fp'], obs_by_class[class_i]['tn']]])
+            cms_classes[i] = np.array([[obs_by_class[class_i]['tp'], obs_by_class[class_i]['fn']],
+                                       [obs_by_class[class_i]['fp'], obs_by_class[class_i]['tn']]])
             metrics_by_class[class_i] = self.get_metrics_from_obs(obs_by_class[class_i]['tp'],
                                                                   obs_by_class[class_i]['fn'],
                                                                   obs_by_class[class_i]['fp'],
                                                                   obs_by_class[class_i]['tn'])
-        self.cm_macro = np.sum(self.cms_classes, axis=0)
+        cm_macro = np.sum(cms_classes, axis=0)
 
         # We will only look at Precision, Recall, F1-Score and IoU.
         # Others metrics will be false because we don't have any TN in micro.
@@ -163,16 +192,17 @@ class Metrics_Multiclass(Metrics):
                                                   obs_micro['fp'],
                                                   0)
 
-        metrics_macro = self.get_metrics_from_obs(self.cm_macro[0][0],
-                                                  self.cm_macro[0][1],
-                                                  self.cm_macro[1][0],
-                                                  self.cm_macro[1][1])
+        metrics_macro = self.get_metrics_from_obs(cm_macro[0][0],
+                                                  cm_macro[0][1],
+                                                  cm_macro[1][0],
+                                                  cm_macro[1][1])
 
-        return metrics_by_class, metrics_micro, metrics_macro
+        return metrics_by_class, metrics_micro, metrics_macro, cms_classes, cm_macro
 
     def metrics_to_df_reports(self):
         for class_i in self.class_labels:
             self.df_report_classes.loc[class_i] = list(self.metrics_by_class[class_i].values())[:-1]
+        self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
 
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
                                               self.metrics_micro['Recall'],
@@ -186,8 +216,11 @@ class Metrics_Multiclass(Metrics):
         plt.figure(figsize=(16, 8))
         plt.subplot(121)
         for class_i in self.class_labels:
-            fpr = np.array(self.vect_classes[class_i]['FPR'])[::-1]
-            tpr = np.array(self.vect_classes[class_i]['Recall'])[::-1]
+            fpr = np.array(self.vect_classes[class_i]['FPR'])
+            tpr = np.array(self.vect_classes[class_i]['Recall'])
+            fpr, tpr = np.insert(fpr, 0, 1), np.insert(tpr, 0, 1)
+            fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
+            fpr, tpr = fpr[::-1], tpr[::-1]
             roc_auc = auc(fpr, tpr)
             plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}')
         plt.plot([0, 1], [0, 1], 'r--')
@@ -204,6 +237,8 @@ class Metrics_Multiclass(Metrics):
             precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
             idx = np.argsort(recall)
             recall, precision = recall[idx], precision[idx]
+            recall, precision = np.insert(recall, 0, 0), np.insert(precision, 0, 1)
+            recall, precision = np.append(recall, 1), np.append(precision, 0)
             pr_auc = auc(recall, precision)
             plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}')
         plt.plot([1, 0], [0, 1], 'r--')

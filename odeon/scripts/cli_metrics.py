@@ -27,7 +27,6 @@ The metrics computed are in each case :
 """
 import os
 import csv
-import numpy as np
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.image import image_to_ndarray
@@ -50,7 +49,9 @@ class CLI_Metrics(BaseTool):
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers']):
+                 num_workers=DEFAULTS_VARS['num_workers'],
+                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
         self.mask_path = mask_path
         self.pred_path = pred_path
@@ -64,10 +65,11 @@ class CLI_Metrics(BaseTool):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.compute_ROC_PR_curves = compute_ROC_PR_curves
+        self.get_metrics_per_patch = get_metrics_per_patch
 
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
-        # self.masks, self.preds = self.get_array_from_files()
 
         metrics_dataset = MetricsDataset(self.mask_files,
                                          self.pred_files,
@@ -84,7 +86,9 @@ class CLI_Metrics(BaseTool):
                                                              bit_depth=self.bit_depth,
                                                              nb_calibration_bins=self.nb_calibration_bins,
                                                              batch_size=self.batch_size,
-                                                             num_workers=self.num_workers)
+                                                             num_workers=self.num_workers,
+                                                             compute_ROC_PR_curves=self.compute_ROC_PR_curves,
+                                                             get_metrics_per_patch=self.get_metrics_per_patch)
 
     def __call__(self):
         self.metrics()
@@ -147,48 +151,9 @@ class CLI_Metrics(BaseTool):
             nbr_class = mask.shape[-1]
         return mask.shape[0], mask.shape[1], nbr_class
 
-    # def get_array_from_files(self):
-    #     """[summary]
-    #     WARNING : Need to cast masks and preds from uint8 to float to use this metrics tool!!
-    #     Returns
-    #     -------
-    #     [type]
-    #         [description]
-    #     """
-    #     if self.nbr_class == 2:
-    #         masks = np.zeros([len(self.mask_files), self.height, self.width])
-    #         preds = np.zeros([len(self.mask_files), self.height, self.width])
-
-    #     else:
-    #         masks = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
-    #         preds = np.zeros([len(self.mask_files), self.height, self.width, self.nbr_class])
-
-    #     for index, sample in enumerate(zip(self.mask_files, self.pred_files)):
-    #         assert os.path.basename(sample[0]) == os.path.basename(sample[1]), \
-    #          "Each mask should have its corresponding prediction with the same name."
-    #         mask_file, pred_file = sample[0], sample[1]
-
-    #         if not os.path.exists(mask_file):
-    #             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-    #                              f"File ${mask_file} does not exist.")
-    #         else:
-    #             if self.nbr_class == 2:
-    #                 masks[index] = image_to_ndarray(mask_file)[:, :, 0].astype(np.float32)
-    #             else:
-    #                 masks[index] = image_to_ndarray(mask_file).astype(np.float32)
-
-    #         if not os.path.exists(pred_file):
-    #             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-    #                              f"File ${pred_file} does not exist.")
-    #         else:
-    #             if self.nbr_class == 2:
-    #                 preds[index] = image_to_ndarray(pred_file)[:, :, 0].astype(np.float32)
-    #             else:
-    #                 preds[index] = image_to_ndarray(pred_file).astype(np.float32)
-    #     return masks, preds
-
 
 if __name__ == '__main__':
+
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
     # Cas binaire avec du soft
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
@@ -196,13 +161,22 @@ if __name__ == '__main__':
     # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
     # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
 
+    # Cas binaire avec du hard
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/pred'
+    # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary', compute_ROC_PR_curves=False)
+
     # Cas multiclass avec du soft
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
     metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
 
-    metrics()
+    # Cas multiclass avec du hard
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
+    # output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
 
-    from datetime import datetime
-    print("end = ", datetime.now())
+    metrics()

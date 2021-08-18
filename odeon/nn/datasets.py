@@ -32,7 +32,6 @@ class MetricsDataset(Dataset):
 
     def __getitem__(self, index):
 
-        # load mask file
         mask_file = self.mask_files[index]
         pred_file = self.pred_files[index]
 

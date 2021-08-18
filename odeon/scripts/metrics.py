@@ -30,7 +30,6 @@ import itertools
 from abc import ABC, abstractmethod
 from odeon import LOGGER
 from odeon.commons.reports.report_factory import Report_Factory
-from torch.utils.data import DataLoader
 
 FIGSIZE = (8, 6)
 DEFAULTS_VARS = {'threshold': 0.5,
@@ -38,7 +37,9 @@ DEFAULTS_VARS = {'threshold': 0.5,
                  'nb_calibration_bins': 10,
                  'bit_depth': '8 bits',
                  'batch_size': 1,
-                 'num_workers': 1}
+                 'num_workers': 1,
+                 'compute_ROC_PR_curves': True,
+                 'get_metrics_per_patch': True}
 
 
 class Metrics(ABC):
@@ -53,7 +54,9 @@ class Metrics(ABC):
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers']):
+                 num_workers=DEFAULTS_VARS['num_workers'],
+                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
         self.output_path = output_path
         self.type_classifier = type_classifier
@@ -74,12 +77,8 @@ class Metrics(ABC):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
-
-        self.metricsloader = DataLoader(self.dataset,
-                                        self.batch_size,
-                                        shuffle=False,
-                                        num_workers=self.num_workers,
-                                        collate_fn=self.collate_fn)
+        self.compute_ROC_PR_curves = compute_ROC_PR_curves
+        self.get_metrics_per_patch = get_metrics_per_patch
 
         self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
 
@@ -90,13 +89,16 @@ class Metrics(ABC):
                            '16 bits': 65535}
 
         self.type_prob, self.in_prob_range = self.get_info_pred()
+
+        if not self.compute_ROC_PR_curves or self.type_prob == 'hard':
+            self.threshold_range = [self.threshold]
+
+        assert self.threshold in self.threshold_range, 'Threshold should be in the threshold range list.'
+
         self.report = Report_Factory(self)
 
     def __call__(self):
         self.report.create_report()
-
-    def collate_fn(self, batch):
-        return [data for data in batch]
 
     @abstractmethod
     def create_data_for_metrics(self):
@@ -114,9 +116,10 @@ class Metrics(ABC):
             assert mask is not None
             return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
         elif type_classifier == 'Binary':
-            assert threshold is not None
-            pred[pred < threshold] = 0
-            pred[pred >= threshold] = 1
+            if self.type_prob == 'soft':
+                assert threshold is not None
+                pred[pred < threshold] = 0
+                pred[pred >= threshold] = 1
             return pred
         else:
             LOGGER.error('ERROR: type_classifier should be Binary or Multiclass')
@@ -156,7 +159,7 @@ class Metrics(ABC):
     def get_metrics_from_obs(self, tp, fn, fp, tn):
 
         # Accuracy
-        if tp != 0 or tn != 0:
+        if tp != 0.0 and tn != 0.0 and tp + tn != 0.0 and tp + fp + tn + fn != 0:
             accuracy = (tp + tn) / (tp + fp + tn + fn)
         else:
             accuracy = 0.0

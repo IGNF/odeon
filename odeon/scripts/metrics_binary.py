@@ -21,7 +21,9 @@ class Metrics_Binary(Metrics):
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers']):
+                 num_workers=DEFAULTS_VARS['num_workers'],
+                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
 
         super().__init__(dataset,
                          output_path=output_path,
@@ -32,10 +34,18 @@ class Metrics_Binary(Metrics):
                          bit_depth=bit_depth,
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
-                         num_workers=num_workers)
+                         num_workers=num_workers,
+                         compute_ROC_PR_curves=compute_ROC_PR_curves,
+                         get_metrics_per_patch=get_metrics_per_patch)
 
         self.df_thresholds, self.cms, self.df_report_metrics = self.create_data_for_metrics()
+
+        if self.get_metrics_per_patch:
+            self.df_dataset = pd.DataFrame(index=range(len(self.dataset)),
+                                           columns=(['name_file'] + self.metrics_names[:-1]))
+
         self.get_metrics_by_threshold()
+        print(self.df_dataset)
 
     def create_data_for_metrics(self):
         df_thresholds = pd.DataFrame(index=range(len(self.threshold_range)),
@@ -43,6 +53,7 @@ class Metrics_Binary(Metrics):
         df_thresholds['threshold'] = self.threshold_range
         cms = {}
         df_report_metrics = pd.DataFrame(index=['Values'], columns=self.metrics_names[:-1])
+
         return df_thresholds, cms, df_report_metrics
 
     def get_metrics_by_threshold(self):
@@ -54,32 +65,41 @@ class Metrics_Binary(Metrics):
 
         for threshold in tqdm(self.threshold_range, desc='Tresholds', leave=False):
             self.cms[threshold] = np.zeros([self.nbr_class, self.nbr_class])
-            for batch in self.metricsloader:
-                for sample in batch:
-                    mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
-                    # Compute cm on every sample
-                    pred_cm = pred.copy()
-                    pred_cm = self.binarize(self.type_classifier, pred_cm, threshold=threshold)
-                    cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten())
-                    self.cms[threshold] += cm
+            dataset_index = 0
+            for sample in self.dataset:
+                mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
-                    # To calcultate info for calibrations curves only once.
-                    if threshold == self.threshold_range[0]:
-                        pred_hist = pred.copy()
-                        if not self.in_prob_range:
-                            pred_hist = self.to_prob_range(pred_hist)
-                        # bincounts for histogram of prediction
-                        hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
+                # Compute cm on every sample
+                pred_cm = pred.copy()
+                pred_cm = self.binarize(self.type_classifier, pred_cm, threshold=threshold)
+                cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten())
+                self.cms[threshold] += cm
 
-                        # Indices of the bins where the predictions will be in there.
-                        binids = np.digitize(pred_hist.flatten(), self.bins) - 1
-                        # Bins counts of indices times the values of the predictions.
-                        bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
-                        # Bins counts of indices times the values of the masks.
-                        bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(self.bins))
-                        # Total number observation per bins.
-                        bin_total += np.bincount(binids, minlength=len(self.bins))
+                # Compute metrics per patch and return an histogram of the values
+                if self.get_metrics_per_patch and threshold == self.threshold:
+                    sample_metrics = self.get_metrics_from_cm(cm)
+                    self.df_dataset.loc[dataset_index, 'name_file'] = name_file
+                    for name_column in self.metrics_names[:-1]:
+                        self.df_dataset.loc[dataset_index, name_column] = sample_metrics[name_column]
+                    dataset_index += 1
+ 
+                # To calcultate info for calibrations curves only once.
+                if threshold == self.threshold_range[0]:
+                    pred_hist = pred.copy()
+                    if not self.in_prob_range:
+                        pred_hist = self.to_prob_range(pred_hist)
+                    # bincounts for histogram of prediction
+                    hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
+
+                    # Indices of the bins where the predictions will be in there.
+                    binids = np.digitize(pred_hist.flatten(), self.bins) - 1
+                    # Bins counts of indices times the values of the predictions.
+                    bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
+                    # Bins counts of indices times the values of the masks.
+                    bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(self.bins))
+                    # Total number observation per bins.
+                    bin_total += np.bincount(binids, minlength=len(self.bins))
 
             cr_metrics = self.get_metrics_from_cm(self.cms[threshold])
 
@@ -104,6 +124,11 @@ class Metrics_Binary(Metrics):
         precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
         idx = np.argsort(recall)
         recall, precision = recall[idx], precision[idx]
+        recall = np.insert(recall.to_numpy(), 0, 0)
+        recall = np.append(recall, 1)
+        precision = np.insert(precision, 0, 1)
+        precision = np.append(precision, 0)
+
         pr_auc = auc(recall, precision)
 
         plt.figure(figsize=FIGSIZE)
@@ -121,10 +146,10 @@ class Metrics_Binary(Metrics):
     def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png'):
 
         # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
-        # fpr, tpr = np.insert(fpr.to_numpy(), 0, 0), np.insert(tpr.to_numpy(), 0, 0)
+        fpr, tpr = np.insert(fpr.to_numpy(), 0, 1), np.insert(tpr.to_numpy(), 0, 1)
+        fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
         fpr, tpr = fpr[::-1], tpr[::-1]
         roc_auc = auc(fpr, tpr)
-
         plt.figure(figsize=FIGSIZE)
         plt.title('Roc Curve')
         plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
