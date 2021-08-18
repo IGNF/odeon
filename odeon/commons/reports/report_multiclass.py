@@ -78,23 +78,12 @@ class Report_Multiclass(Report):
             <h3>* ROC and PR Curves</h3>
             <p><img alt="ROC and PR Curves" src={
                 self.input_object.plot_ROC_PR_per_class()} /></p>
+            <h2>Metrics Histograms</h2>
+            <p><img alt="Metrics Histograms" src={
+                self.input_object.plot_dataset_metrics_histograms()} /></p>
             """
         with open(self.input_object.output_path, "w") as output_file:
             output_file.write(header_html)
             output_file.write(begin_html)
             output_file.write(metrics_html)
             output_file.write(end_html)
-
-            # <h2>Roc Curve</h2>
-            # <p><img alt="Roc Curve" src={
-            #     self.input_object.plot_ROC_curve(self.input_object.df_thresholds['FPR'],
-            #          self.input_object.df_thresholds['Recall'])} /></p>'
-
-            # <h2>Precision Recall Curve</h2>
-            # <p><img alt="PR Curve" src={
-            #     self.input_object.plot_PR_curve(self.input_object.df_thresholds['Recall'],
-            #          self.input_object.df_thresholds['Precision'])} /></p>'
-
-            # <h2>Calibration Curve</h2>
-            # <p><img alt="Calibration Curve" src={
-            #     self.input_object.plot_calibration_curve()} /></p>'

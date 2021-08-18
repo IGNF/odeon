@@ -158,10 +158,10 @@ if __name__ == '__main__':
 
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
     # Cas binaire avec du soft
-    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
-    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
+    # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
 
     # Cas binaire avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/msk'
@@ -176,9 +176,9 @@ if __name__ == '__main__':
     # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
 
     # Cas multiclass avec du hard
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
-    # output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
+    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
+    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
+    output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
 
     metrics()

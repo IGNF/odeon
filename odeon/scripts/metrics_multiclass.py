@@ -42,11 +42,12 @@ class Metrics_Multiclass(Metrics):
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
 
         if self.get_metrics_per_patch:
-            header = ['name_file'] + \
+            self.header = ['name_file'] + \
                      ['macro_' + name_column for name_column in self.metrics_names[:-1]] + \
                      ['micro_' + name_column for name_column in ['Precision', 'Recall', 'F1-Score', 'IoU']] + \
-                     [class_i + name_column for class_i in self.class_labels for name_column in self.metrics_names[:-1]]
-            self.df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=header)
+                     [class_i + '_' + name_column for class_i in self.class_labels
+                      for name_column in self.metrics_names[:-1]]
+            self.df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=self.header)
 
         self.cm_micro = self.scan_dataset()
         self.metrics_by_class, self.metrics_micro, self.metrics_macro, self.cms_classes, self.cm_macro = \
@@ -108,7 +109,7 @@ class Metrics_Multiclass(Metrics):
                                 self.df_dataset.loc[dataset_index, 'micro_' + name_column] = metrics_micro[name_column]
                             for label in self.class_labels:
                                 for name_column in self.metrics_names[:-1]:
-                                    self.df_dataset.loc[dataset_index, label + name_column] = \
+                                    self.df_dataset.loc[dataset_index, label + '_' + name_column] = \
                                         metrics_by_class[label][name_column]
                             dataset_index += 1
 
@@ -278,6 +279,30 @@ class Metrics_Multiclass(Metrics):
         plt.legend(loc="upper center")
         plt.tight_layout(pad=3)
 
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
+
+    def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png'):
+        plt.set_cmap('viridis')
+        colors = plt.rcParams["axes.prop_cycle"]()
+        bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        n_plot = len(self.header[1:])
+        n_cols = 3
+        n_rows = ((n_plot - 1) // n_cols) + 1
+
+        plt.figure(figsize=(7 * n_cols, 6 * n_rows))
+        for i, metric in enumerate(self.header[1:]):
+            values = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0]
+            plt.subplot(n_rows, n_cols, i+1)
+            c = next(colors)["color"]
+            plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
+            plt.xticks(range(len(self.bins)), bins)
+            plt.title(f'{metric}', fontsize=13)
+            plt.xlabel("Values bins")
+            plt.grid()
+            plt.ylabel("Samples count")
+        plt.tight_layout(pad=3)
         output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.savefig(output_path)
         return output_path

@@ -59,25 +59,25 @@ class Report_Binary(Report):
                 self.input_object.plot_confusion_matrix(
                     self.input_object.cms[self.input_object.threshold],
                     labels=['Positive', 'Negative'],
-                    name_plot='cm_binary.png')} /></p>'
+                    name_plot='cm_binary.png')} /></p>
 
             <h2>Roc Curve</h2>
             <p><img alt="Roc Curve" src={
                 self.input_object.plot_ROC_curve(self.input_object.df_thresholds['FPR'],
-                     self.input_object.df_thresholds['Recall'])} /></p>'
+                     self.input_object.df_thresholds['Recall'])} /></p>
 
             <h2>Precision Recall Curve</h2>
             <p><img alt="PR Curve" src={
                 self.input_object.plot_PR_curve(self.input_object.df_thresholds['Recall'],
-                     self.input_object.df_thresholds['Precision'])} /></p>'
+                     self.input_object.df_thresholds['Precision'])} /></p>
 
             <h2>Calibration Curve</h2>
             <p><img alt="Calibration Curve" src={
-                self.input_object.plot_calibration_curve()} /></p>'
+                self.input_object.plot_calibration_curve()} /></p>
 
             <h2>Metrics Histograms</h2>
             <p><img alt="Metrics Histograms" src={
-                self.input_object.plot_dataset_metrics_histograms()} /></p>'
+                self.input_object.plot_dataset_metrics_histograms()} /></p>
             """
         with open(self.input_object.output_path, "w") as output_file:
             output_file.write(header_html)
