@@ -1,3 +1,4 @@
+import os
 from odeon.commons.reports.report import Report
 
 
@@ -13,10 +14,36 @@ class Report_Multiclass(Report):
         """
         super().__init__(input_object)
 
+    def create_data(self):
+
+        if self.input_object.output_type == 'terminal':
+            self.generate = False
+        else:
+            self.generate = True
+
+        self.path_cm_micro = self.input_object.plot_confusion_matrix(self.input_object.cm_micro,
+                                                                     labels=self.input_object.class_labels,
+                                                                     name_plot='cm_micro.png',
+                                                                     generate=self.generate)
+
+        self.path_cm_macro = self.input_object.plot_confusion_matrix(self.input_object.cm_macro,
+                                                                     labels=['Positive', 'Negative'],
+                                                                     name_plot='cm_macro.png',
+                                                                     generate=self.generate)
+
+        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+            self.path_calibration_curves = self.input_object.plot_calibration_curve(generate=self.generate)
+
+        if self.input_object.get_ROC_PR_curves:
+            self.ROC_PR_classes = self.input_object.plot_ROC_PR_per_class(generate=self.generate)
+
+        if self.input_object.get_hists_per_metrics:
+            self.path_metrics_hists = self.input_object.plot_dataset_metrics_histograms(generate=self.generate)
+
     def to_terminal(self):
         """Display the results of the Metrics tool in the terminal.
         """
-        print(self.input_object.df_thresholds)
+        pass
 
     def to_json(self):
         """Create a report in the json format.
@@ -46,44 +73,51 @@ class Report_Multiclass(Report):
         """
 
         end_html = '</div></div></body></html>'
-        metrics_html = f"""
-            <h1><center> ODEON  Metrics</center></h1>
 
+        main_html = f"""
+            <h1><center> ODEON  Metrics</center></h1>
             <h2>Macro Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_macro))}
             <h3>* Confusion Matrix</h3>
-            <p><img alt="Macro Confusion Matrix" src={
-                self.input_object.plot_confusion_matrix(
-                    self.input_object.cm_macro,
-                    labels=['Positive', 'Negative'],
-                    name_plot='cm_macro.png')} /></p>
-
+            <p><img alt="Macro Confusion Matrix" src=./{os.path.basename(self.path_cm_macro)} /></p>
             <h2>Micro Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_micro))}
             <h3>* Confusion Matrix</h3>
-            <p><img alt="Macro Confusion Matrix" src={
-                self.input_object.plot_confusion_matrix(
-                    self.input_object.cm_micro,
-                    labels=self.input_object.class_labels,
-                    name_plot='cm_micro.png')} /></p>
+            <p><img alt="Macro Confusion Matrix" src=./{os.path.basename(self.path_cm_micro)} /></p>
 
             <h2>Per class Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_classes))}
-            <h3>* Calibration Curve</h3>
-            <p><img alt="Calibration Curve" src={
-                self.input_object.plot_calibration_curve()} /></p>
-            <h3>* ROC and PR Curves</h3>
-            <p><img alt="ROC and PR Curves" src={
-                self.input_object.plot_ROC_PR_per_class()} /></p>
-            <h2>Metrics Histograms</h2>
-            <p><img alt="Metrics Histograms" src={
-                self.input_object.plot_dataset_metrics_histograms()} /></p>
             """
-        with open(self.input_object.output_path, "w") as output_file:
-            output_file.write(header_html)
-            output_file.write(begin_html)
-            output_file.write(metrics_html)
-            output_file.write(end_html)
+
+        html_elements = [header_html, begin_html, main_html]
+
+        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+            calibration_curves = f"""
+            <h3>* Calibration Curves</h3>
+            <p><img alt="Calibration Curve" src=./{os.path.basename(self.path_calibration_curves)} /></p>
+            """
+            html_elements.append(calibration_curves)
+
+        if self.input_object.get_ROC_PR_curves:
+            roc_pr_curves = f"""
+            <h3>* ROC and PR Curves</h3>
+            <p><img alt="ROC and PR Curves" src=./{os.path.basename(self.ROC_PR_classes)} /></p>
+            """
+            html_elements.append(roc_pr_curves)
+
+        if self.input_object.get_hists_per_metrics:
+            metrics_histograms = f"""
+            <h2>Metrics Histograms</h2>
+            <p><img alt="Metrics Histograms" src=./{os.path.basename(self.path_metrics_hists)} /></p>
+            """
+            html_elements.append(metrics_histograms)
+
+        html_elements.append(end_html)
+
+        with open(os.path.join(self.input_object.output_path, 'metrics_multiclass.html'), "w") as output_file:
+            for html_part in html_elements:
+                output_file.write(html_part)
+

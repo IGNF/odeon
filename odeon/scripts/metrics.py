@@ -30,17 +30,20 @@ import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 from odeon import LOGGER
 from odeon.commons.reports.report_factory import Report_Factory
+from odeon.commons.exception import OdeonError, ErrorCodes
 
 FIGSIZE = (8, 6)
 DEFAULTS_VARS = {'threshold': 0.5,
-                 'threshold_range': np.arange(0, 1.0025, 0.0025),
+                 'threshold_range': np.arange(0.1, 1.1, 0.1),
                  'nb_calibration_bins': 10,
                  'bit_depth': '8 bits',
                  'batch_size': 1,
                  'num_workers': 1,
                  'normalize': True,
-                 'compute_ROC_PR_curves': True,
-                 'get_metrics_per_patch': True}
+                 'get_metrics_per_patch': True,
+                 'get_ROC_PR_curves': True,
+                 'get_calibration_curves': True,
+                 'get_hists_per_metrics': True}
 
 
 class Metrics(ABC):
@@ -49,6 +52,7 @@ class Metrics(ABC):
                  dataset,
                  output_path,
                  type_classifier,
+                 output_type=None,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -57,10 +61,26 @@ class Metrics(ABC):
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
                  normalize=DEFAULTS_VARS['normalize'],
-                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
-                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
+                 get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
+                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
 
-        self.output_path = output_path
+        if not os.path.exists(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output folder ${output_path} does not exist.")
+        elif not os.path.isdir(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output path ${output_path} should be a folder.")
+        else:
+            self.output_path = output_path
+
+        if output_type in ['md', 'json', 'html', 'terminal']:
+            self.output_type = output_type
+        else:
+            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            self.output_type = 'html'
+
         self.type_classifier = type_classifier
         self.dataset = dataset
         self.nbr_class = self.dataset.nbr_class
@@ -80,8 +100,11 @@ class Metrics(ABC):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.normalize = normalize
-        self.compute_ROC_PR_curves = compute_ROC_PR_curves
+
         self.get_metrics_per_patch = get_metrics_per_patch
+        self.get_ROC_PR_curves = get_ROC_PR_curves
+        self.get_calibration_curves = get_calibration_curves
+        self.get_hists_per_metrics = get_hists_per_metrics
 
         self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
 
@@ -93,7 +116,7 @@ class Metrics(ABC):
 
         self.type_prob, self.in_prob_range = self.get_info_pred()
 
-        if not self.compute_ROC_PR_curves or self.type_prob == 'hard':
+        if not self.get_ROC_PR_curves or self.type_prob == 'hard':
             self.threshold_range = [self.threshold]
 
         assert self.threshold in self.threshold_range, 'Threshold should be in the threshold range list.'
@@ -338,7 +361,7 @@ class Metrics(ABC):
 
         return texts
 
-    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
+    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn", generate=True):
 
         if self.normalize:
             cm = cm.astype('float') / np.sum(cm.flatten())
@@ -349,7 +372,11 @@ class Metrics(ABC):
         _ = self.annotate_heatmap(im)
 
         fig.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.title('Predicted class', fontsize=10)
-        plt.savefig(output_path)
-        return output_path
+
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()

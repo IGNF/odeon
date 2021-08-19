@@ -15,6 +15,7 @@ class Metrics_Binary(Metrics):
                  dataset,
                  output_path,
                  type_classifier,
+                 output_type=None,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -23,12 +24,15 @@ class Metrics_Binary(Metrics):
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
                  normalize=DEFAULTS_VARS['normalize'],
-                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
-                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
+                 get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
+                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
 
         super().__init__(dataset,
                          output_path=output_path,
                          type_classifier=type_classifier,
+                         output_type=output_type,
                          class_labels=class_labels,
                          threshold=threshold,
                          threshold_range=threshold_range,
@@ -37,8 +41,10 @@ class Metrics_Binary(Metrics):
                          batch_size=batch_size,
                          num_workers=num_workers,
                          normalize=normalize,
-                         compute_ROC_PR_curves=compute_ROC_PR_curves,
-                         get_metrics_per_patch=get_metrics_per_patch)
+                         get_metrics_per_patch=get_metrics_per_patch,
+                         get_ROC_PR_curves=get_ROC_PR_curves,
+                         get_calibration_curves=get_calibration_curves,
+                         get_hists_per_metrics=get_hists_per_metrics)
 
         self.df_thresholds, self.cms, self.df_report_metrics = self.create_data_for_metrics()
 
@@ -120,7 +126,7 @@ class Metrics_Binary(Metrics):
         tp, fn, fp, tn = cm.ravel()
         return self.get_metrics_from_obs(tp, fn, fp, tn)
 
-    def plot_PR_curve(self, precision, recall, name_plot='binary_pr_curve.png'):
+    def plot_PR_curve(self, precision, recall, name_plot='binary_pr_curve.png', generate=True):
 
         precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
         idx = np.argsort(recall)
@@ -140,11 +146,15 @@ class Metrics_Binary(Metrics):
         plt.xlabel('Recall')
         plt.legend()
         plt.grid(True)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
 
-    def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png'):
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()
+
+    def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png', generate=True):
 
         # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
         fpr, tpr = np.insert(fpr.to_numpy(), 0, 1), np.insert(tpr.to_numpy(), 0, 1)
@@ -159,11 +169,15 @@ class Metrics_Binary(Metrics):
         plt.xlabel('False Positive Rate')
         plt.legend()
         plt.grid(True)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
 
-    def plot_calibration_curve(self, name_plot='binary_calibration_curves.png'):
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()
+
+    def plot_calibration_curve(self, name_plot='binary_calibration_curves.png', generate=True):
 
         plt.figure(figsize=(16, 8))
         plt.subplot(211)
@@ -181,11 +195,15 @@ class Metrics_Binary(Metrics):
         plt.ylabel('Count')
         plt.xlabel('Mean predicted value')
         plt.legend(loc="upper center")
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
 
-    def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png'):
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()
+
+    def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png', generate=True):
 
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         n_plot = len(self.metrics_names[:-1])
@@ -204,6 +222,11 @@ class Metrics_Binary(Metrics):
             plt.grid()
             plt.ylabel("Samples count")
         plt.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
+
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()
+

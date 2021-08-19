@@ -38,6 +38,7 @@ from scipy.stats import entropy
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from odeon.commons.reports.report_factory import Report_Factory
+from odeon.commons.exception import OdeonError, ErrorCodes
 
 BATCH_SIZE = 1
 NUM_WORKERS = 1
@@ -50,7 +51,8 @@ class Statistics():
 
     def __init__(self,
                  dataset,
-                 output_path=None,
+                 output_path,
+                 output_type=None,
                  get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
                  bit_depth=BIT_DEPTH,
                  bins=None,
@@ -81,7 +83,19 @@ class Statistics():
         """
         # Input arguments
         self.dataset = dataset
-        self.output_path = output_path
+
+        if not os.path.exists(output_path):
+            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                             f"Output folder ${output_path} does not exist.")
+        else:
+            self.output_path = output_path
+
+        if output_type in ['md', 'json', 'html', 'terminal']:
+            self.output_type = output_type
+        else:
+            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            self.output_type = 'html'
+
         self.nbr_bands = len(self.dataset.image_bands)
         self.nbr_classes = len(self.dataset.mask_bands)
         self.nbr_pixels_per_patch = self.dataset.height * self.dataset.width
@@ -350,7 +364,7 @@ class Statistics():
         """
         return value * self.depth_dict[self.bit_depth]
 
-    def plot_hist(self, generate=False):
+    def plot_hist(self, generate=True):
         """Plot histograms with the bands distributions.
         The histograms can be directly plot or save in an image with '.png' format.
 

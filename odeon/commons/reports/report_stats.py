@@ -1,3 +1,4 @@
+import os
 import json
 from odeon.commons.reports.report import Report
 
@@ -34,7 +35,7 @@ class Report_Stats(Report):
         self.STD_OUT_LOGGER.info(self.input_object.df_classes_stats)
         self.STD_OUT_LOGGER.info("* Global statistics: ")
         self.STD_OUT_LOGGER.info(self.input_object.df_global_stats)
-        self.input_object.plot_hist()
+        self.input_object.plot_hist(generate=False)
 
     def to_json(self):
         """
@@ -48,7 +49,7 @@ class Report_Stats(Report):
                                   {f'band {i+1}': [int(x) for x in hist]
                                    for i, hist in enumerate(self.input_object.bands_hists)}}}
 
-        with open(self.input_object.output_path, 'w') as output_file:
+        with open(os.path.join(self.input_object.output_path, 'stats_report.json'), "w") as output_file:
             json.dump(data_to_dict, output_file, indent=4)
 
     def to_md(self):
@@ -94,9 +95,9 @@ class Report_Stats(Report):
             - the number of classes in an image (avg nb class in patch)
             - the average entropy (avg entropy)""" + \
             '\n\n' + \
-            f'![Images bands histograms]({self.input_object.plot_hist(generate=True)})'
+            f'![Images bands histograms](./{os.path.basename(self.input_object.plot_hist())})'
 
-        with open(self.input_object.output_path, "w") as output_file:
+        with open(os.path.join(self.input_object.output_path, 'stats_report.md'), "w") as output_file:
             output_file.write(md_text)
 
     def to_html(self):
@@ -165,9 +166,9 @@ class Report_Stats(Report):
             <h2>Image bands histograms</h2>
 
             """ + \
-            f'<p><img alt="Images bands histograms" src={self.input_object.plot_hist(generate=True)} /></p>'
+            f"<p><img alt='Images bands histograms' src=./{os.path.basename(self.input_object.plot_hist())}/></p>"
 
-        with open(self.input_object.output_path, "w") as output_file:
+        with open(os.path.join(self.input_object.output_path, 'stats_report.html'), "w") as output_file:
             output_file.write(header_html)
             output_file.write(begin_html)
             output_file.write(stats_html)

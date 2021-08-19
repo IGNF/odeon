@@ -6,6 +6,7 @@
             "properties": {
                 "input_path": {"type": "string"},
                 "output_path":{"type": "string"},
+                "output_type":{"type": "string", "default": "html"},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "data_augmentation": {"type":["string", "array"]},

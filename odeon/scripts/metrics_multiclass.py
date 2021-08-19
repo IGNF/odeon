@@ -14,6 +14,7 @@ class Metrics_Multiclass(Metrics):
                  dataset,
                  output_path,
                  type_classifier,
+                 output_type=None,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -22,12 +23,15 @@ class Metrics_Multiclass(Metrics):
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
                  normalize=DEFAULTS_VARS['normalize'],
-                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
-                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
+                 get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
+                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
 
         super().__init__(dataset=dataset,
                          output_path=output_path,
                          type_classifier=type_classifier,
+                         output_type=output_type,
                          class_labels=class_labels,
                          threshold=threshold,
                          threshold_range=threshold_range,
@@ -36,8 +40,10 @@ class Metrics_Multiclass(Metrics):
                          batch_size=batch_size,
                          num_workers=num_workers,
                          normalize=normalize,
-                         compute_ROC_PR_curves=compute_ROC_PR_curves,
-                         get_metrics_per_patch=get_metrics_per_patch)
+                         get_metrics_per_patch=get_metrics_per_patch,
+                         get_ROC_PR_curves=get_ROC_PR_curves,
+                         get_calibration_curves=get_calibration_curves,
+                         get_hists_per_metrics=get_hists_per_metrics)
 
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
 
@@ -212,7 +218,7 @@ class Metrics_Multiclass(Metrics):
 
         self.df_report_macro.loc['Values'] = list(self.metrics_macro.values())[:-1]
 
-    def plot_ROC_PR_per_class(self, name_plot='roc_pr_curves.png'):
+    def plot_ROC_PR_per_class(self, name_plot='multiclass_roc_pr_curves.png', generate=True):
 
         plt.figure(figsize=(16, 8))
         plt.subplot(121)
@@ -249,11 +255,14 @@ class Metrics_Multiclass(Metrics):
         plt.legend(loc='lower left')
         plt.grid(True)
 
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()
 
-    def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png'):
+    def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png', generate=True):
 
         # Normalize dict_hist_counts to put the values between 0 and 1:
         total_pixel = np.sum(self.dict_hist_counts[self.class_labels[0]])
@@ -279,16 +288,19 @@ class Metrics_Multiclass(Metrics):
         plt.legend(loc="upper center")
         plt.tight_layout(pad=3)
 
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()
 
-    def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png'):
-        plt.set_cmap('viridis')
+    def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png', generate=True):
+
         colors = plt.rcParams["axes.prop_cycle"]()
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         n_plot = len(self.header[1:])
-        n_cols = 3
+        n_cols = 4
         n_rows = ((n_plot - 1) // n_cols) + 1
 
         plt.figure(figsize=(7 * n_cols, 6 * n_rows))
@@ -303,6 +315,10 @@ class Metrics_Multiclass(Metrics):
             plt.grid()
             plt.ylabel("Samples count")
         plt.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-        plt.savefig(output_path)
-        return output_path
+
+        if generate:
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+        else:
+            plt.show()

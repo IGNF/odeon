@@ -31,6 +31,7 @@ class Stats(BaseTool):
     def __init__(self,
                  input_path,
                  output_path,
+                 output_type=None,
                  image_bands=None,
                  mask_bands=None,
                  data_augmentation=None,
@@ -69,7 +70,22 @@ class Stats(BaseTool):
             Number of workers to use in the pytorch dataloader.
         """
         self.input_path = input_path
-        self.output_path = output_path
+
+        if not os.path.exists(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output folder ${output_path} does not exist.")
+        elif not os.path.isdir(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output path ${output_path} should be a folder.")
+        else:
+            self.output_path = output_path
+
+        if output_type in ['md', 'json', 'html', 'terminal']:
+            self.output_type = output_type
+        else:
+            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            self.output_type = 'html'
+
         self.bins = bins
         self.nbr_bins = nbr_bins
         self.bit_depth = bit_depth
@@ -79,7 +95,6 @@ class Stats(BaseTool):
         self.num_workers = num_workers
 
         if not os.path.exists(self.input_path):
-
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
                              f"file ${self.input_path} does not exist.")
         else:
@@ -140,6 +155,7 @@ class Stats(BaseTool):
 
         self.statistics = Statistics(dataset=self.dataset,
                                      output_path=self.output_path,
+                                     output_type=output_type,
                                      get_skewness_kurtosis=self.get_skewness_kurtosis,
                                      bit_depth=self.bit_depth,
                                      bins=self.bins,
@@ -282,6 +298,6 @@ class Stats(BaseTool):
 
 if __name__ == '__main__':
     input_path = "/home/SPeillet/OCSGE/outputs/generation/train"
-    output_path = "/home/SPeillet/OCSGE/stats.html"
-    stats = Stats(input_path, output_path, get_skewness_kurtosis=True)
+    output_path = "/home/SPeillet/OCSGE/"
+    stats = Stats(input_path, output_path, output_type='html', get_skewness_kurtosis=True)
     stats()

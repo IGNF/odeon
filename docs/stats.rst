@@ -57,12 +57,8 @@ Json file content
  {
   "stats_setup":{
         "input_path": "/path/to/input/dataset/train.csv",
-        "output_path" : "/path/to/output/file/stats.html"}
+        "output_path" : "/path/to/output/file/stats/"}
  }
-
-.. warning::
-   The extension of the output path specified in the configuration file determines the type of the output file!
-   The types of output files handled are: html, json, md.
  
 **full json example**
 
@@ -87,7 +83,9 @@ Json file content
         input_path : str
             Path to .csv file describing the input dataset or a directory where the images and masks are stored.
         output_path: str
-            Path where the report with the computed statistics will be created.
+            Path of the folder where the report with the computed statistics will be created. The folder must exist or be created before the use of the tool.
+        output_type: str
+            Output file format. The output file can only be in md, json, html or directly displayed on the terminal. By default, the output format will be html.
         image_bands: list
             List of the selected bands in the dataset images bands.
         mask_bands: list

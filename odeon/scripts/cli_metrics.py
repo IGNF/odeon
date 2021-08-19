@@ -17,7 +17,7 @@ The metrics computed are in each case :
     - KL Divergence
 
 * Multi-class case:
-    - 1 versus all: same metrics as the binary case for each class.
+    - Metrics Per class: same metrics as the binary case for each class.
     - Macro (1 versus all then all cms stacked): same metrics as the binary case for the sum of all classes.
     - Micro : Precision, Recall, F1 Score (confusion matrix but no ROC curve).
 
@@ -42,6 +42,7 @@ class CLI_Metrics(BaseTool):
                  pred_path,
                  output_path,
                  type_classifier,
+                 output_type=None,
                  class_labels=None,
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
@@ -50,12 +51,29 @@ class CLI_Metrics(BaseTool):
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
                  normalize=DEFAULTS_VARS['normalize'],
-                 compute_ROC_PR_curves=DEFAULTS_VARS['compute_ROC_PR_curves'],
-                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch']):
+                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
+                 get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
+                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
 
         self.mask_path = mask_path
         self.pred_path = pred_path
-        self.output_path = output_path
+
+        if not os.path.exists(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output folder ${output_path} does not exist.")
+        elif not os.path.isdir(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output path ${output_path} should be a folder.")
+        else:
+            self.output_path = output_path
+
+        if output_type in ['md', 'json', 'html', 'terminal']:
+            self.output_type = output_type
+        else:
+            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            self.output_type = 'html'
+
         self.type_classifier = type_classifier
         self.class_labels = class_labels,
         self.threshold = threshold
@@ -66,8 +84,11 @@ class CLI_Metrics(BaseTool):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.normalize = normalize
-        self.compute_ROC_PR_curves = compute_ROC_PR_curves
+
         self.get_metrics_per_patch = get_metrics_per_patch
+        self.get_ROC_PR_curves = get_ROC_PR_curves
+        self.get_calibration_curves = get_calibration_curves
+        self.get_hists_per_metrics = get_hists_per_metrics
 
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
@@ -80,6 +101,7 @@ class CLI_Metrics(BaseTool):
 
         self.metrics = Metrics_Factory(self.type_classifier)(dataset=metrics_dataset,
                                                              output_path=self.output_path,
+                                                             output_type=self.output_type,
                                                              type_classifier=self.type_classifier,
                                                              class_labels=self.class_labels,
                                                              threshold=self.threshold,
@@ -89,19 +111,22 @@ class CLI_Metrics(BaseTool):
                                                              batch_size=self.batch_size,
                                                              num_workers=self.num_workers,
                                                              normalize=normalize,
-                                                             compute_ROC_PR_curves=self.compute_ROC_PR_curves,
-                                                             get_metrics_per_patch=self.get_metrics_per_patch)
+                                                             get_metrics_per_patch=self.get_metrics_per_patch,
+                                                             get_ROC_PR_curves=self.get_ROC_PR_curves,
+                                                             get_calibration_curves=get_calibration_curves,
+                                                             get_hists_per_metrics=get_hists_per_metrics)
 
     def __call__(self):
         self.metrics()
 
     def get_files_from_input_paths(self):
         if not os.path.exists(self.mask_path):
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"Masks folder ${self.mask_path} does not exist.")
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Masks folder {self.mask_path} does not exist.")
         elif not os.path.exists(self.pred_path):
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"Predictions folder ${self.pred_path} does not exist.")
+            LOGGER.error(f'ERROR: Predictions folder {self.pred_path} does not exist.')
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Predictions folder {self.pred_path} does not exist.")
         else:
             if os.path.isdir(self.mask_path) and os.path.isdir(self.pred_path):
                 mask_files, pred_files = self.list_files_from_dir()
@@ -160,25 +185,31 @@ if __name__ == '__main__':
     # Cas binaire avec du soft
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary')
+    # output_path = '/home/SPeillet/OCSGE/'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Binary')
 
     # Cas binaire avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/pred'
-    # output_path = '/home/SPeillet/OCSGE/binary_case_metrics.html'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Binary', compute_ROC_PR_curves=False)
+    # output_path = '/home/SPeillet/OCSGE'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Binary')
 
     # Cas multiclass avec du soft
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
-    # output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
+    # output_path = '/home/SPeillet/OCSGE/'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
 
-    # Cas multiclass avec du hard
+    # # Cas multiclass avec du hard
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
-    output_path = '/home/SPeillet/OCSGE/multiclass_metrics.html'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, type_classifier='Multiclass')
+    output_path = '/home/SPeillet/OCSGE/'
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
+
+    # Test dataset intégral (cas multiclass en soft)
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/detection_soft/'
+    # output_path = '/home/SPeillet/OCSGE/'
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
 
     metrics()

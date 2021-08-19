@@ -4,10 +4,8 @@ directly in the terminal. The created report will be located in the path defined
 configuration file of the tool on which the report is made.
 """
 
-import os
 import numpy as np
 import pandas as pd
-from odeon import LOGGER
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 
 HTML_FILE = 'odeon/commons/reports/jupyter_layout.html'
@@ -36,22 +34,21 @@ class Report(object):
         ch = get_simple_handler()
         self.STD_OUT_LOGGER.addHandler(ch)
 
+    def create_data(self):
+        pass
+
     def create_report(self):
         """Determine the output of the tool. Can create a report in the type request in the
         configuration file. Also can directly display the report in the terminal.
         """
-        if self.input_object.output_path is not None:
-            ext = os.path.splitext(self.input_object.output_path)[1]
-            if ext == '.html':
-                self.to_html()
-            elif ext == '.json':
-                self.to_json()
-            elif ext == '.md':
-                self.to_md()
-            else:
-                LOGGER.warning('WARNING: the extension passed as input for the output file is incorrect.\
-                    Statistics will be displayed directly in the terminal.')
-                self.to_terminal()
+        self.create_data()
+
+        if self.input_object.output_type == 'html':
+            self.to_html()
+        elif self.input_object.output_type == 'json':
+            self.to_json()
+        elif self.input_object.output_type == 'md':
+            self.to_md()
         else:
             self.to_terminal()
 
