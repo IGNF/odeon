@@ -1,0 +1,27 @@
+{
+    "type": "object",
+    "properties": {
+        "metrics_setup": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "output_path":{"type": "string"},
+                "type_classifier":{"type": "string", "enum": ["binary", "multiclass"]},
+                "output_type":{"type": "string", "default": "html", "enum": ["html", "json", "md"]},
+                "class_labels": {"type": "array", "items": {"type": "string"}},
+                "threshold": {"type": "number", "default": 0.5},
+                "threshold_range": {"type": "array", "items": {"type": "number"}, "uniqueItems": true},
+                "bit_depth": {"type": "string", "default": "8 bits", "enum": ["keep", "8 bits", "12 bits", "14 bits", "16 bits"]},
+                "nb_calibration_bins": {"type": "integer", "default": 10},
+                "batch_size" : {"type":"integer", "default": 1},
+                "num_workers" : {"type":"integer", "default": 1},
+                "normalize": {"type": "boolean", "default": false},
+                "get_metrics_per_patch": {"type": "boolean", "default": true},
+                "get_ROC_PR_curves": {"type": "boolean", "default": true},
+                "get_calibration_curves": {"type": "boolean", "default": true},
+                "get_hists_per_metrics": {"type": "boolean", "default": true}
+            },
+            "required": ["input_path", "output_path"]
+        }
+    }
+}

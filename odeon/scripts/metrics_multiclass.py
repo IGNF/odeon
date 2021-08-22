@@ -59,6 +59,8 @@ class Metrics_Multiclass(Metrics):
         self.metrics_by_class, self.metrics_micro, self.metrics_macro, self.cms_classes, self.cm_macro = \
             self.get_metrics_from_cm(self.cm_micro)
         self.metrics_to_df_reports()
+        if get_metrics_per_patch:
+            self.export_metrics_per_patch_csv()
 
     def create_data_for_metrics(self):
         df_report_classes = pd.DataFrame(index=[class_name for class_name in self.class_labels],
@@ -79,6 +81,7 @@ class Metrics_Multiclass(Metrics):
             vects = {'Recall': [],
                      'FPR': [],
                      'Precision': []}
+
             # Data for calibration curves.
             hist_counts = np.zeros(len(self.bins) - 1)
             bin_sums = np.zeros(len(self.bins))
@@ -218,84 +221,91 @@ class Metrics_Multiclass(Metrics):
 
         self.df_report_macro.loc['Values'] = list(self.metrics_macro.values())[:-1]
 
-    def plot_ROC_PR_per_class(self, name_plot='multiclass_roc_pr_curves.png', generate=True):
+    def plot_ROC_PR_per_class(self, name_plot='multiclass_roc_pr_curves.png'):
+        if self.output_type == 'json':
+            self.dict_export['PR ROC info'] = self.vect_classes
+        else:
+            plt.figure(figsize=(16, 8))
+            plt.subplot(121)
+            for class_i in self.class_labels:
+                fpr = np.array(self.vect_classes[class_i]['FPR'])
+                tpr = np.array(self.vect_classes[class_i]['Recall'])
+                fpr, tpr = np.insert(fpr, 0, 1), np.insert(tpr, 0, 1)
+                fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
+                fpr, tpr = fpr[::-1], tpr[::-1]
+                roc_auc = auc(fpr, tpr)
+                plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}')
+            plt.plot([0, 1], [0, 1], 'r--')
+            plt.ylabel('True Positive Rate')
+            plt.xlabel('False Positive Rate')
+            plt.title('Roc Curves')
+            plt.legend()
+            plt.grid(True)
 
-        plt.figure(figsize=(16, 8))
-        plt.subplot(121)
-        for class_i in self.class_labels:
-            fpr = np.array(self.vect_classes[class_i]['FPR'])
-            tpr = np.array(self.vect_classes[class_i]['Recall'])
-            fpr, tpr = np.insert(fpr, 0, 1), np.insert(tpr, 0, 1)
-            fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
-            fpr, tpr = fpr[::-1], tpr[::-1]
-            roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}')
-        plt.plot([0, 1], [0, 1], 'r--')
-        plt.ylabel('True Positive Rate')
-        plt.xlabel('False Positive Rate')
-        plt.title('Roc Curves')
-        plt.legend()
-        plt.grid(True)
+            plt.subplot(122)
+            for class_i in self.class_labels:
+                precision = np.array(self.vect_classes[class_i]['Precision'])
+                recall = np.array(self.vect_classes[class_i]['Recall'])
+                precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
+                idx = np.argsort(recall)
+                recall, precision = recall[idx], precision[idx]
+                recall, precision = np.insert(recall, 0, 0), np.insert(precision, 0, 1)
+                recall, precision = np.append(recall, 1), np.append(precision, 0)
+                pr_auc = auc(recall, precision)
+                plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}')
+            plt.plot([1, 0], [0, 1], 'r--')
+            plt.title('Precision-Recall Curve')
+            plt.ylabel('Precision')
+            plt.xlabel('Recall')
+            plt.legend(loc='lower left')
+            plt.grid(True)
 
-        plt.subplot(122)
-        for class_i in self.class_labels:
-            precision = np.array(self.vect_classes[class_i]['Precision'])
-            recall = np.array(self.vect_classes[class_i]['Recall'])
-            precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
-            idx = np.argsort(recall)
-            recall, precision = recall[idx], precision[idx]
-            recall, precision = np.insert(recall, 0, 0), np.insert(precision, 0, 1)
-            recall, precision = np.append(recall, 1), np.append(precision, 0)
-            pr_auc = auc(recall, precision)
-            plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}')
-        plt.plot([1, 0], [0, 1], 'r--')
-        plt.title('Precision-Recall Curve')
-        plt.ylabel('Precision')
-        plt.xlabel('Recall')
-        plt.legend(loc='lower left')
-        plt.grid(True)
-
-        if generate:
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
-        else:
-            plt.show()
 
-    def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png', generate=True):
+    def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png'):
 
         # Normalize dict_hist_counts to put the values between 0 and 1:
         total_pixel = np.sum(self.dict_hist_counts[self.class_labels[0]])
         self.dict_hist_counts = {key: value / total_pixel for key, value in self.dict_hist_counts.items()}
 
-        plt.figure(figsize=(16, 8))
-        # Plot 1: calibration curves
-        plt.subplot(211)
-        plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-        for class_i in self.class_labels:
-            plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-", label=class_i)
-        plt.legend(loc="lower right")
-        plt.title('Calibration plots  (reliability curve)')
-        plt.ylabel('Fraction of positives')
-        plt.xlabel('Probalities')
+        if self.output_type == 'json':
+            dict_prob_true, dict_prob_pred, dict_hist_counts = {}, {}, {}
+            for class_i in self.class_labels:
+                dict_prob_true[class_i] = self.dict_prob_true[class_i].tolist()
+                dict_prob_pred[class_i] = self.dict_prob_pred[class_i].tolist()
+                dict_hist_counts[class_i] = self.dict_hist_counts[class_i].tolist()
 
-        # Plot 2: Hist of predictions distributions
-        plt.subplot(212)
-        for class_i in self.class_labels:
-            plt.hist(self.dict_hist_counts[class_i], bins=self.bins, histtype="step", label=class_i, lw=2)
-        plt.ylabel('Count')
-        plt.xlabel('Mean predicted value')
-        plt.legend(loc="upper center")
-        plt.tight_layout(pad=3)
+            self.dict_export['calibration curve'] = {'prob_true': dict_prob_true,
+                                                     'prob_pred': dict_prob_pred,
+                                                     'hist_counts': dict_hist_counts}
+        else:
+            plt.figure(figsize=(16, 8))
+            # Plot 1: calibration curves
+            plt.subplot(211)
+            plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+            for class_i in self.class_labels:
+                plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-", label=class_i)
+            plt.legend(loc="lower right")
+            plt.title('Calibration plots  (reliability curve)')
+            plt.ylabel('Fraction of positives')
+            plt.xlabel('Probalities')
 
-        if generate:
+            # Plot 2: Hist of predictions distributions
+            plt.subplot(212)
+            for class_i in self.class_labels:
+                plt.hist(self.dict_hist_counts[class_i], bins=self.bins, histtype="step", label=class_i, lw=2)
+            plt.ylabel('Count')
+            plt.xlabel('Mean predicted value')
+            plt.legend(loc="upper center")
+            plt.tight_layout(pad=3)
+
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
-        else:
-            plt.show()
 
-    def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png', generate=True):
+    def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png'):
 
         colors = plt.rcParams["axes.prop_cycle"]()
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
@@ -303,22 +313,31 @@ class Metrics_Multiclass(Metrics):
         n_cols = 4
         n_rows = ((n_plot - 1) // n_cols) + 1
 
-        plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-        for i, metric in enumerate(self.header[1:]):
-            values = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0]
-            plt.subplot(n_rows, n_cols, i+1)
-            c = next(colors)["color"]
-            plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
-            plt.xticks(range(len(self.bins)), bins)
-            plt.title(f'{metric}', fontsize=13)
-            plt.xlabel("Values bins")
-            plt.grid()
-            plt.ylabel("Samples count")
-        plt.tight_layout(pad=3)
+        hists_metrics = {}
+        for metric in self.header[1:]:
+            hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0].tolist()
 
-        if generate:
+        if self.output_type == 'json':
+            self.dict_export['df_dataset'] = self.df_dataset.to_dict()
+            self.dict_export['hists metrics'] = hists_metrics
+        else:
+            plt.figure(figsize=(7 * n_cols, 6 * n_rows))
+            for i, metric in enumerate(self.header[1:]):
+                values = hists_metrics[metric]
+                plt.subplot(n_rows, n_cols, i+1)
+                c = next(colors)["color"]
+                plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
+                plt.xticks(range(len(self.bins)), bins)
+                plt.title(f'{metric}', fontsize=13)
+                plt.xlabel("Values bins")
+                plt.grid()
+                plt.ylabel("Samples count")
+            plt.tight_layout(pad=3)
+
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
-        else:
-            plt.show()
+
+    def export_metrics_per_patch_csv(self):
+        path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
+        self.df_dataset.to_csv(path_csv, index=False)

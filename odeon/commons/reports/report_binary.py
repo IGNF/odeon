@@ -1,4 +1,5 @@
 import os
+import json
 from odeon.commons.reports.report import Report
 
 
@@ -15,44 +16,83 @@ class Report_Binary(Report):
         super().__init__(input_object)
 
     def create_data(self):
-        if self.input_object.output_type == 'terminal':
-            self.generate = False
-        else:
-            self.generate = True
-
-        self.cm = self.input_object.plot_confusion_matrix(self.input_object.cms[self.input_object.threshold],
-                                                          labels=['Positive', 'Negative'],
-                                                          name_plot='cm_binary.png',
-                                                          generate=self.generate)
+        if self.input_object.output_type != 'json':
+            self.cm = self.input_object.plot_confusion_matrix(self.input_object.cms[self.input_object.threshold],
+                                                              labels=['Positive', 'Negative'],
+                                                              name_plot='cm_binary.png')
 
         if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
-            self.calibration_curve = self.input_object.plot_calibration_curve(generate=self.generate)
+            self.calibration_curve = self.input_object.plot_calibration_curve()
 
         if self.input_object.get_ROC_PR_curves:
             self.ROC_curve = self.input_object.plot_ROC_curve(self.input_object.df_thresholds['FPR'],
-                                                              self.input_object.df_thresholds['Recall'],
-                                                              generate=self.generate)
+                                                              self.input_object.df_thresholds['Recall'])
             self.PR_curve = self.input_object.plot_PR_curve(self.input_object.df_thresholds['Recall'],
-                                                            self.input_object.df_thresholds['Precision'],
-                                                            generate=self.generate)
+                                                            self.input_object.df_thresholds['Precision'])
 
         if self.input_object.get_hists_per_metrics:
-            self.metrics_hists = self.input_object.plot_dataset_metrics_histograms(generate=self.generate)
-
-    def to_terminal(self):
-        """Display the results of the Metrics tool in the terminal.
-        """
-        pass
+            self.metrics_hists = self.input_object.plot_dataset_metrics_histograms()
 
     def to_json(self):
         """Create a report in the json format.
         """
-        pass
+        dict_export = self.input_object.dict_export
+        dict_export['metrics report'] = self.round_df_values(self.input_object.df_report_metrics).T.to_dict()
+
+        cms_json = {}
+        for threshold in self.input_object.cms:
+            cms_json[threshold] = self.input_object.cms[threshold].tolist()
+
+        dict_export['cms'] = cms_json
+
+        with open(os.path.join(self.input_object.output_path, 'report_metrics.json'), "w") as output_file:
+            json.dump(dict_export, output_file, indent=4)
 
     def to_md(self):
         """Create a report in the markdown format.
         """
-        pass
+        md_main = f"""
+# ODEON - Metrics
+
+## Main metrics
+
+{self.df_to_md(self.round_df_values(self.input_object.df_report_metrics))}
+
+* Metrics computed with a threshod of : {self.input_object.threshold}
+
+## Confusion matrix
+![Confusion matrix](./{os.path.basename(self.cm)})
+"""
+
+        md_elements = [md_main]
+
+        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+            calibration_curves = f"""
+## Calibration Curve
+![Calibration curve](./{os.path.basename(self.calibration_curve)})
+"""
+            md_elements.append(calibration_curves)
+
+        if self.input_object.get_ROC_PR_curves:
+            roc_pr_curves = f"""
+## Roc Curve
+![Roc curve](./{os.path.basename(self.ROC_curve)})
+
+## Precision-Recall Curve
+![PR Curve](./{os.path.basename(self.PR_curve)})
+"""
+            md_elements.append(roc_pr_curves)
+
+        if self.input_object.get_hists_per_metrics:
+            metrics_histograms = f""""
+## Metrics Histograms
+![Histograms per metric](./{os.path.basename(self.metrics_hists)})
+"""
+            md_elements.append(metrics_histograms)
+
+        with open(os.path.join(self.input_object.output_path, 'binary_metrics.md'), "w") as output_file:
+            for md_element in md_elements:
+                output_file.write(md_element)
 
     def to_html(self):
         """Create a report in the html format.

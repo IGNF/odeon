@@ -146,7 +146,7 @@ class Statistics():
 
     def __call__(self):
         """
-        Function to display or to generate an output file when the instance is called.
+        Function to generate an output file when the instance is called.
         """
         self.report.create_report()
 
@@ -364,14 +364,9 @@ class Statistics():
         """
         return value * self.depth_dict[self.bit_depth]
 
-    def plot_hist(self, generate=True):
+    def plot_hist(self):
         """Plot histograms with the bands distributions.
-        The histograms can be directly plot or save in an image with '.png' format.
-
-        Parameters
-        ----------
-        generate : bool, optional
-            Option to know if the histograms have to be plot or save in an image, by default False
+        The histograms are saved in an image with '.png' format.
 
         Returns
         -------
@@ -402,9 +397,7 @@ class Statistics():
 
         plt.tight_layout(pad=3.0)
 
-        if generate:
-            output_path = os.path.join(os.path.dirname(self.output_path), 'stats_hists.png')
-            plt.savefig(output_path)
-            return output_path
-        else:
-            plt.show()
+
+        output_path = os.path.join(os.path.dirname(self.output_path), 'stats_hists.png')
+        plt.savefig(output_path)
+        return output_path

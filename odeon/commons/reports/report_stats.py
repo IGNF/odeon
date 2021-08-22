@@ -24,19 +24,6 @@ class Report_Stats(Report):
         self.input_object.df_classes_stats = self.round_df_values(self.input_object.df_classes_stats)
         self.input_object.df_global_stats = self.round_df_values(self.input_object.df_global_stats)
 
-    def to_terminal(self):
-        """
-        Display directly in the terminal the dataframes containing the stats and also plot the bands' histograms.
-        """
-        self.rounded_stats()  # Rounded the values in the dataframes.
-        self.STD_OUT_LOGGER.info("* Images bands statistics: ")
-        self.STD_OUT_LOGGER.info(self.input_object.df_bands_stats)
-        self.STD_OUT_LOGGER.info("* Classes statistics: ")
-        self.STD_OUT_LOGGER.info(self.input_object.df_classes_stats)
-        self.STD_OUT_LOGGER.info("* Global statistics: ")
-        self.STD_OUT_LOGGER.info(self.input_object.df_global_stats)
-        self.input_object.plot_hist(generate=False)
-
     def to_json(self):
         """
         Generate a JSON output file at the output path pass in the initialization of the instance.

@@ -54,6 +54,9 @@ class Metrics_Binary(Metrics):
 
         self.get_metrics_by_threshold()
 
+        if get_metrics_per_patch:
+            self.export_metrics_per_patch_csv()
+
     def create_data_for_metrics(self):
         df_thresholds = pd.DataFrame(index=range(len(self.threshold_range)),
                                      columns=(['threshold'] + self.metrics_names))
@@ -90,7 +93,7 @@ class Metrics_Binary(Metrics):
                     for name_column in self.metrics_names[:-1]:
                         self.df_dataset.loc[dataset_index, name_column] = sample_metrics[name_column]
                     dataset_index += 1
- 
+
                 # To calcultate info for calibrations curves only once.
                 if threshold == self.threshold_range[0]:
                     pred_hist = pred.copy()
@@ -126,7 +129,7 @@ class Metrics_Binary(Metrics):
         tp, fn, fp, tn = cm.ravel()
         return self.get_metrics_from_obs(tp, fn, fp, tn)
 
-    def plot_PR_curve(self, precision, recall, name_plot='binary_pr_curve.png', generate=True):
+    def plot_PR_curve(self, precision, recall, name_plot='binary_pr_curve.png'):
 
         precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
         idx = np.argsort(recall)
@@ -135,98 +138,114 @@ class Metrics_Binary(Metrics):
         recall = np.append(recall, 1)
         precision = np.insert(precision, 0, 1)
         precision = np.append(precision, 0)
-
         pr_auc = auc(recall, precision)
 
-        plt.figure(figsize=FIGSIZE)
-        plt.title('Precision-Recall Curve')
-        plt.plot(recall, precision, label='AUC = %0.3f' % pr_auc)
-        plt.plot([1, 0], [0, 1], 'r--')
-        plt.ylabel('Precision')
-        plt.xlabel('Recall')
-        plt.legend()
-        plt.grid(True)
+        if self.output_type == 'json':
+            pr_dict = {}
+            pr_dict['precision'] = precision.tolist()
+            pr_dict['recall'] = recall.tolist()
+            pr_dict['auc'] = pr_auc
+            self.dict_export['PR curve'] = pr_dict
+        else:
+            plt.figure(figsize=FIGSIZE)
+            plt.title('Precision-Recall Curve')
+            plt.plot(recall, precision, label='AUC = %0.3f' % pr_auc)
+            plt.plot([1, 0], [0, 1], 'r--')
+            plt.ylabel('Precision')
+            plt.xlabel('Recall')
+            plt.legend()
+            plt.grid(True)
 
-        if generate:
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
-        else:
-            plt.show()
 
-    def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png', generate=True):
-
+    def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png'):
         # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
         fpr, tpr = np.insert(fpr.to_numpy(), 0, 1), np.insert(tpr.to_numpy(), 0, 1)
         fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
         fpr, tpr = fpr[::-1], tpr[::-1]
         roc_auc = auc(fpr, tpr)
-        plt.figure(figsize=FIGSIZE)
-        plt.title('Roc Curve')
-        plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
-        plt.plot([0, 1], [0, 1], 'r--')
-        plt.ylabel('True Positive Rate')
-        plt.xlabel('False Positive Rate')
-        plt.legend()
-        plt.grid(True)
 
-        if generate:
+        if self.output_type == 'json':
+            roc_dict = {}
+            roc_dict['fpr'] = fpr.tolist()
+            roc_dict['tpr'] = tpr.tolist()
+            roc_dict['auc'] = roc_auc
+            self.dict_export['ROC curve'] = roc_dict
+        else:
+            plt.figure(figsize=FIGSIZE)
+            plt.title('Roc Curve')
+            plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
+            plt.plot([0, 1], [0, 1], 'r--')
+            plt.ylabel('True Positive Rate')
+            plt.xlabel('False Positive Rate')
+            plt.legend()
+            plt.grid(True)
+
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
+
+    def plot_calibration_curve(self, name_plot='binary_calibration_curves.png'):
+
+        if self.output_type == 'json':
+            self.dict_export['calibration curve'] = {'prob_true': self.prob_true.tolist(),
+                                                     'prob_pred': self.prob_pred.tolist(),
+                                                     'hist_counts': self.hist_counts.tolist()}
         else:
-            plt.show()
+            plt.figure(figsize=(16, 8))
+            plt.subplot(211)
+            # Plot 1: calibration curves
+            plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+            plt.plot(self.prob_true, self.prob_pred, "s-", label="Class 1")
+            plt.legend(loc="lower right")
+            plt.title('Calibration plots  (reliability curve)')
+            plt.ylabel('Fraction of positives')
+            plt.xlabel('Probalities')
 
-    def plot_calibration_curve(self, name_plot='binary_calibration_curves.png', generate=True):
+            plt.subplot(212)
+            # Plot 2: Hist of predictions distributions
+            plt.hist(self.hist_counts, histtype="step", bins=self.bins, label="Class 1", lw=2)
+            plt.ylabel('Count')
+            plt.xlabel('Mean predicted value')
+            plt.legend(loc="upper center")
 
-        plt.figure(figsize=(16, 8))
-        plt.subplot(211)
-        # Plot 1: calibration curves
-        plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-        plt.plot(self.prob_true, self.prob_pred, "s-", label="Class 1")
-        plt.legend(loc="lower right")
-        plt.title('Calibration plots  (reliability curve)')
-        plt.ylabel('Fraction of positives')
-        plt.xlabel('Probalities')
-
-        plt.subplot(212)
-        # Plot 2: Hist of predictions distributions
-        plt.hist(self.hist_counts, histtype="step", bins=self.bins, label="Class 1", lw=2)
-        plt.ylabel('Count')
-        plt.xlabel('Mean predicted value')
-        plt.legend(loc="upper center")
-
-        if generate:
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
-        else:
-            plt.show()
 
-    def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png', generate=True):
-
+    def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png'):
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         n_plot = len(self.metrics_names[:-1])
         n_cols = 3
         n_rows = ((n_plot - 1) // n_cols) + 1
 
-        plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-        for i, metric in enumerate(self.metrics_names[:-1]):
-            values = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0]
-            plt.subplot(n_rows, n_cols, i+1)
-            c = [float(i) / float(n_plot), 0.0, float(n_plot-i) / float(n_plot)]
-            plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
-            plt.xticks(range(len(self.bins)), bins)
-            plt.title(f'{metric}', fontsize=13)
-            plt.xlabel("Values bins")
-            plt.grid()
-            plt.ylabel("Samples count")
-        plt.tight_layout(pad=3)
+        hists_metrics = {}
+        for metric in self.metrics_names[:-1]:
+            hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0].tolist()
 
-        if generate:
+        if self.output_type == 'json':
+            self.dict_export['df_dataset'] = self.df_dataset.to_dict()
+            self.dict_export['hists metrics'] = hists_metrics
+        else:
+            plt.figure(figsize=(7 * n_cols, 6 * n_rows))
+            for i, metric in enumerate(self.metrics_names[:-1]):
+                values = hists_metrics[metric]
+                plt.subplot(n_rows, n_cols, i+1)
+                c = [float(i) / float(n_plot), 0.0, float(n_plot-i) / float(n_plot)]
+                plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
+                plt.xticks(range(len(self.bins)), bins)
+                plt.title(f'{metric}', fontsize=13)
+                plt.xlabel("Values bins")
+                plt.grid()
+                plt.ylabel("Samples count")
+            plt.tight_layout(pad=3)
+
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)
             return output_path
-        else:
-            plt.show()
 
+    def export_metrics_per_patch_csv(self):
+        path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
+        self.df_dataset.to_csv(path_csv, index=False)

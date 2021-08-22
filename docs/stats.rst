@@ -8,7 +8,7 @@ The ``stats`` script compute descriptive statistics on a dataset according to th
 * the classes contained in the masks 
 * the globality of the dataset
 
-As output, the script can either generate a report file (JSON / markdown / HTML) or display directly in the terminal the obtained results.
+As output, the script can either generate a report file (JSON / markdown / HTML).
 
 To launch the code, type:
  ``odeon stats -c <config.json>``.
@@ -85,7 +85,7 @@ Json file content
         output_path: str
             Path of the folder where the report with the computed statistics will be created. The folder must exist or be created before the use of the tool.
         output_type: str
-            Output file format. The output file can only be in md, json, html or directly displayed on the terminal. By default, the output format will be html.
+            Output file format. The output file can only be in md, json, html. By default, the output format will be html.
         image_bands: list
             List of the selected bands in the dataset images bands.
         mask_bands: list

@@ -68,10 +68,10 @@ class CLI_Metrics(BaseTool):
         else:
             self.output_path = output_path
 
-        if output_type in ['md', 'json', 'html', 'terminal']:
+        if output_type in ['md', 'json', 'html']:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            LOGGER.error('ERROR: the output file can only be in md, json, html.')
             self.output_type = 'html'
 
         self.type_classifier = type_classifier
@@ -195,16 +195,16 @@ if __name__ == '__main__':
     # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Binary')
 
     # Cas multiclass avec du soft
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
+    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
+    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
+    output_path = '/home/SPeillet/OCSGE/'
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='json', type_classifier='Multiclass')
+
+    # # # Cas multiclass avec du hard
+    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
+    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
     # output_path = '/home/SPeillet/OCSGE/'
     # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
-
-    # # Cas multiclass avec du hard
-    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
-    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
-    output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
 
     # Test dataset intégral (cas multiclass en soft)
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/msk'

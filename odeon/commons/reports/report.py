@@ -42,7 +42,6 @@ class Report(object):
         configuration file. Also can directly display the report in the terminal.
         """
         self.create_data()
-
         if self.input_object.output_type == 'html':
             self.to_html()
         elif self.input_object.output_type == 'json':
@@ -189,11 +188,6 @@ class Report(object):
             tbody += "</tr>"
         tbody += "</tbody>"
         return html + thead + tbody + "</table>"
-
-    def to_terminal(self):
-        """Display the results of the tool in the terminal. (WARNING: Matplotlib librairy is use)
-        """
-        pass
 
     def to_json(self):
         """Create a report in the json format.

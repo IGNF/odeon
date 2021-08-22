@@ -75,10 +75,10 @@ class Metrics(ABC):
         else:
             self.output_path = output_path
 
-        if output_type in ['md', 'json', 'html', 'terminal']:
+        if output_type in ['md', 'json', 'html']:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            LOGGER.error('ERROR: the output file can only be in md, json, html.')
             self.output_type = 'html'
 
         self.type_classifier = type_classifier
@@ -105,7 +105,7 @@ class Metrics(ABC):
         self.get_ROC_PR_curves = get_ROC_PR_curves
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
-
+        self.plot_ids = 0
         self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
 
         self.depth_dict = {'keep':  1,
@@ -120,6 +120,14 @@ class Metrics(ABC):
             self.threshold_range = [self.threshold]
 
         assert self.threshold in self.threshold_range, 'Threshold should be in the threshold range list.'
+
+        if self.output_type == 'json':
+            self.dict_export = {}
+            self.dict_export['params'] = {'class_labels': self.class_labels,
+                                          'threshold': self.threshold,
+                                          'threshold_range': self.threshold_range
+                                          if isinstance(self.threshold_range, list) else self.threshold_range.tolist(),
+                                          'bins': self.bins.tolist()}
 
         self.report = Report_Factory(self)
 
@@ -361,7 +369,7 @@ class Metrics(ABC):
 
         return texts
 
-    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn", generate=True):
+    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
 
         if self.normalize:
             cm = cm.astype('float') / np.sum(cm.flatten())
@@ -374,9 +382,6 @@ class Metrics(ABC):
         fig.tight_layout(pad=3)
         plt.title('Predicted class', fontsize=10)
 
-        if generate:
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-            plt.savefig(output_path)
-            return output_path
-        else:
-            plt.show()
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path

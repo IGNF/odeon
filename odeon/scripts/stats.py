@@ -165,7 +165,7 @@ class Stats(BaseTool):
 
     def __call__(self):
         """
-        Function to display or to generate an output file when the instance is called.
+        Function to generate an output file when the instance is called.
         """
         self.statistics()
 
@@ -299,5 +299,5 @@ class Stats(BaseTool):
 if __name__ == '__main__':
     input_path = "/home/SPeillet/OCSGE/outputs/generation/train"
     output_path = "/home/SPeillet/OCSGE/"
-    stats = Stats(input_path, output_path, output_type='html', get_skewness_kurtosis=True)
+    stats = Stats(input_path, output_path, output_type='md', get_skewness_kurtosis=True)
     stats()
