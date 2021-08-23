@@ -51,7 +51,7 @@ class Report(object):
         else:
             self.to_terminal()
 
-    def round_df_values(self, df):
+    def round_df_values(self, df, round_decimals=None):
         """Round the values in a dataframe.
 
         Parameters
@@ -64,7 +64,9 @@ class Report(object):
         df : pd.DataFrame
             DataFrame with rounded values.
         """
-        return df.apply(lambda x: pd.to_numeric(x, downcast="float").round(decimals=self.round_decimals))
+        if round_decimals is None:
+            round_decimals = self.round_decimals
+        return df.apply(lambda x: pd.to_numeric(x, downcast="float").round(decimals=round_decimals))
 
     def longest(self, input_list):
         """Return the longest element in a list.

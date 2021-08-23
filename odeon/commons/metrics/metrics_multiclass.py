@@ -3,9 +3,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
-# from odeon.commons.metrics import Metrics
 
 
 class Metrics_Multiclass(Metrics):
@@ -16,6 +15,7 @@ class Metrics_Multiclass(Metrics):
                  type_classifier,
                  output_type=None,
                  class_labels=None,
+                 weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
@@ -33,6 +33,7 @@ class Metrics_Multiclass(Metrics):
                          type_classifier=type_classifier,
                          output_type=output_type,
                          class_labels=class_labels,
+                         weights=weights,
                          threshold=threshold,
                          threshold_range=threshold_range,
                          bit_depth=bit_depth,
@@ -49,10 +50,11 @@ class Metrics_Multiclass(Metrics):
 
         if self.get_metrics_per_patch:
             self.header = ['name_file'] + \
-                     ['macro_' + name_column for name_column in self.metrics_names[:-1]] + \
-                     ['micro_' + name_column for name_column in ['Precision', 'Recall', 'F1-Score', 'IoU']] + \
-                     [class_i + '_' + name_column for class_i in self.class_labels
-                      for name_column in self.metrics_names[:-1]]
+                        ['macro_' + name_column for name_column in self.metrics_names[:-1]] + \
+                        ['micro_' + name_column for name_column in ['Precision', 'Recall', 'F1-Score', 'IoU']] + \
+                        ['mean_' + name_column for name_column in self.metrics_names[:-1]] + \
+                        ['_'.join(class_i.split(' ')) + '_' + name_column for class_i in self.class_labels
+                         for name_column in self.metrics_names[:-1]]
             self.df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=self.header)
 
         self.cm_micro = self.scan_dataset()
@@ -97,7 +99,7 @@ class Metrics_Multiclass(Metrics):
 
                     class_mask = mask.copy()[:, :, i]
                     class_pred = pred.copy()[:, :, i]
-                    bin_pred = self.binarize('Binary', class_pred, threshold=threshold)
+                    bin_pred = self.binarize('binary', class_pred, threshold=threshold)
                     cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
                     cms_one_class += cr_cm
 
@@ -118,8 +120,17 @@ class Metrics_Multiclass(Metrics):
                                 self.df_dataset.loc[dataset_index, 'micro_' + name_column] = metrics_micro[name_column]
                             for label in self.class_labels:
                                 for name_column in self.metrics_names[:-1]:
-                                    self.df_dataset.loc[dataset_index, label + '_' + name_column] = \
-                                        metrics_by_class[label][name_column]
+                                    self.df_dataset.loc[dataset_index, '_'.join(label.split(' ')) + '_' + name_column] \
+                                        = metrics_by_class[label][name_column]
+
+                            # Mean metrics per sample
+                            for metric in self.metrics_names[:-1]:
+                                mean_metric = 0
+                                for class_name, weight in zip(self.class_labels, self.weights):
+                                    mean_metric += \
+                                        weight * self.df_dataset.loc[dataset_index, '_'.join(class_name.split(' ')) +
+                                                                                    '_' + metric]
+                                self.df_dataset.loc[dataset_index, 'mean_' + metric] = mean_metric / self.nbr_class
                             dataset_index += 1
 
                     # To compute only once per class calibration curves.
@@ -193,7 +204,12 @@ class Metrics_Multiclass(Metrics):
                                                                   obs_by_class[class_i]['fn'],
                                                                   obs_by_class[class_i]['fp'],
                                                                   obs_by_class[class_i]['tn'])
-        cm_macro = np.sum(cms_classes, axis=0)
+        if self.weights:
+            cm_macro = np.zeros([2, 2])
+            for k, weight in zip(range(self.nbr_class), self.weights):
+                cm_macro += cms_classes[k] * weight
+        else:
+            cm_macro = np.sum(cms_classes, axis=0)
 
         # We will only look at Precision, Recall, F1-Score and IoU.
         # Others metrics will be false because we don't have any TN in micro.
@@ -213,6 +229,14 @@ class Metrics_Multiclass(Metrics):
         for class_i in self.class_labels:
             self.df_report_classes.loc[class_i] = list(self.metrics_by_class[class_i].values())[:-1]
         self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
+
+        if self.weighted:
+            self.df_report_classes.loc['Overall weighted'] = np.nan
+            for metric_name in self.metrics_names[:-1]:
+                cr_metric = 0
+                for class_j, weight in zip(self.class_labels, self.weights):
+                    cr_metric += weight * self.df_report_classes.loc[class_j, metric_name]
+                self.df_report_classes.loc['Mean weighted', metric_name] = cr_metric / self.nbr_class
 
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
                                               self.metrics_micro['Recall'],
@@ -288,7 +312,7 @@ class Metrics_Multiclass(Metrics):
             for class_i in self.class_labels:
                 plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-", label=class_i)
             plt.legend(loc="lower right")
-            plt.title('Calibration plots  (reliability curve)')
+            plt.title('Calibration plots (reliability curve)')
             plt.ylabel('Fraction of positives')
             plt.xlabel('Probalities')
 
@@ -312,7 +336,6 @@ class Metrics_Multiclass(Metrics):
         n_plot = len(self.header[1:])
         n_cols = 4
         n_rows = ((n_plot - 1) // n_cols) + 1
-
         hists_metrics = {}
         for metric in self.header[1:]:
             hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0].tolist()
@@ -322,13 +345,13 @@ class Metrics_Multiclass(Metrics):
             self.dict_export['hists metrics'] = hists_metrics
         else:
             plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-            for i, metric in enumerate(self.header[1:]):
-                values = hists_metrics[metric]
+            for i, hist_metric in enumerate(self.header[1:]):
+                values = hists_metrics[hist_metric]
                 plt.subplot(n_rows, n_cols, i+1)
                 c = next(colors)["color"]
                 plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
                 plt.xticks(range(len(self.bins)), bins)
-                plt.title(f'{metric}', fontsize=13)
+                plt.title(f"{' '.join(hist_metric.split('_'))}", fontsize=13)
                 plt.xlabel("Values bins")
                 plt.grid()
                 plt.ylabel("Samples count")

@@ -143,7 +143,7 @@ class Report_Binary(Report):
             html_elements.append(roc_pr_curves)
 
         if self.input_object.get_hists_per_metrics:
-            metrics_histograms = f""""
+            metrics_histograms = f"""
                 <h2>Metrics Histograms</h2>
                 <p><img alt="Metrics Histograms" src=./{os.path.basename(self.metrics_hists)} /></p>
                 """

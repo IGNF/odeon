@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
 
 FIGSIZE = (8, 6)
@@ -17,6 +17,7 @@ class Metrics_Binary(Metrics):
                  type_classifier,
                  output_type=None,
                  class_labels=None,
+                 weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
@@ -34,6 +35,7 @@ class Metrics_Binary(Metrics):
                          type_classifier=type_classifier,
                          output_type=output_type,
                          class_labels=class_labels,
+                         weights=weights,
                          threshold=threshold,
                          threshold_range=threshold_range,
                          bit_depth=bit_depth,

@@ -35,6 +35,7 @@ from odeon.commons.exception import OdeonError, ErrorCodes
 FIGSIZE = (8, 6)
 DEFAULTS_VARS = {'threshold': 0.5,
                  'threshold_range': np.arange(0.1, 1.1, 0.1),
+                 'weights': None,
                  'nb_calibration_bins': 10,
                  'bit_depth': '8 bits',
                  'batch_size': 1,
@@ -54,6 +55,7 @@ class Metrics(ABC):
                  type_classifier,
                  output_type=None,
                  class_labels=None,
+                 weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
@@ -81,7 +83,7 @@ class Metrics(ABC):
             LOGGER.error('ERROR: the output file can only be in md, json, html.')
             self.output_type = 'html'
 
-        self.type_classifier = type_classifier
+        self.type_classifier = type_classifier.lower()
         self.dataset = dataset
         self.nbr_class = self.dataset.nbr_class
 
@@ -89,6 +91,21 @@ class Metrics(ABC):
             self.class_labels = class_labels
         else:
             self.class_labels = [f'class {i + 1}' for i in range(self.nbr_class)]
+
+        if weights is None:
+            self.weights = np.ones(self.nbr_class)
+            self.weighted = False
+        elif weights is not None and self.type_classifier == 'binary':
+            LOGGER.warning('WARNING: the parameter weigths can only be used for multiclass classifier.')
+            self.weights = weights
+            self.weighted = False
+        elif len(weights) != self.nbr_class:
+            LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter weigths is incorrect.")
+        else:
+            self.weights = weights
+            self.weighted = True
 
         self.class_ids = np.arange(self.nbr_class)  # Each class is identified by a number
         self.threshold = threshold
@@ -146,10 +163,10 @@ class Metrics(ABC):
         pred = prediction.copy()
         if not self.in_prob_range:
             pred = self.to_prob_range(pred)
-        if type_classifier == 'Multiclass':
+        if type_classifier == 'multiclass':
             assert mask is not None
             return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
-        elif type_classifier == 'Binary':
+        elif type_classifier == 'binary':
             if self.type_prob == 'soft':
                 assert threshold is not None
                 pred[pred < threshold] = 0
@@ -373,11 +390,34 @@ class Metrics(ABC):
 
         if self.normalize:
             cm = cm.astype('float') / np.sum(cm.flatten())
+        else:
+            length_dict = {0: (1, ''),
+                           3: (1000, 'k'),
+                           6: (1000000, 'm'),
+                           9: (1000000000, 'g'),
+                           12: (1000000000000, 't')}
+            max_length = len(str(int(min(cm.flatten()))))
 
-        fig, ax = plt.subplots()
+            divider = 0
+            unit_char = None
+
+            for length in length_dict.keys():
+                if max_length < length:
+                    divider = length_dict[length][0]
+                    unit_char = length_dict[length][1]
+                    break
+
+            cm = np.round(cm / divider, decimals=2)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
         cbarlabel = 'Coefficients values'
         im, _ = self.heatmap(cm, labels, labels, ax=ax, cmap=cmap, cbarlabel=cbarlabel)
-        _ = self.annotate_heatmap(im)
+
+        if self.normalize:
+            _ = self.annotate_heatmap(im)
+        else:
+            valfmt = '{x:n}' + unit_char
+            _ = self.annotate_heatmap(im, valfmt=valfmt)
 
         fig.tight_layout(pad=3)
         plt.title('Predicted class', fontsize=10)

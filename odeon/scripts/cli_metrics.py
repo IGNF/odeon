@@ -31,8 +31,8 @@ from odeon.commons.core import BaseTool
 from odeon.commons.image import image_to_ndarray
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.nn.datasets import MetricsDataset
-from metrics_factory import Metrics_Factory
-from metrics import DEFAULTS_VARS
+from odeon.commons.metrics.metrics_factory import Metrics_Factory
+from odeon.commons.metrics.metrics import DEFAULTS_VARS
 
 
 class CLI_Metrics(BaseTool):
@@ -44,6 +44,7 @@ class CLI_Metrics(BaseTool):
                  type_classifier,
                  output_type=None,
                  class_labels=None,
+                 weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
@@ -76,6 +77,7 @@ class CLI_Metrics(BaseTool):
 
         self.type_classifier = type_classifier
         self.class_labels = class_labels,
+        self.weights = weights
         self.threshold = threshold
         self.threshold_range = threshold_range
         self.bit_depth = bit_depth
@@ -104,6 +106,7 @@ class CLI_Metrics(BaseTool):
                                                              output_type=self.output_type,
                                                              type_classifier=self.type_classifier,
                                                              class_labels=self.class_labels,
+                                                             weights=self.weights,
                                                              threshold=self.threshold,
                                                              threshold_range=self.threshold_range,
                                                              bit_depth=self.bit_depth,
@@ -198,7 +201,7 @@ if __name__ == '__main__':
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='json', type_classifier='Multiclass')
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
 
     # # # Cas multiclass avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
