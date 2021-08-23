@@ -76,8 +76,6 @@ class CLI_Metrics(BaseTool):
             self.output_type = 'html'
 
         self.type_classifier = type_classifier
-        self.class_labels = class_labels,
-        self.weights = weights
         self.threshold = threshold
         self.threshold_range = threshold_range
         self.bit_depth = bit_depth
@@ -94,6 +92,20 @@ class CLI_Metrics(BaseTool):
 
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
+
+        if len(class_labels) != self.nbr_class:
+            LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter labels is incorrect.")
+        else:
+            self.class_labels = class_labels
+
+        if len(weights) != self.nbr_class:
+            LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter weigths is incorrect.")
+        else:
+            self.weights = weights
 
         metrics_dataset = MetricsDataset(self.mask_files,
                                          self.pred_files,

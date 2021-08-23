@@ -144,8 +144,8 @@ class Metrics(ABC):
                                           'threshold': self.threshold,
                                           'threshold_range': self.threshold_range
                                           if isinstance(self.threshold_range, list) else self.threshold_range.tolist(),
-                                          'bins': self.bins.tolist()}
-
+                                          'bins': self.bins.tolist(),
+                                          'weights': self.weights}
         self.report = Report_Factory(self)
 
     def __call__(self):

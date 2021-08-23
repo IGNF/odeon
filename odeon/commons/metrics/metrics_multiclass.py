@@ -231,12 +231,11 @@ class Metrics_Multiclass(Metrics):
         self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
 
         if self.weighted:
-            self.df_report_classes.loc['Overall weighted'] = np.nan
             for metric_name in self.metrics_names[:-1]:
                 cr_metric = 0
                 for class_j, weight in zip(self.class_labels, self.weights):
                     cr_metric += weight * self.df_report_classes.loc[class_j, metric_name]
-                self.df_report_classes.loc['Mean weighted', metric_name] = cr_metric / self.nbr_class
+                self.df_report_classes.loc['Weighted mean', metric_name] = cr_metric / self.nbr_class
 
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
                                               self.metrics_micro['Recall'],

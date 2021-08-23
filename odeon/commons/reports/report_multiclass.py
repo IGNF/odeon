@@ -130,18 +130,32 @@ class Report_Multiclass(Report):
             {self.df_to_html(self.round_df_values(self.input_object.df_report_macro))}
             <h3>* Confusion Matrix</h3>
             <p><img alt="Macro Confusion Matrix" src=./{os.path.basename(self.path_cm_macro)} /></p>
+            """
+        html_elements = [header_html, begin_html, main_html]
+
+        if self.input_object.weighted:
+            weigths_html = f'<p>Confusion matrix made with weights : {self.input_object.weights}</p>'
+            html_elements.append(weigths_html)
+
+        micro_html = f"""
             <h2>Micro Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_micro))}
             <h3>* Confusion Matrix</h3>
-            <p><img alt="Macro Confusion Matrix" src=./{os.path.basename(self.path_cm_micro)} /></p>
+            <p><img alt="Micro Confusion Matrix" src=./{os.path.basename(self.path_cm_micro)} /></p>
+            """
+        html_elements.append(micro_html)
 
+        classes_html = f"""
             <h2>Per class Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_classes))}
             """
+        html_elements.append(classes_html)
 
-        html_elements = [header_html, begin_html, main_html]
+        if self.input_object.weighted:
+            weigths_html = f'<p>Mean average computed with weights : {self.input_object.weights}</p>'
+            html_elements.append(weigths_html)
 
         if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
             calibration_curves = f"""
