@@ -90,10 +90,10 @@ class Statistics():
         else:
             self.output_path = output_path
 
-        if output_type in ['md', 'json', 'html', 'terminal']:
+        if output_type in ['md', 'json', 'html']:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
+            LOGGER.error('ERROR: the output file can only be in md, json, html.')
             self.output_type = 'html'
 
         self.nbr_bands = len(self.dataset.image_bands)

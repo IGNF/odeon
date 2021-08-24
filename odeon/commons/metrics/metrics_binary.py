@@ -24,7 +24,7 @@ class Metrics_Binary(Metrics):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
-                 normalize=DEFAULTS_VARS['normalize'],
+                 get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
@@ -42,7 +42,7 @@ class Metrics_Binary(Metrics):
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
                          num_workers=num_workers,
-                         normalize=normalize,
+                         get_normalize=get_normalize,
                          get_metrics_per_patch=get_metrics_per_patch,
                          get_ROC_PR_curves=get_ROC_PR_curves,
                          get_calibration_curves=get_calibration_curves,
@@ -131,7 +131,16 @@ class Metrics_Binary(Metrics):
         tp, fn, fp, tn = cm.ravel()
         return self.get_metrics_from_obs(tp, fn, fp, tn)
 
-    def plot_PR_curve(self, precision, recall, name_plot='binary_pr_curve.png'):
+    def plot_ROC_PR_curves(self, name_plot='binary_roc_pr_curve.png'):
+
+        fpr, tpr = self.df_thresholds['FPR'], self.df_thresholds['Recall']
+        recall, precision = self.df_thresholds['Recall'], self.df_thresholds['Precision']
+
+        # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
+        fpr, tpr = np.insert(fpr.to_numpy(), 0, 1), np.insert(tpr.to_numpy(), 0, 1)
+        fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
+        fpr, tpr = fpr[::-1], tpr[::-1]
+        roc_auc = auc(fpr, tpr)
 
         precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
         idx = np.argsort(recall)
@@ -143,45 +152,36 @@ class Metrics_Binary(Metrics):
         pr_auc = auc(recall, precision)
 
         if self.output_type == 'json':
-            pr_dict = {}
-            pr_dict['precision'] = precision.tolist()
-            pr_dict['recall'] = recall.tolist()
-            pr_dict['auc'] = pr_auc
-            self.dict_export['PR curve'] = pr_dict
-        else:
-            plt.figure(figsize=FIGSIZE)
-            plt.title('Precision-Recall Curve')
-            plt.plot(recall, precision, label='AUC = %0.3f' % pr_auc)
-            plt.plot([1, 0], [0, 1], 'r--')
-            plt.ylabel('Precision')
-            plt.xlabel('Recall')
-            plt.legend()
-            plt.grid(True)
-
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-            plt.savefig(output_path)
-            return output_path
-
-    def plot_ROC_curve(self, fpr, tpr, name_plot='binary_roc_curve.png'):
-        # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
-        fpr, tpr = np.insert(fpr.to_numpy(), 0, 1), np.insert(tpr.to_numpy(), 0, 1)
-        fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
-        fpr, tpr = fpr[::-1], tpr[::-1]
-        roc_auc = auc(fpr, tpr)
-
-        if self.output_type == 'json':
+            # Export ROC curve informations
             roc_dict = {}
             roc_dict['fpr'] = fpr.tolist()
             roc_dict['tpr'] = tpr.tolist()
             roc_dict['auc'] = roc_auc
             self.dict_export['ROC curve'] = roc_dict
+            # Export PR curve informations
+            pr_dict = {}
+            pr_dict['precision'] = precision.tolist()
+            pr_dict['recall'] = recall.tolist()
+            pr_dict['auc'] = pr_auc
+            self.dict_export['PR curve'] = pr_dict
+
         else:
-            plt.figure(figsize=FIGSIZE)
+            plt.figure(figsize=(16, 8))
+            plt.subplot(121)
             plt.title('Roc Curve')
             plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
             plt.plot([0, 1], [0, 1], 'r--')
             plt.ylabel('True Positive Rate')
             plt.xlabel('False Positive Rate')
+            plt.legend()
+            plt.grid(True)
+
+            plt.subplot(122)
+            plt.title('Precision-Recall Curve')
+            plt.plot(recall, precision, label='AUC = %0.3f' % pr_auc)
+            plt.plot([1, 0], [0, 1], 'r--')
+            plt.ylabel('Precision')
+            plt.xlabel('Recall')
             plt.legend()
             plt.grid(True)
 
@@ -201,7 +201,7 @@ class Metrics_Binary(Metrics):
             # Plot 1: calibration curves
             plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
             plt.plot(self.prob_true, self.prob_pred, "s-", label="Class 1")
-            plt.legend(loc="lower right")
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.title('Calibration plots  (reliability curve)')
             plt.ylabel('Fraction of positives')
             plt.xlabel('Probalities')
@@ -211,7 +211,7 @@ class Metrics_Binary(Metrics):
             plt.hist(self.hist_counts, histtype="step", bins=self.bins, label="Class 1", lw=2)
             plt.ylabel('Count')
             plt.xlabel('Mean predicted value')
-            plt.legend(loc="upper center")
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
             plt.savefig(output_path)

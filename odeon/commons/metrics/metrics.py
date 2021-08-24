@@ -40,7 +40,7 @@ DEFAULTS_VARS = {'threshold': 0.5,
                  'bit_depth': '8 bits',
                  'batch_size': 1,
                  'num_workers': 1,
-                 'normalize': True,
+                 'get_normalize': True,
                  'get_metrics_per_patch': True,
                  'get_ROC_PR_curves': True,
                  'get_calibration_curves': True,
@@ -62,7 +62,7 @@ class Metrics(ABC):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
-                 normalize=DEFAULTS_VARS['normalize'],
+                 get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
@@ -87,7 +87,7 @@ class Metrics(ABC):
         self.dataset = dataset
         self.nbr_class = self.dataset.nbr_class
 
-        if all(class_labels):
+        if class_labels is not None and all(class_labels):
             self.class_labels = class_labels
         else:
             self.class_labels = [f'class {i + 1}' for i in range(self.nbr_class)]
@@ -116,7 +116,7 @@ class Metrics(ABC):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.normalize = normalize
+        self.get_normalize = get_normalize
 
         self.get_metrics_per_patch = get_metrics_per_patch
         self.get_ROC_PR_curves = get_ROC_PR_curves
@@ -313,6 +313,9 @@ class Metrics(ABC):
         ax.set_xticklabels(col_labels)
         ax.set_yticklabels(row_labels)
         ax.set_ylabel('Actual Class')
+        ax.set_xlabel('Predicted Class')
+        ax.xaxis.set_label_position('top')
+
         # Let the horizontal axes labeling appear on top.
         ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
 
@@ -371,57 +374,94 @@ class Metrics(ABC):
         kw = dict(horizontalalignment="center", verticalalignment="center")
         kw.update(textkw)
 
-        # Get the formatter in case a string is supplied
+        # # Get the formatter in case a string is supplied
         if isinstance(valfmt, str):
             valfmt = matplotlib.ticker.StrMethodFormatter(valfmt)
 
         # Loop over the data and create a `Text` for each "pixel".
         # Change the text's color depending on the data.
         texts = []
-        for i in range(data.shape[0]):
-            for j in range(data.shape[1]):
-                kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
-                text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
-                texts.append(text)
-
+        if isinstance(valfmt, (np.ndarray, np.generic)):
+            for i in range(data.shape[0]):
+                for j in range(data.shape[1]):
+                    kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+                    text = im.axes.text(j, i,
+                                        str(np.round(data[i, j] / valfmt[i, j][0] if data[i, j] != 0 else 0, 1))
+                                        + valfmt[i, j][1],
+                                        **kw)
+                    texts.append(text)
+        else:
+            for i in range(data.shape[0]):
+                for j in range(data.shape[1]):
+                    kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
+                    text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
+                    texts.append(text)
         return texts
 
-    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
+    def get_cm_val_fmt(self, cm):
 
-        if self.normalize:
-            cm = cm.astype('float') / np.sum(cm.flatten())
-        else:
-            length_dict = {0: (1, ''),
-                           3: (1000, 'k'),
-                           6: (1000000, 'm'),
-                           9: (1000000000, 'g'),
-                           12: (1000000000000, 't')}
-            max_length = len(str(int(min(cm.flatten()))))
-
-            divider = 0
-            unit_char = None
-
-            for length in length_dict.keys():
-                if max_length < length:
+        def find_val_fmt(value):
+            length_dict = {0: (10**0, ''),
+                           3: (10**3, 'k'),
+                           6: (10**6, 'm'),
+                           9: (10**9, 'g'),
+                           12: (10**12, 't'),
+                           15: (10**15, 'p')}
+            divider, unit_char = None, None
+            for i, length in enumerate(length_dict):
+                number = str(value).split('.')[0]
+                if len(number) < length + 1:
+                    divider = length_dict[list(length_dict)[i - 1]][0]
+                    unit_char = length_dict[list(length_dict)[i - 1]][1]
+                    break
+                elif len(number) == length + 1:
                     divider = length_dict[length][0]
                     unit_char = length_dict[length][1]
                     break
+                elif i == len(length_dict) - 1:
+                    divider = length_dict[list(length_dict)[i]][0]
+                    unit_char = length_dict[list(length_dict)[i]][1]
+            return (divider, unit_char)
 
-            cm = np.round(cm / divider, decimals=2)
+        cm_val_fmt = np.zeros_like(cm, dtype=object)
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                cm_val_fmt[i, j] = find_val_fmt(cm[i, j])
+
+        return cm_val_fmt
+
+    def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
 
         fig, ax = plt.subplots(figsize=(10, 6))
         cbarlabel = 'Coefficients values'
-        im, _ = self.heatmap(cm, labels, labels, ax=ax, cmap=cmap, cbarlabel=cbarlabel)
 
-        if self.normalize:
-            _ = self.annotate_heatmap(im)
-        else:
-            valfmt = '{x:n}' + unit_char
-            _ = self.annotate_heatmap(im, valfmt=valfmt)
+        im, _ = self.heatmap(cm, labels, labels, ax=ax, cmap=cmap, cbarlabel=cbarlabel)
+        # Rewrite cm with strings in order to fit the values into the figure.
+
+        cm_val_fmt = self.get_cm_val_fmt(cm)
+        _ = self.annotate_heatmap(im, valfmt=cm_val_fmt)
 
         fig.tight_layout(pad=3)
-        plt.title('Predicted class', fontsize=10)
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
 
+    def plot_norm_and_value_cms(self, cm, labels, name_plot='norm_and_values_cms.png', cmap="YlGn"):
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(20, 7))
+        cbarlabel = 'Coefficients values'
+
+        # On ax0, normalize cm
+        cm_norm = cm.astype('float') / np.sum(cm.flatten())
+        im0, _ = self.heatmap(cm_norm, labels, labels, ax=axs[1], cmap=cmap, cbarlabel=cbarlabel)
+        _ = self.annotate_heatmap(im0, data=np.round(cm_norm, decimals=3))
+        axs[1].set_title('Normalized values', y=-0.1, pad=-14, fontsize=12)
+
+        im1, _ = self.heatmap(cm, labels, labels, ax=axs[0], cmap=cmap, cbarlabel=cbarlabel)
+        cm_val_fmt = self.get_cm_val_fmt(cm)
+        _ = self.annotate_heatmap(im1, valfmt=cm_val_fmt)
+        axs[0].set_title('Number of observations', y=-0.1, pad=-14, fontsize=12)
+
+        fig.tight_layout(pad=2)
         output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.savefig(output_path)
         return output_path

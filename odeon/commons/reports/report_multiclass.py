@@ -17,13 +17,21 @@ class Report_Multiclass(Report):
 
     def create_data(self):
         if self.input_object.output_type != 'json':
-            self.path_cm_micro = self.input_object.plot_confusion_matrix(self.input_object.cm_micro,
-                                                                         labels=self.input_object.class_labels,
-                                                                         name_plot='cm_micro.png')
+            if self.input_object.get_normalize:
+                self.path_cm_micro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_micro,
+                                                                               labels=self.input_object.class_labels,
+                                                                               name_plot='cm_micro.png')
+                self.path_cm_macro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_macro,
+                                                                               labels=['Positive', 'Negative'],
+                                                                               name_plot='cm_macro.png')
+            else:
+                self.path_cm_micro = self.input_object.plot_confusion_matrix(self.input_object.cm_micro,
+                                                                             labels=self.input_object.class_labels,
+                                                                             name_plot='cm_micro.png')
 
-            self.path_cm_macro = self.input_object.plot_confusion_matrix(self.input_object.cm_macro,
-                                                                         labels=['Positive', 'Negative'],
-                                                                         name_plot='cm_macro.png')
+                self.path_cm_macro = self.input_object.plot_confusion_matrix(self.input_object.cm_macro,
+                                                                             labels=['Positive', 'Negative'],
+                                                                             name_plot='cm_macro.png')
 
         if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
             self.path_calibration_curves = self.input_object.plot_calibration_curve()
@@ -79,19 +87,19 @@ class Report_Multiclass(Report):
 """
         md_elements = [md_main]
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
-            calibration_curves = f"""
-## Calibration Curves
-![Calibration curves](./{os.path.basename(self.path_calibration_curves)})
-"""
-            md_elements.append(calibration_curves)
-
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
 ## Roc PR Curves
 ![Roc PR curves](./{os.path.basename(self.ROC_PR_classes)})
 """
             md_elements.append(roc_pr_curves)
+
+        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+            calibration_curves = f"""
+## Calibration Curves
+![Calibration curves](./{os.path.basename(self.path_calibration_curves)})
+"""
+            md_elements.append(calibration_curves)
 
         if self.input_object.get_hists_per_metrics:
             metrics_histograms = f"""
@@ -157,19 +165,19 @@ class Report_Multiclass(Report):
             weigths_html = f'<p>Mean average computed with weights : {self.input_object.weights}</p>'
             html_elements.append(weigths_html)
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
-            calibration_curves = f"""
-            <h3>* Calibration Curves</h3>
-            <p><img alt="Calibration Curve" src=./{os.path.basename(self.path_calibration_curves)} /></p>
-            """
-            html_elements.append(calibration_curves)
-
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
             <h3>* ROC and PR Curves</h3>
             <p><img alt="ROC and PR Curves" src=./{os.path.basename(self.ROC_PR_classes)} /></p>
             """
             html_elements.append(roc_pr_curves)
+
+        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+            calibration_curves = f"""
+            <h3>* Calibration Curves</h3>
+            <p><img alt="Calibration Curve" src=./{os.path.basename(self.path_calibration_curves)} /></p>
+            """
+            html_elements.append(calibration_curves)
 
         if self.input_object.get_hists_per_metrics:
             metrics_histograms = f"""

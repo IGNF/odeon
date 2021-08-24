@@ -22,7 +22,7 @@ class Metrics_Multiclass(Metrics):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
-                 normalize=DEFAULTS_VARS['normalize'],
+                 get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
@@ -40,7 +40,7 @@ class Metrics_Multiclass(Metrics):
                          nb_calibration_bins=nb_calibration_bins,
                          batch_size=batch_size,
                          num_workers=num_workers,
-                         normalize=normalize,
+                         get_normalize=get_normalize,
                          get_metrics_per_patch=get_metrics_per_patch,
                          get_ROC_PR_curves=get_ROC_PR_curves,
                          get_calibration_curves=get_calibration_curves,
@@ -204,7 +204,7 @@ class Metrics_Multiclass(Metrics):
                                                                   obs_by_class[class_i]['fn'],
                                                                   obs_by_class[class_i]['fp'],
                                                                   obs_by_class[class_i]['tn'])
-        if self.weights:
+        if self.weighted:
             cm_macro = np.zeros([2, 2])
             for k, weight in zip(range(self.nbr_class), self.weights):
                 cm_macro += cms_classes[k] * weight
@@ -310,7 +310,7 @@ class Metrics_Multiclass(Metrics):
             plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
             for class_i in self.class_labels:
                 plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-", label=class_i)
-            plt.legend(loc="lower right")
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.title('Calibration plots (reliability curve)')
             plt.ylabel('Fraction of positives')
             plt.xlabel('Probalities')
@@ -321,7 +321,7 @@ class Metrics_Multiclass(Metrics):
                 plt.hist(self.dict_hist_counts[class_i], bins=self.bins, histtype="step", label=class_i, lw=2)
             plt.ylabel('Count')
             plt.xlabel('Mean predicted value')
-            plt.legend(loc="upper center")
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.tight_layout(pad=3)
 
             output_path = os.path.join(os.path.dirname(self.output_path), name_plot)

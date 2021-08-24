@@ -51,7 +51,7 @@ class CLI_Metrics(BaseTool):
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
                  batch_size=DEFAULTS_VARS['batch_size'],
                  num_workers=DEFAULTS_VARS['num_workers'],
-                 normalize=DEFAULTS_VARS['normalize'],
+                 get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
@@ -83,7 +83,7 @@ class CLI_Metrics(BaseTool):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.normalize = normalize
+        self.get_normalize = get_normalize
 
         self.get_metrics_per_patch = get_metrics_per_patch
         self.get_ROC_PR_curves = get_ROC_PR_curves
@@ -93,14 +93,14 @@ class CLI_Metrics(BaseTool):
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
 
-        if len(class_labels) != self.nbr_class:
+        if class_labels is not None and len(class_labels) != self.nbr_class:
             LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter labels is incorrect.")
         else:
             self.class_labels = class_labels
 
-        if len(weights) != self.nbr_class:
+        if weights is not None and len(weights) != self.nbr_class:
             LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter weigths is incorrect.")
@@ -125,7 +125,7 @@ class CLI_Metrics(BaseTool):
                                                              nb_calibration_bins=self.nb_calibration_bins,
                                                              batch_size=self.batch_size,
                                                              num_workers=self.num_workers,
-                                                             normalize=normalize,
+                                                             get_normalize=get_normalize,
                                                              get_metrics_per_patch=self.get_metrics_per_patch,
                                                              get_ROC_PR_curves=self.get_ROC_PR_curves,
                                                              get_calibration_curves=get_calibration_curves,
@@ -213,7 +213,7 @@ if __name__ == '__main__':
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, get_normalize=True, type_classifier='Multiclass')
 
     # # # Cas multiclass avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'

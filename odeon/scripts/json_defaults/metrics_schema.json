@@ -17,7 +17,7 @@
                 "nb_calibration_bins": {"type": "integer", "default": 10},
                 "batch_size" : {"type":"integer", "default": 1},
                 "num_workers" : {"type":"integer", "default": 1},
-                "normalize": {"type": "boolean", "default": true},
+                "get_normalize": {"type": "boolean", "default": true},
                 "get_metrics_per_patch": {"type": "boolean", "default": true},
                 "get_ROC_PR_curves": {"type": "boolean", "default": true},
                 "get_calibration_curves": {"type": "boolean", "default": true},

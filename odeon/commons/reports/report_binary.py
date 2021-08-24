@@ -17,18 +17,20 @@ class Report_Binary(Report):
 
     def create_data(self):
         if self.input_object.output_type != 'json':
-            self.cm = self.input_object.plot_confusion_matrix(self.input_object.cms[self.input_object.threshold],
-                                                              labels=['Positive', 'Negative'],
-                                                              name_plot='cm_binary.png')
+            if self.input_object.get_normalize:
+                self.cm = self.input_object.plot_norm_and_value_cms(self.input_object.cms[self.input_object.threshold],
+                                                                    labels=['Positive', 'Negative'],
+                                                                    name_plot='cm_binary.png')
+            else:
+                self.cm = self.input_object.plot_confusion_matrix(self.input_object.cms[self.input_object.threshold],
+                                                                  labels=['Positive', 'Negative'],
+                                                                  name_plot='cm_binary.png')
 
         if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
             self.calibration_curve = self.input_object.plot_calibration_curve()
 
         if self.input_object.get_ROC_PR_curves:
-            self.ROC_curve = self.input_object.plot_ROC_curve(self.input_object.df_thresholds['FPR'],
-                                                              self.input_object.df_thresholds['Recall'])
-            self.PR_curve = self.input_object.plot_PR_curve(self.input_object.df_thresholds['Recall'],
-                                                            self.input_object.df_thresholds['Precision'])
+            self.ROC_PR_curve = self.input_object.plot_ROC_PR_curves()
 
         if self.input_object.get_hists_per_metrics:
             self.metrics_hists = self.input_object.plot_dataset_metrics_histograms()
@@ -66,22 +68,19 @@ class Report_Binary(Report):
 
         md_elements = [md_main]
 
+        if self.input_object.get_ROC_PR_curves:
+            roc_pr_curves = f"""
+## Roc Curve
+![Roc curve](./{os.path.basename(self.ROC_PR_curve)})
+"""
+            md_elements.append(roc_pr_curves)
+
         if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
             calibration_curves = f"""
 ## Calibration Curve
 ![Calibration curve](./{os.path.basename(self.calibration_curve)})
 """
             md_elements.append(calibration_curves)
-
-        if self.input_object.get_ROC_PR_curves:
-            roc_pr_curves = f"""
-## Roc Curve
-![Roc curve](./{os.path.basename(self.ROC_curve)})
-
-## Precision-Recall Curve
-![PR Curve](./{os.path.basename(self.PR_curve)})
-"""
-            md_elements.append(roc_pr_curves)
 
         if self.input_object.get_hists_per_metrics:
             metrics_histograms = f""""
@@ -125,22 +124,19 @@ class Report_Binary(Report):
 
         html_elements = [header_html, begin_html, main_html]
 
+        if self.input_object.get_ROC_PR_curves:
+            roc_pr_curves = f"""
+            <h2>Roc Curve</h2>
+            <p><img alt="Roc Curve" src=./{os.path.basename(self.ROC_PR_curve)} /></p>
+            """
+            html_elements.append(roc_pr_curves)
+
         if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
             calibration_curves = f"""
                 <h2>Calibration Curve</h2>
                 <p><img alt="Calibration Curve" src=./{os.path.basename(self.calibration_curve)} /></p>
                 """
             html_elements.append(calibration_curves)
-
-        if self.input_object.get_ROC_PR_curves:
-            roc_pr_curves = f"""
-            <h2>Roc Curve</h2>
-            <p><img alt="Roc Curve" src=./{os.path.basename(self.ROC_curve)} /></p>
-
-            <h2>Precision Recall Curve</h2>
-            <p><img alt="PR Curve" src=./{os.path.basename(self.PR_curve)} /></p>
-            """
-            html_elements.append(roc_pr_curves)
 
         if self.input_object.get_hists_per_metrics:
             metrics_histograms = f"""
