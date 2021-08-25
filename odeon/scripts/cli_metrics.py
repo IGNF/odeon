@@ -1,28 +1,8 @@
 """
-Metrics tool to analyse the quality of a model's predictions.
-Compute metrics, plot confusion matrices (cms) and ROC curves.
-This tool handles binary, multi-classes and multi-labels cases.
-The metrics computed are in each case :
-
-* Binary case:
-    - Accuracy
-    - Precision
-    - Recall
-    - Specificity
-    - F1 Score
-    - IoU
-    - Dice
-    - AUC Score for ROC and PR curves
-    - Calibration Curves
-    - KL Divergence
-
-* Multi-class case:
-    - Metrics Per class: same metrics as the binary case for each class.
-    - Macro (1 versus all then all cms stacked): same metrics as the binary case for the sum of all classes.
-    - Micro : Precision, Recall, F1 Score (confusion matrix but no ROC curve).
-
-* Multi-labels case:
-    - Same as the multi-class case but without the global confusion matrix in  micro analysis.
+Class used as command line interface (CLI) for the class Metrics to analyse the quality of a model's predictions.
+Check if the input values of the json configuration file are good and create a dataset as input for the Metrics class.
+Then the metrics class will compute metrics, plot confusion matrices (cms) and ROC curves.
+This tool handles binary and multi-class cases.
 """
 import os
 import csv
@@ -42,21 +22,62 @@ class CLI_Metrics(BaseTool):
                  pred_path,
                  output_path,
                  type_classifier,
-                 output_type=None,
                  class_labels=None,
+                 output_type=DEFAULTS_VARS['output_type'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
-                 batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers'],
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
-
+        """
+        mask_path : str
+            Path to the folder containing the masks.
+        pred_path : str
+            Path to the folder containing the predictions.
+        output_path : str
+            Path where the report/output data will be created.
+        type_classifier : str
+            String allowing to know if the classifier is of type binary or multiclass.
+        output_type : str, optional
+            Desired format for the output file. Could be json, md or html.
+            A report will be created if the output type is html or md.
+            If the output type is json, all the data will be exported in a dict in order
+            to be easily reusable, by default html.
+        class_labels : list of str, optional
+            Label for each class in the dataset.
+            If None the labels of the classes will be of type:  0 and 1 by default None
+        weights : list of number, optional
+            List of weights to balance the metrics.
+            In the binary case the weights are not used in the metrics computation, by default None.
+        threshold : float, optional
+            Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
+            Use for macro, micro cms and metrics for all strategies, by default 0.5.
+        threshold_range : list of float, optional
+            List of values that will be used as a threshold when calculating the ROC and PR curves,
+            by default np.arange(0.1, 1.1, 0.1).
+        bit_depth : str, optional
+            The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
+        nb_calibration_bins : int, optional
+            Number of bins used in the construction of calibration curves, by default 10.
+        get_normalize : bool, optional
+            Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
+        get_metrics_per_patch : bool, optional
+            Boolean to know if the user wants to compute metrics per patch and export them in a csv file.
+            Metrics will be also computed if the parameter get_hists_per_metrics is True but a csv file
+            won't be created, by default True
+        get_ROC_PR_curves : bool, optional
+            Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_calibration_curves : bool, optional
+            Boolean to know if the user wants to generate calibration curves, by default True
+        get_hists_per_metrics : bool, optional
+            Boolean to know if the user wants to generate histogram for each metric.
+            Histograms created using the parameter threshold, by default True.
+        """
         self.mask_path = mask_path
         self.pred_path = pred_path
 
@@ -73,16 +94,12 @@ class CLI_Metrics(BaseTool):
             self.output_type = output_type
         else:
             LOGGER.error('ERROR: the output file can only be in md, json, html.')
-            self.output_type = 'html'
 
         self.type_classifier = type_classifier
         self.threshold = threshold
         self.threshold_range = threshold_range
         self.bit_depth = bit_depth
         self.nb_calibration_bins = nb_calibration_bins
-
-        self.batch_size = batch_size
-        self.num_workers = num_workers
         self.get_normalize = get_normalize
 
         self.get_metrics_per_patch = get_metrics_per_patch
@@ -115,16 +132,14 @@ class CLI_Metrics(BaseTool):
 
         self.metrics = Metrics_Factory(self.type_classifier)(dataset=metrics_dataset,
                                                              output_path=self.output_path,
-                                                             output_type=self.output_type,
                                                              type_classifier=self.type_classifier,
                                                              class_labels=self.class_labels,
+                                                             output_type=self.output_type,
                                                              weights=self.weights,
                                                              threshold=self.threshold,
                                                              threshold_range=self.threshold_range,
                                                              bit_depth=self.bit_depth,
                                                              nb_calibration_bins=self.nb_calibration_bins,
-                                                             batch_size=self.batch_size,
-                                                             num_workers=self.num_workers,
                                                              get_normalize=get_normalize,
                                                              get_metrics_per_patch=self.get_metrics_per_patch,
                                                              get_ROC_PR_curves=self.get_ROC_PR_curves,
@@ -132,9 +147,27 @@ class CLI_Metrics(BaseTool):
                                                              get_hists_per_metrics=get_hists_per_metrics)
 
     def __call__(self):
+        """
+        Call the metrics object. Ouputs files are created when the object is called.
+        """
         self.metrics()
 
     def get_files_from_input_paths(self):
+        """
+        Check if the inputs folders exits and list all the files from the mask and prediction input folders.
+
+        Returns
+        -------
+        List of str
+            List of the absolute paths to the masks and predictions files.
+
+        Raises
+        ------
+        OdeonError
+            Mask folder does not exist.
+        OdeonError
+            Prediction folder does not exist.
+        """
         if not os.path.exists(self.mask_path):
             raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
                              f"Masks folder {self.mask_path} does not exist.")
@@ -150,6 +183,14 @@ class CLI_Metrics(BaseTool):
         return mask_files, pred_files
 
     def read_csv_sample_file(self):
+        """ WARNING : NOT USED YET
+        List all the masks and predicitons files from a csv file.
+
+        Returns
+        -------
+        List of str
+            List of the absolute paths to the masks and predictions files.
+        """
         mask_files = []
         pred_files = []
 
@@ -161,6 +202,13 @@ class CLI_Metrics(BaseTool):
         return mask_files, pred_files
 
     def list_files_from_dir(self):
+        """ List all the files from the mask and prediction input folders.
+
+        Returns
+        -------
+        List of str
+            List of the absolute paths to the masks and predictions files.
+        """
         mask_files, pred_files = [], []
 
         for msk, pred in zip(sorted(os.listdir(self.mask_path)), sorted(os.listdir(self.pred_path))):
@@ -172,6 +220,20 @@ class CLI_Metrics(BaseTool):
         return mask_files, pred_files
 
     def get_samples_shapes(self):
+        """Get the shape of the input masks and predictions.
+
+        Returns
+        -------
+        Tuple of int
+            Height, width and number of bands of the input masks and predictions.
+
+        Raises
+        ------
+        OdeonError
+            Mask folder does not exist.
+        OdeonError
+            Prediction folder does not exist.
+        """
         mask_file, pred_file = self.mask_files[0], self.pred_files[0]
 
         if not os.path.exists(mask_file):
@@ -225,6 +287,6 @@ if __name__ == '__main__':
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/detection_soft/'
     # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
+    # metrics = CLI_Metrics(mask_path, pred_path, output_path, get_normalize=True, type_classifier='Multiclass')
 
     metrics()

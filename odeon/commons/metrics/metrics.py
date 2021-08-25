@@ -1,28 +1,29 @@
 """
 Metrics tool to analyse the quality of a model's predictions.
 Compute metrics, plot confusion matrices (cms) and ROC curves.
-This tool handles binary, multi-classes and multi-labels cases.
+This tool handles binary and multiclass cases.
 The metrics computed are in each case :
 
 * Binary case:
+    - Confusion matrix (cm)
+    - (optional) normalized by classes cm.
     - Accuracy
     - Precision
     - Recall
     - Specificity
-    - F1 Score / Dice
+    - F1 Score
     - IoU
-    - AUC Score
+    - ROC and PR curves
+    - AUC Score for ROC/PR curves
     - Calibration Curve
-    - KL Divergence
+    - Histogram for each metric
 
 * Multi-class case:
-    - Per class: same metrics as the binary case for each class.
-    - Macro : same metrics as the binary case for the sum of all classes.
-    - Micro : Precision, Recall, F1 Score and IoU.
-
-* Multi-labels case:
-    - Same as the multi-class case but with a threshold for each class insteas to use argmax to binarise predictions.
+    - Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
+    - Macro : same metrics as the binary case for the sum of all classes but without ROC/PR and calibration curve.
+    - Micro : Precision, Recall, F1 Score, IoU and cm without ROC/PR and calibration curve.
 """
+
 import os
 import numpy as np
 import matplotlib
@@ -33,7 +34,10 @@ from odeon.commons.reports.report_factory import Report_Factory
 from odeon.commons.exception import OdeonError, ErrorCodes
 
 FIGSIZE = (8, 6)
-DEFAULTS_VARS = {'threshold': 0.5,
+
+# Dict with the default variables used to init Metrics and CLI_metrics objects.
+DEFAULTS_VARS = {'output_type': 'html',
+                 'threshold': 0.5,
                  'threshold_range': np.arange(0.1, 1.1, 0.1),
                  'weights': None,
                  'nb_calibration_bins': 10,
@@ -53,21 +57,67 @@ class Metrics(ABC):
                  dataset,
                  output_path,
                  type_classifier,
-                 output_type=None,
                  class_labels=None,
+                 output_type=DEFAULTS_VARS['output_type'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
-                 batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers'],
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
+        """
+        Init function.
+        Initialize the class attributes and create the dataframes to store the metrics.
+        Once the metrics and cms are computed they are exported in an output file that can have a form json,
+        markdown or html. Optionally the tool can output metrics per patch and return the result as a csv file.
 
+        Parameters
+        ----------
+        dataset : MetricsDataset
+            Dataset from odeon.nn.datasets which contains the masks and the predictions.
+        output_path : str
+            Path where the report/output data will be created.
+        type_classifier : str
+            String allowing to know if the classifier is of type binary or multiclass.
+        output_type : str, optional
+            Desired format for the output file. Could be json, md or html.
+            A report will be created if the output type is html or md.
+            If the output type is json, all the data will be exported in a dict in order
+            to be easily reusable, by default html.
+        class_labels : list of str, optional
+            Label for each class in the dataset.
+            If None the labels of the classes will be of type:  0 and 1 by default None
+        weights : list of number, optional
+            List of weights to balance the metrics.
+            In the binary case the weights are not used in the metrics computation, by default None.
+        threshold : float, optional
+            Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
+            Use for macro, micro cms and metrics for all strategies, by default 0.5.
+        threshold_range : list of float, optional
+            List of values that will be used as a threshold when calculating the ROC and PR curves,
+            by default np.arange(0.1, 1.1, 0.1).
+        bit_depth : str, optional
+            The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
+        nb_calibration_bins : int, optional
+            Number of bins used in the construction of calibration curves, by default 10.
+        get_normalize : bool, optional
+            Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
+        get_metrics_per_patch : bool, optional
+            Boolean to know if the user wants to compute metrics per patch and export them in a csv file.
+            Metrics will be also computed if the parameter get_hists_per_metrics is True but a csv file
+            won't be created, by default True
+        get_ROC_PR_curves : bool, optional
+            Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_calibration_curves : bool, optional
+            Boolean to know if the user wants to generate calibration curves, by default True
+        get_hists_per_metrics : bool, optional
+            Boolean to know if the user wants to generate histogram for each metric.
+            Histograms created using the parameter threshold, by default True.
+        """
         if not os.path.exists(output_path):
             raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
                              f"Output folder ${output_path} does not exist.")
@@ -81,7 +131,8 @@ class Metrics(ABC):
             self.output_type = output_type
         else:
             LOGGER.error('ERROR: the output file can only be in md, json, html.')
-            self.output_type = 'html'
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input output type is incorrect.")
 
         self.type_classifier = type_classifier.lower()
         self.dataset = dataset
@@ -109,13 +160,10 @@ class Metrics(ABC):
 
         self.class_ids = np.arange(self.nbr_class)  # Each class is identified by a number
         self.threshold = threshold
-        self.threshold_range = threshold_range
+        self.threshold_range = sorted(threshold_range)
         self.bit_depth = bit_depth
         self.nb_calibration_bins = nb_calibration_bins
         self.bins = np.linspace(0., 1. + 1e-8, self.nb_calibration_bins + 1)
-
-        self.batch_size = batch_size
-        self.num_workers = num_workers
         self.get_normalize = get_normalize
 
         self.get_metrics_per_patch = get_metrics_per_patch
@@ -149,17 +197,49 @@ class Metrics(ABC):
         self.report = Report_Factory(self)
 
     def __call__(self):
+        """
+        Create a report when the object is called.
+        """
         self.report.create_report()
 
     @abstractmethod
     def create_data_for_metrics(self):
+        """
+        Create data to store metrics for each case.
+        """
         pass
 
     @abstractmethod
     def get_metrics_from_cm(self):
+        """
+        Compute the metrics from an input confusion matrix.
+        """
         pass
 
     def binarize(self, type_classifier, prediction, mask=None, threshold=None):
+        """
+        Allows the binarisation of predictions according to the type of classifier. If the classification is binary,
+        the function will take in input only one prediction and will assign to each of these values either 0 or 1
+        according to the threshold passed in input argument. If the classification is multiclass then the binarisation
+        will be done with an argmax to return the class with the highest probability. Thus in multiclass the function
+        takes in input a mask and a prediction and will return their values after applying the argmax function.
+
+        Parameters
+        ----------
+        type_classifier : str
+            String allowing to know if the classifier is of type binary or multiclass.
+        prediction : np.array
+            Prediction values.
+        mask : np.array, optional
+            Mask/ground truth values, by default None
+        threshold : float, optional
+            Threshold to binarize input data., by default None
+
+        Returns
+        -------
+        np.array
+            Transformed prediction data.
+        """
         pred = prediction.copy()
         if not self.in_prob_range:
             pred = self.to_prob_range(pred)
@@ -174,25 +254,36 @@ class Metrics(ABC):
             return pred
         else:
             LOGGER.error('ERROR: type_classifier should be Binary or Multiclass')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter 'type_classifier' is incorrect.")
 
     def get_confusion_matrix(self, truth, pred, nbr_class=None):
         """
-        Return confusion matrix
-        In binary case:
-         [['tp' 'fn']
-          ['fp' 'tn']]
+        Return a confusion matrix whose i-th row and j-th column entry indicates the number of samples
+        with true label being i-th class and predicted label being j-th class. (example in  binary case)
+
+                                 Predicted label
+                                -----------------
+                                |    1  |   0   |
+                        -------------------------
+                        |   1   |   TP  |   FN  |
+            True label  -------------------------
+                        |   0   |   FP  |   TN  |
+                        -------------------------
 
         Parameters
         ----------
-        truth : [type]
-            [description]
-        pred : [type]
-            [description]
+        truth : np.array
+            Ground truth values.
+        pred : np.array
+            Prediction values.
+        nbr_class: int
+            Number of classes present in the input data, default None.
 
         Returns
         -------
-        [type]
-            [description]
+        np.array
+            Computed confusion matrix.
         """
         assert isinstance(truth, (np.ndarray, np.generic)) and isinstance(pred, (np.ndarray, np.generic))
         if nbr_class is None:
@@ -208,7 +299,25 @@ class Metrics(ABC):
         return np.flip(cm)
 
     def get_metrics_from_obs(self, tp, fn, fp, tn):
+        """
+        Function to calculate the metrics from the observations of the number tp, fn, fp, tn of a confusion matrix.
 
+        Parameters
+        ----------
+        tp : int
+            Number of True Positive observations.
+        fn : int
+            Number of False Negative observations.
+        fp : int
+            Number of False Positive observations.
+        tn : int
+            Number of True Negative observations.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the desired metrics.
+        """
         # Accuracy
         if tp != 0.0 and tn != 0.0 and tp + tn != 0.0 and tp + fp + tn + fn != 0:
             accuracy = (tp + tn) / (tp + fp + tn + fn)
@@ -269,6 +378,20 @@ class Metrics(ABC):
         return type_prob, in_prob_range
 
     def to_prob_range(self, value):
+        """
+        Passes values in the possible range of values for a probability i.e. between 0 and 1.
+        Transformation made according to the bit depth on the input dataset.
+
+        Parameters
+        ----------
+        value : number
+            Input value to convert.
+
+        Returns
+        -------
+        float
+            Transformed data with a value between 0 and 1.
+        """
         return value / self.depth_dict[self.bit_depth]
 
     def heatmap(self, data, row_labels, col_labels, ax=None,
@@ -399,8 +522,36 @@ class Metrics(ABC):
         return texts
 
     def get_cm_val_fmt(self, cm):
+        """
+        Function allowing to obtain a matrix containing the elements necessary to format each cell of a confusion matrix
+        so that the number of observations can be entered in a cell. Each element of the matrix consist of tuple with a
+        number to divide the value of the cm case and character to show the unit.
+        ex: cm value = 3000 -> fmt (1000, 'k') -> '3k'.
+
+        Parameters
+        ----------
+        cm : np.array
+            Confusion matrix with float values to format.
+
+        Returns
+        -------
+        np.array
+            Matrix with elements to format the cm.
+        """
 
         def find_val_fmt(value):
+            """Return format element for one value.
+
+            Parameters
+            ----------
+            value : float
+                value to transform.
+
+            Returns
+            -------
+            Tuple(int, str)
+                Value to divide the input value, character to know in which unit is the input value.
+            """
             length_dict = {0: (10**0, ''),
                            3: (10**3, 'k'),
                            6: (10**6, 'm'),
@@ -431,7 +582,24 @@ class Metrics(ABC):
         return cm_val_fmt
 
     def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
+        """ Plot a confusion matrix with the number of observation in the whole input dataset.
 
+        Parameters
+        ----------
+        cm : np.array
+            Confusion matrix.
+        labels : list of str
+            Labels for each class.
+        name_plot : str, optional
+            Name of the output file, by default 'confusion_matrix.png'
+        cmap : str, optional
+            colors to use in the plot, by default "YlGn"
+
+        Returns
+        -------
+        str
+            Ouput path of the image containing the plot.
+        """
         fig, ax = plt.subplots(figsize=(10, 6))
         cbarlabel = 'Coefficients values'
 
@@ -446,15 +614,44 @@ class Metrics(ABC):
         plt.savefig(output_path)
         return output_path
 
-    def plot_norm_and_value_cms(self, cm, labels, name_plot='norm_and_values_cms.png', cmap="YlGn"):
+    def plot_norm_and_value_cms(self, cm, labels, name_plot='norm_and_values_cms.png',
+                                per_class_norm=True, cmap="YlGn"):
+        """Plot a confusion matrix with the number of observation and also another one with values
+        normalized (per class or by the whole cm).
+
+        Parameters
+        ----------
+        cm : np.array
+            Confusion matrix.
+        labels : list of str
+            Labels for each class.
+        name_plot : str, optional
+            Name of the output file, by default 'confusion_matrix.png'
+        per_class_norm : bool, optional
+            normalize per class or by the whole values in the cm, by default True
+        cmap : str, optional
+            colors to use in the plot, by default "YlGn"
+
+        Returns
+        -------
+        str
+            Ouput path of the image containing the plot.
+        """
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(20, 7))
         cbarlabel = 'Coefficients values'
 
         # On ax0, normalize cm
-        cm_norm = cm.astype('float') / np.sum(cm.flatten())
+        if not per_class_norm:
+            cm_norm = cm.astype('float') / np.sum(cm.flatten())
+        else:
+            cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
         im0, _ = self.heatmap(cm_norm, labels, labels, ax=axs[1], cmap=cmap, cbarlabel=cbarlabel)
         _ = self.annotate_heatmap(im0, data=np.round(cm_norm, decimals=3))
-        axs[1].set_title('Normalized values', y=-0.1, pad=-14, fontsize=12)
+        if not per_class_norm:
+            axs[1].set_title('Normalized values', y=-0.1, pad=-14, fontsize=12)
+        else:
+            axs[1].set_title('Normalized per actual class values', y=-0.1, pad=-14, fontsize=12)
 
         im1, _ = self.heatmap(cm, labels, labels, ax=axs[0], cmap=cmap, cbarlabel=cbarlabel)
         cm_val_fmt = self.get_cm_val_fmt(cm)

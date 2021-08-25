@@ -93,7 +93,7 @@ class Statistics():
         if output_type in ['md', 'json', 'html']:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html.')
+            LOGGER.error('ERROR: the output file can only be in md, json, html')
             self.output_type = 'html'
 
         self.nbr_bands = len(self.dataset.image_bands)
@@ -396,7 +396,6 @@ class Statistics():
                 plt.ylabel("Pixels count")
 
         plt.tight_layout(pad=3.0)
-
 
         output_path = os.path.join(os.path.dirname(self.output_path), 'stats_hists.png')
         plt.savefig(output_path)

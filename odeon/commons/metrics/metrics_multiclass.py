@@ -1,3 +1,8 @@
+"""
+Class to manage metrics in the multiclass case.
+Will generate the micro, macro and class strategies and calculate for each of them the associated metrics.
+"""
+
 import os
 import numpy as np
 import pandas as pd
@@ -13,33 +18,81 @@ class Metrics_Multiclass(Metrics):
                  dataset,
                  output_path,
                  type_classifier,
-                 output_type=None,
                  class_labels=None,
+                 output_type=DEFAULTS_VARS['output_type'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  threshold_range=DEFAULTS_VARS['threshold_range'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
                  nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
-                 batch_size=DEFAULTS_VARS['batch_size'],
-                 num_workers=DEFAULTS_VARS['num_workers'],
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
+        """
+        Init function.
+        Initialize the class attributes and create the dataframes to store the metrics for each strategy.
+        Scan the dataset, by threshold (for ROC and PR curves in per class strategy), by classes and
+        finally by sample to compute confusion matrices (cms) and metrics.
+        Once the metrics and cms are computed they are exported in an output file that can have a form json,
+        markdown or html. Optionally the tool can output metrics per patch and return the result as a csv file.
+
+        Parameters
+        ----------
+        dataset : MetricsDataset
+            Dataset from odeon.nn.datasets which contains the masks and the predictions.
+        output_path : str
+            Path where the report/output data will be created.
+        type_classifier : str
+            String allowing to know if the classifier is of type binary or multiclass.
+            Here the classfier type should be 'multiclass'.
+        output_type : str, optional
+            Desired format for the output file. Could be json, md or html.
+            A report will be created if the output type is html or md.
+            If the output type is json, all the data will be exported in a dict in order
+            to be easily reusable, by default html.
+        class_labels : list of str, optional
+            Label for each class in the dataset.
+            If None the labels of the classes will be of type: class 1, class 2, etc .., by default None
+        weights : list of number, optional
+            List of weights to balance the metrics.
+            Used for the macro matrix and the mean metrics, by default None.
+        threshold : float, optional
+            Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
+            Use for macro, micro cms and metrics for all strategies, by default 0.5.
+        threshold_range : list of float, optional
+            List of values that will be used as a threshold when calculating the ROC and PR curves,
+            by default np.arange(0.1, 1.1, 0.1).
+        bit_depth : str, optional
+            The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
+        nb_calibration_bins : int, optional
+            Number of bins used in the construction of calibration curves, by default 10.
+        get_normalize : bool, optional
+            Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
+        get_metrics_per_patch : bool, optional
+            Boolean to know if the user wants to compute metrics per patch and export them in a csv file.
+            Metrics will be also computed if the parameter get_hists_per_metrics is True but a csv file
+            won't be created, by default True
+        get_ROC_PR_curves : bool, optional
+            Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_calibration_curves : bool, optional
+            Boolean to know if the user wants to generate calibration curves, by default True
+        get_hists_per_metrics : bool, optional
+            Boolean to know if the user wants to generate histogram for each metric.
+            Histograms created using the parameter threshold, by default True.
+        """
 
         super().__init__(dataset=dataset,
                          output_path=output_path,
                          type_classifier=type_classifier,
-                         output_type=output_type,
                          class_labels=class_labels,
+                         output_type=output_type,
                          weights=weights,
                          threshold=threshold,
                          threshold_range=threshold_range,
                          bit_depth=bit_depth,
                          nb_calibration_bins=nb_calibration_bins,
-                         batch_size=batch_size,
-                         num_workers=num_workers,
                          get_normalize=get_normalize,
                          get_metrics_per_patch=get_metrics_per_patch,
                          get_ROC_PR_curves=get_ROC_PR_curves,
@@ -48,6 +101,7 @@ class Metrics_Multiclass(Metrics):
 
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
 
+        # Dataframe for metrics per patch.
         if self.get_metrics_per_patch:
             self.header = ['name_file'] + \
                         ['macro_' + name_column for name_column in self.metrics_names[:-1]] + \
@@ -57,14 +111,29 @@ class Metrics_Multiclass(Metrics):
                          for name_column in self.metrics_names[:-1]]
             self.df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=self.header)
 
+        # Computed confusion matrix for each sample and sum the total in one micro cm.
         self.cm_micro = self.scan_dataset()
+
+        # Get metrics for each strategy and cms macro from the micro cm.
         self.metrics_by_class, self.metrics_micro, self.metrics_macro, self.cms_classes, self.cm_macro = \
             self.get_metrics_from_cm(self.cm_micro)
+
+        # Put the calculated metrics in dataframes for reports and also computed mean metrics.
         self.metrics_to_df_reports()
+
+        # Create a csv to export the computed metrics per patch.
         if get_metrics_per_patch:
             self.export_metrics_per_patch_csv()
 
     def create_data_for_metrics(self):
+        """
+        Create dataframes to store metrics for each strategy.
+
+        Returns
+        -------
+        Tuple of pd.DataFrame
+            Dataframes to store metrics for each strategy.
+        """
         df_report_classes = pd.DataFrame(index=[class_name for class_name in self.class_labels],
                                          columns=self.metrics_names[:-1])
         df_report_micro = pd.DataFrame(index=['Values'],
@@ -74,8 +143,21 @@ class Metrics_Multiclass(Metrics):
         return df_report_classes, df_report_micro, df_report_macro
 
     def scan_dataset(self):
+        """
+        Function allowing to make a pass on the dataset in order to obtain micro confusion
+        matrices by sample according to given thresholds. For each threshold, then the cms
+        are added together to make only micro cm by threshold. The function only return the
+        micro cm with a threshold equal to the parameter threshold given as input.
+
+        Returns
+        -------
+        np.array
+            Confusion matrix for micro strategy.
+        """
         cm_micro = np.zeros([self.nbr_class, self.nbr_class])
+        # Dict to store info for ROC and PR curves.
         self.vect_classes = {}
+        # Dicts to store info for claibrations curves.
         self.dict_hist_counts, self.dict_prob_true, self.dict_prob_pred = {}, {}, {}
 
         for i, class_i in tqdm(enumerate(self.class_labels), desc='Metrics processing time', leave=True):
@@ -165,7 +247,9 @@ class Metrics_Multiclass(Metrics):
             self.vect_classes[class_i] = vects
 
             nonzero = bin_total != 0  # Avoid to display null bins.
+            # The proportion of samples whose class is the positive class, in each bin (fraction of positives).
             prob_true = bin_true[nonzero] / bin_total[nonzero]
+            # The mean predicted probability in each bin.
             prob_pred = bin_sums[nonzero] / bin_total[nonzero]
 
             self.dict_hist_counts[class_i] = hist_counts
@@ -175,6 +259,20 @@ class Metrics_Multiclass(Metrics):
         return cm_micro
 
     def get_obs_by_class_from_cm(self, cm):
+        """
+        Function to get from a confusion matrix the metrics for each class.
+
+        Parameters
+        ----------
+        cm : np.array
+            Input confusion matrix.
+
+        Returns
+        -------
+        dict
+            Dict with metrics for each class.
+            The keys of th dict will be the labels of the classes.
+        """
         obs_by_class = {}
         for i, class_i in enumerate(self.class_labels):
             obs_by_class[class_i] = {'tp': cm[i, i],
@@ -184,6 +282,19 @@ class Metrics_Multiclass(Metrics):
         return obs_by_class
 
     def get_obs_micro_from_cm(self, cm):
+        """
+        In micro strategy, extract the number of tp, fn, fp from a cm.
+
+        Parameters
+        ----------
+        cm : np.array[type]
+            Confusion matrix in micro strategy.
+
+        Returns
+        -------
+        dict
+            Dict with the number of observations for tp, fn, fp.
+        """
         obs_micro = {}
         obs_micro = {'tp': np.sum(np.diag(cm)),
                      'fn': np.sum(np.triu(cm, k=1)),
@@ -191,6 +302,18 @@ class Metrics_Multiclass(Metrics):
         return obs_micro
 
     def get_metrics_from_cm(self, cm_micro):
+        """
+        Function to get metrics from a confusion matrix.
+
+        Parameters
+        ----------
+        cm_micro : np.array
+            Confusion matrix in micro strategy.
+        Returns
+        -------
+        (dict, dict, dict, np.array, np.array)
+            Metrics (macro, micro, per class) and cms (macro, per class).
+        """
         obs_by_class = self.get_obs_by_class_from_cm(cm_micro)
         obs_micro = self.get_obs_micro_from_cm(cm_micro)
 
@@ -204,6 +327,9 @@ class Metrics_Multiclass(Metrics):
                                                                   obs_by_class[class_i]['fn'],
                                                                   obs_by_class[class_i]['fp'],
                                                                   obs_by_class[class_i]['tn'])
+
+        # If weights are used, the sum of the confusion matrices of each class weighted by the input weights.
+        # If not, the confusions matrices of classes will directly added together.
         if self.weighted:
             cm_macro = np.zeros([2, 2])
             for k, weight in zip(range(self.nbr_class), self.weights):
@@ -226,6 +352,9 @@ class Metrics_Multiclass(Metrics):
         return metrics_by_class, metrics_micro, metrics_macro, cms_classes, cm_macro
 
     def metrics_to_df_reports(self):
+        """
+        Put the calculated metrics in dataframes for reports and also computed mean metrics.
+        """
         for class_i in self.class_labels:
             self.df_report_classes.loc[class_i] = list(self.metrics_by_class[class_i].values())[:-1]
         self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
@@ -245,6 +374,22 @@ class Metrics_Multiclass(Metrics):
         self.df_report_macro.loc['Values'] = list(self.metrics_macro.values())[:-1]
 
     def plot_ROC_PR_per_class(self, name_plot='multiclass_roc_pr_curves.png'):
+        """
+        Plot (html/md output type) or export (json type) data on ROC and PR curves.
+        For ROC curve, points (0, 0) and (1, 1) are added to data in order to have a curve
+        which begin at the origin and finish in the top right of the image.
+        Same thing for PR curve but with the points (0, 1) and (1, 0).
+
+        Parameters
+        ----------
+        name_plot : str, optional
+            Desired name to give to the output image, by default 'multiclass_roc_pr_curves.png'
+
+        Returns
+        -------
+        str
+            Output path where an image with the plot will be created.
+        """
         if self.output_type == 'json':
             self.dict_export['PR ROC info'] = self.vect_classes
         else:
@@ -288,7 +433,20 @@ class Metrics_Multiclass(Metrics):
             return output_path
 
     def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png'):
+        """
+        Plot or export data on calibration curves.
+        Plot for output type html and md, export the data in a dict for json.
 
+        Parameters
+        ----------
+        name_plot : str, optional
+            Name to give to the output plot, by default 'multiclass_calibration_curves.png'
+
+        Returns
+        -------
+        str
+            Output path where an image with the plot will be created.
+        """
         # Normalize dict_hist_counts to put the values between 0 and 1:
         total_pixel = np.sum(self.dict_hist_counts[self.class_labels[0]])
         self.dict_hist_counts = {key: value / total_pixel for key, value in self.dict_hist_counts.items()}
@@ -329,7 +487,19 @@ class Metrics_Multiclass(Metrics):
             return output_path
 
     def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png'):
+        """
+        Plot (html/md output type) or export (json type) data on the metrics histograms.
 
+        Parameters
+        ----------
+        name_plot : str, optional
+            Name to give to the output plot, by default 'multiclass_hists_metrics.png'
+
+        Returns
+        -------
+        str
+            Output path where an image with the plot will be created.
+        """
         colors = plt.rcParams["axes.prop_cycle"]()
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         n_plot = len(self.header[1:])
@@ -361,5 +531,8 @@ class Metrics_Multiclass(Metrics):
             return output_path
 
     def export_metrics_per_patch_csv(self):
+        """
+            Export the metrics per patch in a csv file.
+        """
         path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
         self.df_dataset.to_csv(path_csv, index=False)
