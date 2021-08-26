@@ -58,6 +58,7 @@ More information could be found in the documentation
     Stats <stats.rst>
     Training <train.rst>
     Detection <detect.rst>
+    Metrics <metrics.rst>
     
 .. toctree::
     :caption: Advanced Feature
