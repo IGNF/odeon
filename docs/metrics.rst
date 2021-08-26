@@ -154,9 +154,9 @@ Example:
 The class strategy is the even more precise view but only looks at the performance of each class one by one and independently. 
 Example of a confusion matrix for a class in  a multiclass case, here class A.
 
-.. list-table:: Confusion Matrice for micro strategy
+.. list-table:: Confusion Matrice for class A
    :widths: 20 20 20 20
-   
+
    * - 
      - A
      - B
@@ -188,14 +188,14 @@ Json file content
 
     .. code-block:: json
 
-    {
-        "metrics_setup": {
-            "mask_path": "/path/to/intput/folder/msk",
-            "pred_path": "/path/to/input/folder/pred",
-            "output_path": "/path/to/output/folder/",
-            "type_classifier": "binary"
-            }
-    }
+        {
+            "metrics_setup": {
+                "mask_path": "/path/to/intput/folder/msk",
+                "pred_path": "/path/to/input/folder/pred",
+                "output_path": "/path/to/output/folder/",
+                "type_classifier": "binary"
+                }
+        }
  
 .. warning::
    By default, the format of the ouput fil will be "html".
@@ -204,25 +204,25 @@ Json file content
 
     .. code-block:: json
     
-    {
-        "metrics_setup": {
-            "mask_path": "/path/to/intput/folder/msk",
-            "pred_path": "/path/to/input/folder/pred",
-            "output_path": "/path/to/output/folder/",
-            "type_classifier": "multiclass",
-            "weights": [0.3, 0.5, 0.0, 0.0, 0.9, 0.1, 0.1],
-            "class_labels": ["batiments", "route", "ligneux", "herbacé", "eau", "mineraux", "piscines"],
-            "threshold": 0.6,
-            "threshold_range": [0.45, ,0.5, 0.55, 0.6, 0.65, 0.7],
-            "bit_depth": "8 bits",
-            "nb_calibration_bins": 10,
-            "get_normalize": true,
-            "get_metrics_per_patch": true,
-            "get_ROC_PR_curves": true,
-            "get_calibration_curves": false,
-            "get_hists_per_metrics": false
+        {
+            "metrics_setup": {
+                "mask_path": "/path/to/intput/folder/msk",
+                "pred_path": "/path/to/input/folder/pred",
+                "output_path": "/path/to/output/folder/",
+                "type_classifier": "multiclass",
+                "weights": [0.3, 0.5, 0.0, 0.0, 0.9, 0.1, 0.1],
+                "class_labels": ["batiments", "route", "ligneux", "herbacé", "eau", "mineraux", "piscines"],
+                "threshold": 0.6,
+                "threshold_range": [0.45, ,0.5, 0.55, 0.6, 0.65, 0.7],
+                "bit_depth": "8 bits",
+                "nb_calibration_bins": 10,
+                "get_normalize": true,
+                "get_metrics_per_patch": true,
+                "get_ROC_PR_curves": true,
+                "get_calibration_curves": false,
+                "get_hists_per_metrics": false
+            }
         }
-    }
 
 **Description of JSON arguments**
     mask_path : str
