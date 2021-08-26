@@ -161,10 +161,6 @@ class Report_Multiclass(Report):
             """
         html_elements.append(classes_html)
 
-        if self.input_object.weighted:
-            weigths_html = f'<p>Mean average computed with weights : {self.input_object.weights}</p>'
-            html_elements.append(weigths_html)
-
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
             <h3>* ROC and PR Curves</h3>
