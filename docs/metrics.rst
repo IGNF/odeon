@@ -154,6 +154,9 @@ Example:
 The class strategy is the even more precise view but only looks at the performance of each class one by one and independently. 
 Example of a confusion matrix for a class in  a multiclass case, here class A.
 
+.. list-table:: Confusion Matrice for micro strategy
+   :widths: 20 20 20 20
+   
    * - 
      - A
      - B
