@@ -6,6 +6,16 @@ Metrics how-to
 The tool compute metrics, plot confusion matrices (cms) and ROC curves.
 This tool handles binary and multiclass cases with prediction in 'soft' or 'hard' probabilities.
 
+To launch the code, type:
+ ``odeon metrics -c <config.json>``.
+
+Example :
+
+.. code-block:: console
+
+   $ odeon metrics -c ../config_files/metrics_conf.json
+
+
 The metrics computed
 ====================
 
