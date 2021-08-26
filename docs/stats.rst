@@ -2,7 +2,7 @@
 Stats How To
 *************
 
-The ``stats`` script compute descriptive statistics on a dataset according to the following items:
+``stats`` script compute descriptive statistics on a dataset according to the following items:
 
 * the bands of the images.
 * the classes contained in the masks 
@@ -50,6 +50,8 @@ Classes statistics
 - ``freq 5%pixel``: Share of samples with at least 5% pixels of a given class. The lesser, the more concentrated on a few samples a class is.
 - ``auc``: Area under the Lorenz curve of the pixel distribution of a given class across samples. The lesser, the more concentrated on a few samples a class is. Equals pixel freq if the class is the samples are either full of or empty from the class. Equals 1 if the class is homogeneously distributed across samples.
 
+Example :
+
 .. figure:: assets/stats/stats_classes.png
    :align: center
    :figclass: align-center
@@ -62,6 +64,8 @@ Global statistics are computed either with all classes or without the last class
 - ``share multilabel``: Percentage of pixels shared by several classes
 - ``avg nb class in patch``: Mean of the number of classes present in each sample 
 - ``avg entropy``: Mean of the class distribution entropy for each sample. For each sample, the entropy is at least 0 if a single class is represented and at most log(C) with C the number of classes. The entropy of a sample is log(C) if every class is equally represented. The greater the entropy, the semantically richer the sample is.
+
+Example :
 
 .. figure:: assets/stats/stats_globals.png
    :align: center
