@@ -55,9 +55,10 @@ More information could be found in the documentation
     Grid sampling <sample_grid.rst>
     Systematic sampling <sample_sys.rst>
     Dataset Generation <generate.rst>
+    Stats <stats.rst>
     Training <train.rst>
     Detection <detect.rst>
-    Stats <stats.rst>
+    Metrics <metrics.rst>
     
 .. toctree::
     :caption: Advanced Feature

@@ -6,12 +6,14 @@
             "properties": {
                 "input_path": {"type": "string"},
                 "output_path":{"type": "string"},
+                "output_type":{"type": "string", "default": "html", "enum": ["html", "json", "md"]},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "data_augmentation": {"type":["string", "array"]},
                 "bins" : {"type":"array"},
                 "nbr_bins": {"type": "number", "default": 10},
-                "bit_depth": {"type": "string", "default": "8 bits"},
+                "get_skewness_kurtosis" :  {"type": "boolean", "default": false},
+                "bit_depth": {"type": "string", "default": "8 bits", "enum": ["keep", "8 bits", "12 bits", "14 bits", "16 bits"]},
                 "batch_size" : {"type":"number", "default": 1},
                 "num_workers" : {"type":"number", "default": 1}
             },
