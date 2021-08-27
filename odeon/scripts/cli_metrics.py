@@ -49,8 +49,7 @@ class CLI_Metrics(BaseTool):
             If the output type is json, all the data will be exported in a dict in order
             to be easily reusable, by default html.
         class_labels : list of str, optional
-            Label for each class in the dataset.
-            If None the labels of the classes will be of type:  0 and 1 by default None
+            Label for each class in the dataset, by default None.
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.

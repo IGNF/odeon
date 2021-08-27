@@ -53,6 +53,8 @@ class Statistics():
                  dataset,
                  output_path,
                  output_type=None,
+                 bands_labels=None,
+                 class_labels=None,
                  get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
                  bit_depth=BIT_DEPTH,
                  bins=None,
@@ -68,6 +70,15 @@ class Statistics():
             Dataset from odeon.nn.datasets which contains the images and masks.
         output_path: str
             Path where the report with the computed statistics will be created.
+        output_type : str, optional
+            Desired format for the output file. Could be json, md or html.
+            A report will be created if the output type is html or md.
+            If the output type is json, all the data will be exported in a dict in order
+            to be easily reusable, by default html.
+        bands_labels : list of str, optional
+            Label for each bands in the dataset, by default None.
+        class_labels : list of str, optional
+            Label for each class in the dataset, by default None.
         bins: list
             List of the bins to build the histograms of the image bands.
         nbr_bins: int.
@@ -100,6 +111,24 @@ class Statistics():
         self.nbr_classes = len(self.dataset.mask_bands)
         self.nbr_pixels_per_patch = self.dataset.height * self.dataset.width
         self.nbr_total_pixel = len(self.dataset) * self.nbr_pixels_per_patch
+
+        if bands_labels is not None and len(bands_labels) != self.nbr_bands:
+            LOGGER.error('ERROR: parameter bands_labels should have a number of values equal to the number of bands .')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter bands_labels is incorrect.")
+        elif bands_labels is None:
+            self.bands_labels = [f'band {i}' for i in range(1, self.nbr_bands+1)]
+        else:
+            self.bands_labels = bands_labels
+
+        if class_labels is not None and len(class_labels) != self.nbr_classes:
+            LOGGER.error('ERROR: parameter class_labels should have a number of values equal to the number of classes.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter class_labels is incorrect.")
+        elif class_labels is None:
+            self.class_labels = [f'class {i}' for i in range(1, self.nbr_classes+1)]
+        else:
+            self.class_labels = class_labels
 
         self.depth_dict = {'keep':  1,
                            '8 bits': 255,
@@ -191,16 +220,16 @@ class Statistics():
                                            columns=['share multilabel', 'avg nb class in patch', 'avg entropy'])
         df_global_stats.loc['all classes', 'share multilabel'] = 0
 
-        header_list = [f'class {i}' for i in range(1, self.nbr_classes+1)]
-        df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=header_list)
+        df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=self.class_labels)
 
         if self.get_skewness_kurtosis:
             header_bands = ['min', 'max', 'mean', 'std', 'skewness', 'kurtosis']
         else:
             header_bands = ['min', 'max', 'mean', 'std']
-        df_bands_stats = pd.DataFrame(index=[f'band {i}' for i in range(1, self.nbr_bands+1)], columns=header_bands)
 
-        df_classes_stats = pd.DataFrame(index=[f'class {i}' for i in range(1, self.nbr_classes+1)],
+        df_bands_stats = pd.DataFrame(index=self.bands_labels, columns=header_bands)
+
+        df_classes_stats = pd.DataFrame(index=self.class_labels,
                                         columns=['regu L1', 'regu L2', 'pixel freq', 'freq 5% pixel', 'auc'])
 
         bands_hists = [np.zeros(len(self.bins) - 1) for _ in range(self.nbr_bands)]
@@ -242,9 +271,9 @@ class Statistics():
                     current_bins_counts = np.histogram(vect_band, self.bins)[0]
                     self.bands_hists[idx_band] = np.add(self.bands_hists[idx_band], current_bins_counts)
 
-                for idx_class in range(1, self.nbr_classes+1):
-                    vect_class = mask[:, :, idx_class-1].flatten()
-                    self.df_dataset.loc[index, f'class {idx_class}'] = np.count_nonzero(vect_class)
+                for idx_class, name_class in enumerate(self.class_labels):
+                    vect_class = mask[:, :, idx_class].flatten()
+                    self.df_dataset.loc[index, name_class] = np.count_nonzero(vect_class)
                 index += 1
 
                 # Information storage for statistics.
@@ -310,14 +339,14 @@ class Statistics():
         Compute statistics on bands and classes from the data collected during the stage scan_dataset.
         """
         # Statistics on image bands
-        for i in range(self.nbr_bands):
-            self.df_bands_stats.loc[f'band {i+1}', 'min'] = self.min[i]
-            self.df_bands_stats.loc[f'band {i+1}', 'max'] = self.max[i]
-            self.df_bands_stats.loc[f'band {i+1}', 'mean'] = self.means[i]
-            self.df_bands_stats.loc[f'band {i+1}', 'std'] = self.std[i]
+        for i, name_band in enumerate(self.bands_labels):
+            self.df_bands_stats.loc[name_band, 'min'] = self.min[i]
+            self.df_bands_stats.loc[name_band, 'max'] = self.max[i]
+            self.df_bands_stats.loc[name_band, 'mean'] = self.means[i]
+            self.df_bands_stats.loc[name_band, 'std'] = self.std[i]
             if self.get_skewness_kurtosis:
-                self.df_bands_stats.loc[f'band {i+1}', 'skewness'] = self.skewness[i] / self.nbr_total_pixel
-                self.df_bands_stats.loc[f'band {i+1}', 'kurtosis'] = self.kurtosis[i] / self.nbr_total_pixel
+                self.df_bands_stats.loc[name_band, 'skewness'] = self.skewness[i] / self.nbr_total_pixel
+                self.df_bands_stats.loc[name_band, 'kurtosis'] = self.kurtosis[i] / self.nbr_total_pixel
 
         self.zeros_pixels /= self.nbr_total_pixel
 
@@ -384,13 +413,13 @@ class Statistics():
         n_rows = ((n_plots - 1) // n_cols) + 1
 
         plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-        for i in range(n_plots):
+        for i, name_band in enumerate(self.bands_labels):
             plt.subplot(n_rows, n_cols, i+1)
             c = [float(i) / float(self.nbr_bands), 0.0, float(self.nbr_bands-i) / float(self.nbr_bands)]
             plt.bar(range(len(self.bands_hists[i])), self.bands_hists[i], width=0.8, linewidth=2, capsize=20, color=c)
             if len(self.bins) <= 20:
                 plt.xticks(range(len(self.bands_hists[i])), labels, rotation=35)
-            plt.title(f'Distribution of pixel for band {i+1}')
+            plt.title(f'Distribution of pixel for band {name_band}')
             plt.xlabel("Pixel bins")
             if i % n_cols == 0:
                 plt.ylabel("Pixels count")

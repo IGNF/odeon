@@ -114,6 +114,10 @@ Json file content
             Path of the folder where the report with the computed statistics will be created. The folder must exist or be created before the use of the tool.
         output_type: str
             Output file format. The output file can only be in md, json, html. By default, the output format will be html.
+        bands_labels : list of str, optional
+            Label for each bands in the dataset, by default None.
+        class_labels : list of str, optional
+            Label for each class in the dataset, by default None.
         image_bands: list
             List of the selected bands in the dataset images bands.
         mask_bands: list

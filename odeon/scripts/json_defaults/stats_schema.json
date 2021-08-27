@@ -7,6 +7,8 @@
                 "input_path": {"type": "string"},
                 "output_path":{"type": "string"},
                 "output_type":{"type": "string", "default": "html", "enum": ["html", "json", "md"]},
+                "bands_labels": {"type": "array", "items": {"type": "string"}},
+                "class_labels": {"type": "array", "items": {"type": "string"}},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "data_augmentation": {"type":["string", "array"]},

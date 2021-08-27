@@ -32,6 +32,8 @@ class Stats(BaseTool):
                  input_path,
                  output_path,
                  output_type=None,
+                 bands_labels=None,
+                 class_labels=None,
                  image_bands=None,
                  mask_bands=None,
                  data_augmentation=None,
@@ -50,6 +52,15 @@ class Stats(BaseTool):
             Path to .csv file describing the input dataset or a directory where the images and masks are stored.
         output_path: str
             Path where the report with the computed statistics will be created.
+        output_type : str, optional
+            Desired format for the output file. Could be json, md or html.
+            A report will be created if the output type is html or md.
+            If the output type is json, all the data will be exported in a dict in order
+            to be easily reusable, by default html.
+        bands_labels : list of str, optional
+            Label for each bands in the dataset, by default None.
+        class_labels : list of str, optional
+            Label for each class in the dataset, by default None.
         image_bands: list
             List of the selected bands in the dataset images bands.
         mask_bands: list
@@ -126,6 +137,20 @@ class Stats(BaseTool):
                                         images: {self.img_heigth} x {self.img_width}
                                         masks: {self.msk_heigth} x {self.msk_width}""")
 
+        if class_labels is not None and len(class_labels) != len(self.mask_bands):
+            LOGGER.error('ERROR: parameter class_labels should have a number of values equal to the number of classes.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter class_labels is incorrect.")
+        else:
+            self.class_labels = class_labels
+
+        if bands_labels is not None and len(bands_labels) != len(self.image_bands):
+            LOGGER.error('ERROR: parameter bands_labels should have a number of values equal to the number of bands.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter bands_labels is incorrect.")
+        else:
+            self.bands_labels = bands_labels
+
         # Data augmentation
         self.transform = None
         if data_augmentation is not None:
@@ -155,7 +180,9 @@ class Stats(BaseTool):
 
         self.statistics = Statistics(dataset=self.dataset,
                                      output_path=self.output_path,
-                                     output_type=output_type,
+                                     output_type=self.output_type,
+                                     bands_labels=self.bands_labels,
+                                     class_labels=self.class_labels,
                                      get_skewness_kurtosis=self.get_skewness_kurtosis,
                                      bit_depth=self.bit_depth,
                                      bins=self.bins,

@@ -146,7 +146,7 @@ class Metrics_Multiclass(Metrics):
         """
         Function allowing to make a pass on the dataset in order to obtain micro confusion
         matrices by sample according to given thresholds. For each threshold, then the cms
-        are added together to make only micro cm by threshold. The function only return the
+        are added together to make only one micro cm by threshold. The function only return the
         micro cm with a threshold equal to the parameter threshold given as input.
 
         Returns
@@ -260,7 +260,7 @@ class Metrics_Multiclass(Metrics):
 
     def get_obs_by_class_from_cm(self, cm):
         """
-        Function to get from a confusion matrix the metrics for each class.
+        Function to get the metrics for each class from a confusion matrix.
 
         Parameters
         ----------
