@@ -120,8 +120,7 @@ class Report_Multiclass(Report):
         for class_name in self.input_object.class_labels:
             class_html = f"""
 #### {class_name.capitalize()}:
-![Histograms {class_name}](./{os.path.basename(self.path_hists[class_name])})
-"""
+![Histograms {class_name}](./{os.path.basename(self.path_hists[class_name])})"""
             class_histograms.append(class_html)
 
         md_elements.append(metrics_histograms + "\n".join(class_histograms))
