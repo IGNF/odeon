@@ -21,7 +21,6 @@ from odeon.nn.datasets import PatchDataset
 BATCH_SIZE = 1
 NUM_WORKERS = 1
 BIT_DEPTH = '8 bits'
-NBR_BINS = 15
 GET_SKEWNESS_KURTOSIS = False
 
 
@@ -38,11 +37,12 @@ class Stats(BaseTool):
                  mask_bands=None,
                  data_augmentation=None,
                  bins=None,
-                 nbr_bins=NBR_BINS,
+                 nbr_bins=None,
                  get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
                  bit_depth=BIT_DEPTH,
                  batch_size=BATCH_SIZE,
-                 num_workers=NUM_WORKERS):
+                 num_workers=NUM_WORKERS,
+                 get_radio_stats=False):
 
         """Init function of Stats class.
 
@@ -151,6 +151,7 @@ class Stats(BaseTool):
         else:
             self.bands_labels = bands_labels
 
+        self.get_radio_stats = get_radio_stats
         # Data augmentation
         self.transform = None
         if data_augmentation is not None:
@@ -188,7 +189,8 @@ class Stats(BaseTool):
                                      bins=self.bins,
                                      nbr_bins=self.nbr_bins,
                                      batch_size=self.batch_size,
-                                     num_workers=self.num_workers)
+                                     num_workers=self.num_workers,
+                                     get_radio_stats=self.get_radio_stats)
 
     def __call__(self):
         """
@@ -326,5 +328,11 @@ class Stats(BaseTool):
 if __name__ == '__main__':
     input_path = "/home/SPeillet/OCSGE/outputs/generation/train"
     output_path = "/home/SPeillet/OCSGE/"
-    stats = Stats(input_path, output_path, output_type='md', get_skewness_kurtosis=True)
+    stats = Stats(input_path,
+                  output_path,
+                  output_type='html',
+                  bands_labels=['rouge', 'vert', 'bleu'],
+                  class_labels=['batiments', 'route', 'eau', 'herbacee', 'ligneux', 'mineraux', 'autre'],
+                  get_skewness_kurtosis=True,
+                  get_radio_stats=True)
     stats()

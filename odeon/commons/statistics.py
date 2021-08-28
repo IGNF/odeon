@@ -44,7 +44,6 @@ BATCH_SIZE = 1
 NUM_WORKERS = 1
 BIT_DEPTH = '8 bits'
 GET_SKEWNESS_KURTOSIS = False
-NBR_BINS = 15
 
 
 class Statistics():
@@ -58,9 +57,10 @@ class Statistics():
                  get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
                  bit_depth=BIT_DEPTH,
                  bins=None,
-                 nbr_bins=NBR_BINS,
+                 nbr_bins=None,
                  batch_size=BATCH_SIZE,
-                 num_workers=NUM_WORKERS):
+                 num_workers=NUM_WORKERS,
+                 get_radio_stats=False):
         """
         Init function of Statistics class.
 
@@ -165,6 +165,19 @@ class Statistics():
         else:
             self.nbr_batches = len(self.dataset)//self.batch_size + 1
 
+        # Labels for histograms
+        if len(self.bins) <= 20:
+            self.labels = []
+            for i in range(len(self.bins)):
+                if i < len(self.bins) - 1:
+                    self.labels.append(f'{str(self.bins[i])}-{str(self.bins[i+1])}')
+
+        # Stats radiometry
+        self.get_radio_stats = get_radio_stats
+        if self.get_radio_stats:
+            self.df_radio = pd.DataFrame(index=self.class_labels, columns=self.bands_labels, dtype=object)
+            self.df_radio = self.df_radio.applymap(lambda x: np.zeros(len(self.bins) - 1))
+
         # Dataframes creation
         self.df_dataset, self.df_bands_stats, self.df_classes_stats, self.df_global_stats, self.bands_hists =\
             self.create_data_for_stats()
@@ -196,9 +209,11 @@ class Statistics():
             bins_norms: bins with normalized values.
         """
         max_pixel_value = self.depth_dict[self.bit_depth]
-        if bins is None:
+        if bins is None and self.nbr_bins is not None:
             bins = [round((i/self.nbr_bins) * max_pixel_value, 3) for i in range(self.nbr_bins)]
             bins.append(max_pixel_value)
+        elif bins is None and self.nbr_bins is None:
+            bins = np.arange(self.depth_dict[self.bit_depth] + 1, dtype=np.int64)
         return bins
 
     def create_data_for_stats(self):
@@ -302,6 +317,15 @@ class Statistics():
                         sample_entropy_wlc = entropy(vect_normalize_wlc)
                     list_entropy_wlc.append(sample_entropy_wlc)
 
+                # Make histogram of image band values where a class is present in the mask.
+                if self.get_radio_stats:
+                    image, mask = image.astype(np.int64), mask.astype(np.int64)
+                    for i, class_i in enumerate(self.class_labels):
+                        for j, band_j in enumerate(self.bands_labels):
+                            img_filter = image[:, :, j][mask[:, :, i] == 1]
+                            self.df_radio.loc[class_i, band_j] += np.histogram(img_filter,
+                                                                               bins=self.bins)[0]
+
         self.means = self._sum / self.nbr_total_pixel
 
         # Second pass to compute variance:
@@ -393,7 +417,7 @@ class Statistics():
         """
         return value * self.depth_dict[self.bit_depth]
 
-    def plot_hist(self):
+    def plot_hist(self, name_plot='stats_hists.png'):
         """Plot histograms with the bands distributions.
         The histograms are saved in an image with '.png' format.
 
@@ -402,12 +426,6 @@ class Statistics():
         str
             Path where the output image will be stored.
         """
-        if len(self.bins) <= 20:
-            labels = []
-            for i in range(len(self.bins)):
-                if i < len(self.bins) - 1:
-                    labels.append(f'{str(self.bins[i])}-{str(self.bins[i+1])}')
-
         n_plots = self.nbr_bands
         n_cols = 3
         n_rows = ((n_plots - 1) // n_cols) + 1
@@ -418,14 +436,45 @@ class Statistics():
             c = [float(i) / float(self.nbr_bands), 0.0, float(self.nbr_bands-i) / float(self.nbr_bands)]
             plt.bar(range(len(self.bands_hists[i])), self.bands_hists[i], width=0.8, linewidth=2, capsize=20, color=c)
             if len(self.bins) <= 20:
-                plt.xticks(range(len(self.bands_hists[i])), labels, rotation=35)
-            plt.title(f'Distribution of pixel for band {name_band}')
+                plt.xticks(range(len(self.labels)), self.labels, rotation=35)
+            plt.title(f'Distribution of pixel for {name_band.capitalize()}')
             plt.xlabel("Pixel bins")
             if i % n_cols == 0:
                 plt.ylabel("Pixels count")
-
+            plt.grid()
         plt.tight_layout(pad=3.0)
 
-        output_path = os.path.join(os.path.dirname(self.output_path), 'stats_hists.png')
+        output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
         return output_path
+
+    def plot_hists_radiometry(self):
+
+        def plot_hist_per_class(input_class, n_cols=3, size_row=7, size_col=6, name_plot=None):
+            colors = plt.rcParams["axes.prop_cycle"]()
+            n_plot = self.nbr_bands
+            n_rows = ((n_plot - 1) // n_cols) + 1
+            plt.figure(figsize=(size_col * n_cols, size_row * n_rows))
+            for i, band_label in enumerate(self.bands_labels):
+                bincount = self.df_radio.loc[input_class, band_label]
+
+                plt.subplot(n_rows, n_cols, i+1)
+                c = next(colors)["color"]
+                plt.bar(range(len(bincount)), bincount, width=0.8, linewidth=2, capsize=20, color=c)
+                plt.title(f"{band_label.capitalize()}", fontsize=13)
+                plt.xlabel("Values bins")
+                plt.grid()
+                plt.ylabel("Samples count")
+                if len(self.bins) <= 20:
+                    plt.xticks(range(len(self.labels)), self.labels, rotation=35)
+
+            plt.tight_layout(pad=3)
+            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            plt.savefig(output_path)
+            return output_path
+
+        output_paths = {}
+        for class_i in self.class_labels:
+            output_paths[class_i] = plot_hist_per_class(class_i, name_plot=f"radio_{'_'.join(class_i.split(' '))}.png")
+
+        return output_paths
