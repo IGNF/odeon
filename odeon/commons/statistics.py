@@ -37,6 +37,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import entropy
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from cycler import cycler
 from odeon.commons.reports.report_factory import Report_Factory
 from odeon.commons.exception import OdeonError, ErrorCodes
 
@@ -44,6 +45,8 @@ BATCH_SIZE = 1
 NUM_WORKERS = 1
 BIT_DEPTH = '8 bits'
 GET_SKEWNESS_KURTOSIS = False
+GET_RADIO_STATS = False
+MOVING_AVERAGE = 3
 
 
 class Statistics():
@@ -60,7 +63,8 @@ class Statistics():
                  nbr_bins=None,
                  batch_size=BATCH_SIZE,
                  num_workers=NUM_WORKERS,
-                 get_radio_stats=False):
+                 get_radio_stats=GET_RADIO_STATS,
+                 plot_stacked=False):
         """
         Init function of Statistics class.
 
@@ -79,18 +83,26 @@ class Statistics():
             Label for each bands in the dataset, by default None.
         class_labels : list of str, optional
             Label for each class in the dataset, by default None.
-        bins: list
-            List of the bins to build the histograms of the image bands.
-        nbr_bins: int.
-            If bins is not given in input, the list of bins will be created with the nbr_bins defined here.
+        bins: list, optional
+            List of the bins to build the histograms of the image bands, by default None.
+        nbr_bins: int, optional
+            If bins is not given in input, the list of bins will be created with the
+            parameter nbr_bins defined here. If None the bins will be automatically
+            defined according to the maximum value of the pixels in the dataset, by default None.
         get_skewness_kurtosis: bool
-            Boolean to compute or not skewness and kurtosis.
-        bit_depth: str
-            The number of bits used to represent each pixel in an image.
+            Boolean to compute or not skewness and kurtosis, by default False.
+        bit_depth: str, optional
+            The number of bits used to represent each pixel in an image, , by default "8 bits".
         batch_size: int
-            The number of image in a batch.
-        num_workers: int
-            Number of workers to use in the pytorch dataloader.
+            The number of image in a batch, by default 1.
+        num_workers: int, optional
+            Number of workers to use in the pytorch dataloader, by default 1.
+        get_radio_stats: bool, optional
+            Bool to compute radiometry statistics, i.e. the distribution of each image's band according
+            to each class, by default True.
+        plot_stacked: bool, optional
+            Parameter to know if the histograms of each band should be displayed on the same figure
+            or on different figures, by default False.
         """
         # Input arguments
         self.dataset = dataset
@@ -178,6 +190,8 @@ class Statistics():
             self.df_radio = pd.DataFrame(index=self.class_labels, columns=self.bands_labels, dtype=object)
             self.df_radio = self.df_radio.applymap(lambda x: np.zeros(len(self.bins) - 1))
 
+        self.plot_stacked = plot_stacked
+
         # Dataframes creation
         self.df_dataset, self.df_bands_stats, self.df_classes_stats, self.df_global_stats, self.bands_hists =\
             self.create_data_for_stats()
@@ -213,7 +227,7 @@ class Statistics():
             bins = [round((i/self.nbr_bins) * max_pixel_value, 3) for i in range(self.nbr_bins)]
             bins.append(max_pixel_value)
         elif bins is None and self.nbr_bins is None:
-            bins = np.arange(self.depth_dict[self.bit_depth] + 1, dtype=np.int64)
+            bins = np.arange(start=0, stop=self.depth_dict[self.bit_depth] + 1, step=MOVING_AVERAGE)
         return bins
 
     def create_data_for_stats(self):
@@ -293,7 +307,7 @@ class Statistics():
 
                 # Information storage for statistics.
                 self.df_global_stats.loc['all classes', 'share multilabel'] += \
-                    np.count_nonzero(np.sum(mask, axis=2) > 1)
+                    np.count_nonzero(np.sum(mask.copy(), axis=2) > 1)
                 # Sum of each band to get the total pixels present per class in a mask.
                 vect_sum_class = np.sum(mask, axis=(0, 1))
                 nb_class_in_patch.append(np.count_nonzero(vect_sum_class))
@@ -307,7 +321,7 @@ class Statistics():
 
                 if self.nbr_classes > 2:
                     self.df_global_stats.loc['without last class', 'share multilabel'] += \
-                         np.count_nonzero(np.sum(mask[:, :, :self.nbr_classes-1], axis=2) > 1)
+                         np.count_nonzero(np.sum(mask[:, :, :(self.nbr_classes - 1)], axis=2) > 1)
                     nb_class_in_patch_wlc.append(np.count_nonzero(vect_sum_class[:-1]))
 
                     if all(np.equal(vect_sum_class[:-1], np.zeros(self.nbr_classes-1))):
@@ -417,64 +431,113 @@ class Statistics():
         """
         return value * self.depth_dict[self.bit_depth]
 
-    def plot_hist(self, name_plot='stats_hists.png'):
-        """Plot histograms with the bands distributions.
+    def plot_hists(self, bincounts, n_cols=3, size_row=6, size_col=6, name_plot=None, display_stats=False):
+        """
+        Plot histograms from bincounts.
         The histograms are saved in an image with '.png' format.
+        For the figure plot, the distributions can be displayed independently each in a figure
+        or the distributions can be grouped under the same figure to better visualize their differences.
+
+        Parameters
+        ----------
+        bincounts : np.array
+            List of arrays containing for each the number of obersation counted in each bins.
+        n_cols : int, optional
+            [description], by default 3
+        size_row : int, optional
+            Size of a row in the figure, by default 6
+        size_col : int, optional
+            Sive of a column in the figure, by default 6
+        name_plot : str, optional
+            Name to give to the ouput .png image, by default None
+        display_stats : bool, optional
+            Bool to know if stats (mean/std) have to be inserted in the plots, by default False
 
         Returns
         -------
         str
             Path where the output image will be stored.
         """
-        n_plots = self.nbr_bands
-        n_cols = 3
-        n_rows = ((n_plots - 1) // n_cols) + 1
+        default_cycler = cycler(color=['tab:red', 'tab:green', 'tab:blue', 'darkviolet', 'darkolivegreen',
+                                       'orange', 'coral', 'crimson', 'darkmagenta', 'midnightblue', 'cadetblue'])
+        plt.rc('axes', prop_cycle=default_cycler)
 
-        plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-        for i, name_band in enumerate(self.bands_labels):
-            plt.subplot(n_rows, n_cols, i+1)
-            c = [float(i) / float(self.nbr_bands), 0.0, float(self.nbr_bands-i) / float(self.nbr_bands)]
-            plt.bar(range(len(self.bands_hists[i])), self.bands_hists[i], width=0.8, linewidth=2, capsize=20, color=c)
-            if len(self.bins) <= 20:
-                plt.xticks(range(len(self.labels)), self.labels, rotation=35)
-            plt.title(f'Distribution of pixel for {name_band.capitalize()}')
-            plt.xlabel("Pixel bins")
-            if i % n_cols == 0:
-                plt.ylabel("Pixels count")
-            plt.grid()
-        plt.tight_layout(pad=3.0)
+        if not self.plot_stacked:
+            n_plot = self.nbr_bands
+            n_rows = ((n_plot - 1) // n_cols) + 1
+            _, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(size_col * n_cols, size_row * n_rows))
+            axes = axes.ravel()
 
-        output_path = os.path.join(self.output_path, name_plot)
+            for i, ax_prop in enumerate(zip(self.bands_labels, default_cycler)):
+                band_label, c = ax_prop[0], ax_prop[1]
+                bincount = bincounts[i]
+                if display_stats:
+                    mean = np.round(self.df_bands_stats.loc[band_label, "mean"], 2)
+                    std = np.round(self.df_bands_stats.loc[band_label, "std"], 2)
+                    axes[i].axvline(mean, label=f"Mean: {str(mean)}", linestyle='--', alpha=0.5)
+                    axes[i].axvspan(mean - std, mean + std, label=f"Std: {str(std)}",
+                                    linestyle='--', alpha=0.5, color="lightblue")
+                    axes[i].legend(loc='upper right')
+                axes[i].hist(self.bins[:-1],
+                             weights=bincount,
+                             bins=self.bins,
+                             color=c['color'],
+                             alpha=0.7)
+                axes[i].set_ylabel("Pixel count")
+                axes[i].set_xlabel("Pixel distribution")
+                if len(self.bins) <= 20:
+                    axes[i].set_xticks(range(len(self.labels)))
+                    axes[i].set_xticklabels(self.labels)
+                    plt.setp(axes[i].get_xticklabels(), rotation=35)
+                axes[i].set_title(f"{band_label.capitalize()}", fontsize=13)
+                axes[i].grid(b=True, which='major', linestyle='-')
+                axes[i].minorticks_on()
+                axes[i].grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
+
+        else:
+            plt.figure(figsize=(12, 6))
+            for i, plot_prop in enumerate(zip(self.bands_labels, default_cycler)):
+                band_label, color = plot_prop[0], plot_prop[1]['color']
+                if display_stats:
+                    mean = np.around(self.df_bands_stats.loc[band_label, "mean"], decimals=2)
+                    plt.axvline(mean, label=f"Mean {band_label}: {str(mean)}",
+                                linestyle='--', alpha=0.5, color=color)
+                plt.hist(self.bins[:-1], weights=bincounts[i], bins=self.bins,
+                         histtype='step', label=band_label, alpha=0.7, color=color)
+            plt.grid(b=True, which='major', linestyle='-')
+            plt.minorticks_on()
+            plt.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.ylabel("Pixel count")
+            plt.xlabel("Pixel distribution")
+
+        plt.tight_layout(pad=3)
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
         plt.savefig(output_path)
         return output_path
 
+    def plot_hists_bands(self, name_plot='stats_hists.png'):
+        """Plot histograms for the image bands distributions.
+        The histograms are saved in an image with '.png' format.
+
+        Returns
+        -------
+        dict
+            Dict with paths where the output images will be stored.
+        """
+        bincounts = [self.bands_hists[i] for i in range(self.nbr_bands)]
+        return self.plot_hists(bincounts, name_plot=name_plot, display_stats=True)
+
     def plot_hists_radiometry(self):
+        """Plot histograms representing the distribution of pixel values in each band when a specific class is present.
 
-        def plot_hist_per_class(input_class, n_cols=3, size_row=7, size_col=6, name_plot=None):
-            colors = plt.rcParams["axes.prop_cycle"]()
-            n_plot = self.nbr_bands
-            n_rows = ((n_plot - 1) // n_cols) + 1
-            plt.figure(figsize=(size_col * n_cols, size_row * n_rows))
-            for i, band_label in enumerate(self.bands_labels):
-                bincount = self.df_radio.loc[input_class, band_label]
-
-                plt.subplot(n_rows, n_cols, i+1)
-                c = next(colors)["color"]
-                plt.bar(range(len(bincount)), bincount, width=0.8, linewidth=2, capsize=20, color=c)
-                plt.title(f"{band_label.capitalize()}", fontsize=13)
-                plt.xlabel("Values bins")
-                plt.grid()
-                plt.ylabel("Samples count")
-                if len(self.bins) <= 20:
-                    plt.xticks(range(len(self.labels)), self.labels, rotation=35)
-
-            plt.tight_layout(pad=3)
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-            plt.savefig(output_path)
-            return output_path
-
+        Returns
+        -------
+        dict
+            Dict with paths where the output images will be stored.
+        """
         output_paths = {}
         for class_i in self.class_labels:
-            output_paths[class_i] = plot_hist_per_class(class_i, name_plot=f"radio_{'_'.join(class_i.split(' '))}.png")
-
+            bincounts = [self.df_radio.loc[class_i, band_label] for band_label in self.bands_labels]
+            output_paths[class_i] = self.plot_hists(bincounts, name_plot=f"radio_{'_'.join(class_i.split(' '))}.png")
         return output_paths

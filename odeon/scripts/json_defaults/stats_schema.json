@@ -18,7 +18,8 @@
                 "bit_depth": {"type": "string", "default": "8 bits", "enum": ["keep", "8 bits", "12 bits", "14 bits", "16 bits"]},
                 "batch_size" : {"type":"number", "default": 1},
                 "num_workers" : {"type":"number", "default": 1},
-                "get_radio_stats":   {"type": "boolean", "default": false}
+                "get_radio_stats": {"type": "boolean", "default": true},
+                "plot_stacked": {"type": "boolean", "default": false}
             },
             "required": ["input_path", "output_path"]
         }

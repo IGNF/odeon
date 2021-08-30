@@ -35,7 +35,7 @@ class Report_Stats(Report):
                                   'bins_counts':
                                   {f'band {i+1}': [int(x) for x in hist]
                                    for i, hist in enumerate(self.input_object.bands_hists)}}}
- 
+
         with open(os.path.join(self.input_object.output_path, 'stats_report.json'), "w") as output_file:
             json.dump(data_to_dict, output_file, indent=4)
 
@@ -82,7 +82,7 @@ class Report_Stats(Report):
             - the number of classes in an image (avg nb class in patch)
             - the average entropy (avg entropy)""" + \
             '\n\n' + \
-            f'![Images bands histograms](./{os.path.basename(self.input_object.plot_hist())})'
+            f'![Images bands histograms](./{os.path.basename(self.input_object.plot_hists_bands())})'
 
         with open(os.path.join(self.input_object.output_path, 'stats_report.md'), "w") as output_file:
             output_file.write(md_text)
@@ -152,7 +152,7 @@ class Report_Stats(Report):
 
             <h2>Image bands histograms</h2>
 
-            <p><img alt='Images bands histograms' src=./{os.path.basename(self.input_object.plot_hist())} /></p>
+            <p><img alt='Images bands histograms' src=./{os.path.basename(self.input_object.plot_hists_bands())} /></p>
 
             """
 
@@ -176,4 +176,3 @@ class Report_Stats(Report):
         with open(os.path.join(self.input_object.output_path, 'stats_report.html'), "w") as output_file:
             for part_html in parts_html:
                 output_file.write(part_html)
-

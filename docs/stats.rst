@@ -118,21 +118,23 @@ Json file content
             Label for each bands in the dataset, by default None.
         class_labels : list of str, optional
             Label for each class in the dataset, by default None.
-        image_bands: list
-            List of the selected bands in the dataset images bands.
-        mask_bands: list
-            List of the selected bands in the dataset masks bands. (Selection of the classes)
-        data_augmentation: list/str
-            Data augmentation to apply in the input dataset.
-        bins: list
-            List of the bins to build the histograms of the image bands.
-        nbr_bins: int.
-            If bins is not given in input, the list of bins will be created with the nbr_bins defined here.
+        bins: list, optional
+            List of the bins to build the histograms of the image bands, by default None.
+        nbr_bins: int, optional
+            If bins is not given in input, the list of bins will be created with the
+            parameter nbr_bins defined here. If None the bins will be automatically
+            defined according to the maximum value of the pixels in the dataset, by default None.
         get_skewness_kurtosis: bool
-            Boolean to compute or not skewness and kurtosis.
-        bit_depth: str
-            The number of bits used to represent each pixel in an image.
+            Boolean to compute or not skewness and kurtosis, by default False.
+        bit_depth: str, optional
+            The number of bits used to represent each pixel in an image, , by default "8 bits".
         batch_size: int
-            The number of image in a batch.
-        num_workers: int
-            Number of workers to use in the pytorch dataloader.
+            The number of image in a batch, by default 1.
+        num_workers: int, optional
+            Number of workers to use in the pytorch dataloader, by default 1.
+        get_radio_stats: bool, optional
+            Bool to compute radiometry statistics, i.e. the distribution of each image's band according
+            to each class, by default True.
+        plot_stacked: bool, optional
+            Parameter to know if the histograms of each band should be displayed on the same figure
+            or on different figures, by default False.

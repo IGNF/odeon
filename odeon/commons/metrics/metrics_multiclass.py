@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
+from cycler import cycler
 
 
 class Metrics_Multiclass(Metrics):
@@ -511,7 +512,9 @@ class Metrics_Multiclass(Metrics):
         str
             Output path where an image with the plot will be created.
         """
-        colors = plt.rcParams["axes.prop_cycle"]()
+        cmap_colors = [plt.get_cmap('turbo')(1. * i/7) for i in range(7)][1:]
+        colors = cycler(color=cmap_colors)
+        plt.rc('axes', prop_cycle=colors)
 
         if bins is None:
             bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
@@ -519,10 +522,10 @@ class Metrics_Multiclass(Metrics):
         n_plot = len(list_metrics)
         n_rows = ((n_plot - 1) // n_cols) + 1
         plt.figure(figsize=(size_col * n_cols, size_row * n_rows))
-        for i, metric in enumerate(list_metrics):
+        for i, plot_prop in enumerate(zip(list_metrics, colors)):
+            metric, c = plot_prop[0], plot_prop[1]["color"]
             values = self.hists_metrics[metric]
             plt.subplot(n_rows, n_cols, i+1)
-            c = next(colors)["color"]
             plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
             plt.xticks(range(len(self.bins)), bins)
             plt.title(f"{' '.join(metric.split('_'))}", fontsize=13)
