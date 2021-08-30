@@ -33,8 +33,8 @@ Images bands statistics
 Example of computed statistics and histograms:
 
 .. figure:: assets/stats/stats_bands.png
-   :align: center
-   :figclass: align-center
+    :align: center
+    :figclass: align-center
 
 .. figure:: assets/stats/stats_hists_bands.png
    :align: center

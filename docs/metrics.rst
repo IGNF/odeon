@@ -1,5 +1,5 @@
 ***************
-Metrics how-to
+Metrics How To
 ***************
 
 ``metrics`` script compute metrics in order to analyse the quality of a model's predictions.
