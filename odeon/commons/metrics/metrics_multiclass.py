@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
+from cycler import cycler
 
 
 class Metrics_Multiclass(Metrics):
@@ -146,7 +147,7 @@ class Metrics_Multiclass(Metrics):
         """
         Function allowing to make a pass on the dataset in order to obtain micro confusion
         matrices by sample according to given thresholds. For each threshold, then the cms
-        are added together to make only micro cm by threshold. The function only return the
+        are added together to make only one micro cm by threshold. The function only return the
         micro cm with a threshold equal to the parameter threshold given as input.
 
         Returns
@@ -260,7 +261,7 @@ class Metrics_Multiclass(Metrics):
 
     def get_obs_by_class_from_cm(self, cm):
         """
-        Function to get from a confusion matrix the metrics for each class.
+        Function to get the metrics for each class from a confusion matrix.
 
         Parameters
         ----------
@@ -357,14 +358,15 @@ class Metrics_Multiclass(Metrics):
         """
         for class_i in self.class_labels:
             self.df_report_classes.loc[class_i] = list(self.metrics_by_class[class_i].values())[:-1]
-        self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
+        # self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
 
-        if self.weighted:
-            for metric_name in self.metrics_names[:-1]:
-                cr_metric = 0
-                for class_j, weight in zip(self.class_labels, self.weights):
-                    cr_metric += weight * self.df_report_classes.loc[class_j, metric_name]
-                self.df_report_classes.loc['Weighted mean', metric_name] = cr_metric / self.nbr_class
+        # If weights are not used its equal to metrics in macro strategy.
+        cm_overall = np.sum(self.cms_classes, axis=0)
+        metrics_overall = self.get_metrics_from_obs(cm_overall[0][0],
+                                                    cm_overall[0][1],
+                                                    cm_overall[1][0],
+                                                    cm_overall[1][1])
+        self.df_report_classes.loc['Overall'] = list(metrics_overall.values())[:-1]
 
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
                                               self.metrics_micro['Recall'],
@@ -486,7 +488,57 @@ class Metrics_Multiclass(Metrics):
             plt.savefig(output_path)
             return output_path
 
-    def plot_dataset_metrics_histograms(self, name_plot='multiclass_hists_metrics.png'):
+    def plot_hists(self, list_metrics, n_cols=3, size_col=5, size_row=4, bins=None, name_plot=None):
+        """
+        Plot metrics histograms.
+
+        Parameters
+        ----------
+        list_metrics : list
+            Name of the metrics to plot.
+        n_cols : int, optional
+            number of columns in the figure, by default 3
+        size_col : int, optional
+            size of a column in the figure, by default 5
+        size_row : int, optional
+            size of a row in the figure, by default 4
+        bins : list of int, optional
+            Bins used for bins counts for the creation of the histograms, by default None
+        name_plot : str, optional
+            Name to give to the output plot, by default 'multiclass_hists_metrics.png'
+
+        Returns
+        -------
+        str
+            Output path where an image with the plot will be created.
+        """
+        cmap_colors = [plt.get_cmap('turbo')(1. * i/7) for i in range(7)][1:]
+        colors = cycler(color=cmap_colors)
+        plt.rc('axes', prop_cycle=colors)
+
+        if bins is None:
+            bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+
+        n_plot = len(list_metrics)
+        n_rows = ((n_plot - 1) // n_cols) + 1
+        plt.figure(figsize=(size_col * n_cols, size_row * n_rows))
+        for i, plot_prop in enumerate(zip(list_metrics, colors)):
+            metric, c = plot_prop[0], plot_prop[1]["color"]
+            values = self.hists_metrics[metric]
+            plt.subplot(n_rows, n_cols, i+1)
+            plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
+            plt.xticks(range(len(self.bins)), bins)
+            plt.title(f"{' '.join(metric.split('_'))}", fontsize=13)
+            plt.xlabel("Values bins")
+            plt.grid()
+            plt.ylabel("Samples count")
+
+        plt.tight_layout(pad=3)
+        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        plt.savefig(output_path)
+        return output_path
+
+    def plot_dataset_metrics_histograms(self):
         """
         Plot (html/md output type) or export (json type) data on the metrics histograms.
 
@@ -500,35 +552,30 @@ class Metrics_Multiclass(Metrics):
         str
             Output path where an image with the plot will be created.
         """
-        colors = plt.rcParams["axes.prop_cycle"]()
         bins = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-        n_plot = len(self.header[1:])
-        n_cols = 4
-        n_rows = ((n_plot - 1) // n_cols) + 1
-        hists_metrics = {}
+
+        self.hists_metrics = {}
         for metric in self.header[1:]:
-            hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0].tolist()
+            self.hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=bins)[0].tolist()
 
         if self.output_type == 'json':
             self.dict_export['df_dataset'] = self.df_dataset.to_dict()
-            self.dict_export['hists metrics'] = hists_metrics
+            self.dict_export['hists metrics'] = self.hists_metrics
         else:
-            plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-            for i, hist_metric in enumerate(self.header[1:]):
-                values = hists_metrics[hist_metric]
-                plt.subplot(n_rows, n_cols, i+1)
-                c = next(colors)["color"]
-                plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
-                plt.xticks(range(len(self.bins)), bins)
-                plt.title(f"{' '.join(hist_metric.split('_'))}", fontsize=13)
-                plt.xlabel("Values bins")
-                plt.grid()
-                plt.ylabel("Samples count")
-            plt.tight_layout(pad=3)
+            output_paths = {}
+            output_paths['macro'] = self.plot_hists(self.header[1:7], bins=bins, name_plot='hists_macro.png')
+            output_paths['micro'] = self.plot_hists(self.header[7:11], n_cols=4, size_col=7, size_row=6, bins=bins,
+                                                    name_plot='hists_micro.png')
+            output_paths['means'] = self.plot_hists(self.header[11:17], bins=bins, name_plot='hists_means.png')
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
-            plt.savefig(output_path)
-            return output_path
+            header_index = 17
+            for class_i in self.class_labels:
+                header_next_index = header_index + self.nbr_class - 1
+                output_paths[class_i] = self.plot_hists(self.header[header_index:header_next_index],
+                                                        bins=bins,
+                                                        name_plot='hists_'+'_'.join(class_i.split(' '))+'.png')
+                header_index = header_next_index
+            return output_paths
 
     def export_metrics_per_patch_csv(self):
         """

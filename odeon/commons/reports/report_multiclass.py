@@ -40,7 +40,7 @@ class Report_Multiclass(Report):
             self.ROC_PR_classes = self.input_object.plot_ROC_PR_per_class()
 
         if self.input_object.get_hists_per_metrics:
-            self.path_metrics_hists = self.input_object.plot_dataset_metrics_histograms()
+            self.path_hists = self.input_object.plot_dataset_metrics_histograms()
 
     def to_json(self):
         """Create a report in the json format.
@@ -104,9 +104,26 @@ class Report_Multiclass(Report):
         if self.input_object.get_hists_per_metrics:
             metrics_histograms = f"""
 ## Metrics Histograms
-![Histograms per metric](./{os.path.basename(self.path_metrics_hists)})
+
+### Macro strategy
+![Histograms macro](./{os.path.basename(self.path_hists['macro'])})
+
+### Micro strategy
+![Histograms micro](./{os.path.basename(self.path_hists['micro'])})
+
+### Mean metrics
+![Histograms means](./{os.path.basename(self.path_hists['means'])})
+
+### Per class strategy
 """
-            md_elements.append(metrics_histograms)
+        class_histograms = []
+        for class_name in self.input_object.class_labels:
+            class_html = f"""
+#### {class_name.capitalize()}:
+![Histograms {class_name}](./{os.path.basename(self.path_hists[class_name])})"""
+            class_histograms.append(class_html)
+
+        md_elements.append(metrics_histograms + "\n".join(class_histograms))
 
         with open(os.path.join(self.input_object.output_path, 'multiclass_metrics.md'), "w") as output_file:
             for md_element in md_elements:
@@ -161,10 +178,6 @@ class Report_Multiclass(Report):
             """
         html_elements.append(classes_html)
 
-        if self.input_object.weighted:
-            weigths_html = f'<p>Mean average computed with weights : {self.input_object.weights}</p>'
-            html_elements.append(weigths_html)
-
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
             <h3>* ROC and PR Curves</h3>
@@ -180,10 +193,31 @@ class Report_Multiclass(Report):
             html_elements.append(calibration_curves)
 
         if self.input_object.get_hists_per_metrics:
+            hists_class_html = []
+            for class_name in self.input_object.class_labels:
+                class_html = f"""
+                <h4>{class_name.capitalize()} :</h4>
+                <p><img alt="Histograms {class_name}" src=./{os.path.basename(self.path_hists[class_name])} /></p>
+                """
+                hists_class_html.append(class_html)
+
             metrics_histograms = f"""
             <h2>Metrics Histograms</h2>
-            <p><img alt="Metrics Histograms" src=./{os.path.basename(self.path_metrics_hists)} /></p>
-            """
+
+            <h3>Macro strategy</h3>
+            <p><img alt="Histograms Macro" src=./{os.path.basename(self.path_hists['macro'])} /></p>
+
+            <h3>Micro strategy</h3>
+            <p><img alt="Histograms Micro" src=./{os.path.basename(self.path_hists['micro'])} /></p>
+
+            <h3>Mean metrics</h3>
+            <p><img alt="Histograms Means" src=./{os.path.basename(self.path_hists['means'])} /></p>
+
+            <h3>Per class strategy</h3>
+
+            """ \
+            + "\n".join(hists_class_html)
+
             html_elements.append(metrics_histograms)
 
         html_elements.append(end_html)

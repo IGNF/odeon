@@ -49,8 +49,7 @@ class CLI_Metrics(BaseTool):
             If the output type is json, all the data will be exported in a dict in order
             to be easily reusable, by default html.
         class_labels : list of str, optional
-            Label for each class in the dataset.
-            If None the labels of the classes will be of type:  0 and 1 by default None
+            Label for each class in the dataset, by default None.
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
@@ -275,7 +274,7 @@ if __name__ == '__main__':
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, get_normalize=True, type_classifier='Multiclass')
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='md', type_classifier='Multiclass')
 
     # # # Cas multiclass avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'

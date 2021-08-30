@@ -11,8 +11,8 @@ class Report_Stats(Report):
 
         Parameters
         ----------
-        input_object : [type]
-            [description]
+        input_object : Statistics
+            Object Statistics from odeon.commons.statistics.
         """
         super().__init__(input_object)
 
@@ -35,6 +35,9 @@ class Report_Stats(Report):
                                   'bins_counts':
                                   {f'band {i+1}': [int(x) for x in hist]
                                    for i, hist in enumerate(self.input_object.bands_hists)}}}
+
+        if self.input_object.get_radio_stats:
+            data_to_dict['radiometry'] = self.input_object.self.df_radio.T.to_dict()
 
         with open(os.path.join(self.input_object.output_path, 'stats_report.json'), "w") as output_file:
             json.dump(data_to_dict, output_file, indent=4)
@@ -80,12 +83,32 @@ class Report_Stats(Report):
             last class if we are not in the binary case)
             - Percentage of pixels shared by several classes (share multilabel)
             - the number of classes in an image (avg nb class in patch)
-            - the average entropy (avg entropy)""" + \
+            - the average entropy (avg entropy)
+
+            ## Images bands histograms
+            """ + \
             '\n\n' + \
-            f'![Images bands histograms](./{os.path.basename(self.input_object.plot_hist())})'
+            f'![Images bands histograms](./{os.path.basename(self.input_object.plot_hists_bands())})'
+
+        parts_md = [md_text]
+
+        if self.input_object.get_radio_stats:
+            self.path_radios = self.input_object.plot_hists_radiometry()
+            radio_class_md = []
+            radio_begin = """
+
+## Radiometry per class"""
+            radio_class_md.append(radio_begin)
+            for class_name in self.input_object.class_labels:
+                class_md = f"""
+### {class_name.capitalize()} :
+![Histograms radio {class_name}](./{os.path.basename(os.path.basename(self.path_radios[class_name]))})"""
+                radio_class_md.append(class_md)
+            parts_md.append("\n".join(radio_class_md))
 
         with open(os.path.join(self.input_object.output_path, 'stats_report.md'), "w") as output_file:
-            output_file.write(md_text)
+            for part_md in parts_md:
+                output_file.write(part_md)
 
     def to_html(self):
         """Create a report in the html format.
@@ -139,7 +162,7 @@ class Report_Stats(Report):
 
             """ + \
             self.df_to_html(self.input_object.df_global_stats) + \
-            """
+            f"""
 
             <p>Statistics computed on the globality of the dataset: (either with all classes or without the
             last class if we are not in the binary case)</p>
@@ -152,11 +175,27 @@ class Report_Stats(Report):
 
             <h2>Image bands histograms</h2>
 
-            """ + \
-            f"<p><img alt='Images bands histograms' src=./{os.path.basename(self.input_object.plot_hist())}/></p>"
+            <p><img alt='Images bands histograms' src=./{os.path.basename(self.input_object.plot_hists_bands())} /></p>
 
+            """
+
+        parts_html = [header_html, begin_html, stats_html]
+        if self.input_object.get_radio_stats:
+            self.path_radios = self.input_object.plot_hists_radiometry()
+            radio_class_html = []
+            radio_begin = """
+            <h2>Radiometry per class</h2>
+            """
+            radio_class_html.append(radio_begin)
+            for class_name in self.input_object.class_labels:
+                class_html = f"""
+            <h3>{class_name.capitalize()} :</h3>
+            <p><img alt="Histograms {class_name}" src=./{os.path.basename(self.path_radios[class_name])} /></p>
+                """
+                radio_class_html.append(class_html)
+            parts_html.append("\n".join(radio_class_html))
+
+        parts_html.append(end_html)
         with open(os.path.join(self.input_object.output_path, 'stats_report.html'), "w") as output_file:
-            output_file.write(header_html)
-            output_file.write(begin_html)
-            output_file.write(stats_html)
-            output_file.write(end_html)
+            for part_html in parts_html:
+                output_file.write(part_html)
