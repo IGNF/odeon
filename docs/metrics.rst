@@ -185,9 +185,7 @@ Json file content
 =================
 
 .. details:: **minimalist json** (the minimum configuration required to start to compute the statistics)
-
     .. code-block:: json
-
         {
             "metrics_setup": {
                 "mask_path": "/path/to/intput/folder/msk",
@@ -201,9 +199,7 @@ Json file content
    By default, the format of the ouput fil will be "html".
 
 .. details:: **full json example**
-
     .. code-block:: json
-    
         {
             "metrics_setup": {
                 "mask_path": "/path/to/intput/folder/msk",
