@@ -229,7 +229,6 @@ Json file content
         }
 
 **Description of JSON arguments**
-
 - ``mask_path`` : str, required
     Path to the folder containing the masks.
 - ``pred_path`` : str, required

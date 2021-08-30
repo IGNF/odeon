@@ -84,14 +84,14 @@ html_theme_options = {
 
     # Specify a base_url used to generate sitemap.xml. If not
     # specified, then no sitemap will be built.
-    'base_url': 'https://gitlab.com/dai-projets/odeon-landcover',
+    'base_url': 'https://gitlab.com/StephanePEILLET/odeon-landcover',
 
     # Set the color and the accent color
     'color_primary': 'blue',
     'color_accent': 'light-blue',
 
     # Set the repo location to get a badge with stats
-    'repo_url': 'https://gitlab.com/dai-projets/odeon-landcover',
+    'repo_url': 'https://gitlab.com/StephanePEILLET/odeon-landcover',
     'repo_name': 'odeon-landcover',
 
     # Visible levels of the global TOC; -1 means unlimited
