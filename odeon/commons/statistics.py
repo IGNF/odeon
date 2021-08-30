@@ -498,10 +498,10 @@ class Statistics():
             plt.figure(figsize=(12, 6))
             for i, plot_prop in enumerate(zip(self.bands_labels, default_cycler)):
                 band_label, color = plot_prop[0], plot_prop[1]['color']
-                if display_stats:
-                    mean = np.around(self.df_bands_stats.loc[band_label, "mean"], decimals=2)
-                    plt.axvline(mean, label=f"Mean {band_label}: {str(mean)}",
-                                linestyle='--', alpha=0.5, color=color)
+                # if display_stats:
+                #     mean = np.around(self.df_bands_stats.loc[band_label, "mean"], decimals=2)
+                #     plt.axvline(mean, label=f"Mean {band_label}: {str(mean)}",
+                #                 linestyle='--', alpha=0.5, color=color)
                 plt.hist(self.bins[:-1], weights=bincounts[i], bins=self.bins,
                          histtype='step', label=band_label, alpha=0.7, color=color)
             plt.grid(b=True, which='major', linestyle='-')
