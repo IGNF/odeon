@@ -358,15 +358,15 @@ class Metrics_Multiclass(Metrics):
         """
         for class_i in self.class_labels:
             self.df_report_classes.loc[class_i] = list(self.metrics_by_class[class_i].values())[:-1]
-        # self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
+        self.df_report_classes.loc['Overall'] = self.df_report_classes.mean()
 
         # If weights are not used its equal to metrics in macro strategy.
-        cm_overall = np.sum(self.cms_classes, axis=0)
-        metrics_overall = self.get_metrics_from_obs(cm_overall[0][0],
-                                                    cm_overall[0][1],
-                                                    cm_overall[1][0],
-                                                    cm_overall[1][1])
-        self.df_report_classes.loc['Overall'] = list(metrics_overall.values())[:-1]
+        # cm_overall = np.sum(self.cms_classes, axis=0)
+        # metrics_overall = self.get_metrics_from_obs(cm_overall[0][0],
+        #                                             cm_overall[0][1],
+        #                                             cm_overall[1][0],
+        #                                             cm_overall[1][1])
+        # self.df_report_classes.loc['Overall'] = list(metrics_overall.values())[:-1]
 
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
                                               self.metrics_micro['Recall'],

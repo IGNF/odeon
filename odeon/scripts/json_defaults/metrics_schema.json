@@ -21,7 +21,8 @@
                 "get_calibration_curves": {"type": "boolean", "default": true},
                 "get_hists_per_metrics": {"type": "boolean", "default": true}
             },
-            "required": ["mask_path", "pred_path", "output_path"]
+                "type_classifier":{"type": "string", "enum": ["Binary", "Multiclass", "binary", "multiclass"]},
+            "required": ["mask_path", "pred_path", "output_path", "type_classifier"]
         }
     }
 }

@@ -33,7 +33,7 @@ class Report_Multiclass(Report):
                                                                              labels=['Positive', 'Negative'],
                                                                              name_plot='cm_macro.png')
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+        if self.input_object.get_calibration_curves:
             self.path_calibration_curves = self.input_object.plot_calibration_curve()
 
         if self.input_object.get_ROC_PR_curves:
@@ -94,7 +94,7 @@ class Report_Multiclass(Report):
 """
             md_elements.append(roc_pr_curves)
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+        if self.input_object.get_calibration_curves:
             calibration_curves = f"""
 ## Calibration Curves
 ![Calibration curves](./{os.path.basename(self.path_calibration_curves)})
@@ -185,7 +185,7 @@ class Report_Multiclass(Report):
             """
             html_elements.append(roc_pr_curves)
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+        if self.input_object.get_calibration_curves:
             calibration_curves = f"""
             <h3>* Calibration Curves</h3>
             <p><img alt="Calibration Curve" src=./{os.path.basename(self.path_calibration_curves)} /></p>

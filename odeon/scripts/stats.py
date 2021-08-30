@@ -59,6 +59,10 @@ class Stats(BaseTool):
             A report will be created if the output type is html or md.
             If the output type is json, all the data will be exported in a dict in order
             to be easily reusable, by default html.
+        image_bands: list of int
+            List of the selected bands in the dataset images bands.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
         bands_labels : list of str, optional
             Label for each bands in the dataset, by default None.
         class_labels : list of str, optional
