@@ -100,6 +100,10 @@ Calibration Curve
 When performing classification one often wants to predict not only the  lass label, but also the associated probability.
 This probability gives some kind of confidence on the prediction. Calibration is comparison of the actual output and the expected output given by a model.
 
+The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
+The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
+
+
 .. figure:: assets/metrics/metrics_calibration_curve.png
    :align: center
    :figclass: align-center
@@ -214,6 +218,13 @@ Example of a dataframe with metrics for each class. The 'Overall' line represent
    :figclass: align-center
 
 **In the multiclass case, we find the same ROC, PR, calibration curves and histograms of the metrics as in the binary case except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a single class and opposing it to the others (1 vs. all)**
+
+Example of ROC and PR curves in multiclass case:
+
+.. figure:: assets/metrics/metrics_roc_pr_curves_multiclass.png
+   :align: center
+   :figclass: align-center
+
 
 Json file content
 =================
