@@ -39,7 +39,7 @@ Command
 
 .. code-block:: console
 
-   $ odeon detect -c /path/to/my/conf/file.json
+   $ odeon detect -c /path/to/my/my/conf/file.json
 
 
 Configuration

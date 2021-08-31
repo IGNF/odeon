@@ -53,6 +53,9 @@
                 "device": {"type": "string"},
                 "reproducible": {"type": "boolean", "default": false}
             }
-        }
+
     }
+
+    }
+
 }
