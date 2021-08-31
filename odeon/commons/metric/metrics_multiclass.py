@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
 from cycler import cycler
 

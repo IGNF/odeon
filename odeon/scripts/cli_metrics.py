@@ -12,8 +12,8 @@ from odeon.commons.core import BaseTool
 from odeon.commons.image import image_to_ndarray
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.nn.datasets import MetricsDataset
-from odeon.commons.metrics.metrics_factory import Metrics_Factory
-from odeon.commons.metrics.metrics import DEFAULTS_VARS
+from odeon.commons.metric.metrics_factory import Metrics_Factory
+from odeon.commons.metric.metrics import DEFAULTS_VARS
 
 
 class CLI_Metrics(BaseTool):

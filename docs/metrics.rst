@@ -225,7 +225,9 @@ Example of a dataframe with metrics for each class. The 'Overall' line represent
    :align: center
    :figclass: align-center
 
-**In the multiclass case, we compute the same ROC, PR, calibration curves and histograms of the metrics as in the binary case except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a single class and opposing it to the others (1 vs. all)**
+**In the multiclass case, we compute the same ROC, PR, calibration curves and histograms of the metrics as in the binary case
+except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a
+single class and opposing it to the others (1 vs. all)**
 
 Example of ROC and PR curves in multiclass case:
 
