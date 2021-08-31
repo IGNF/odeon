@@ -47,7 +47,7 @@ or on different figures (thanks to the parameter ``plot_stacked``):
    :align: center
    :figclass: align-center
 
-(2) On the same figure:note
+(2) On the same figure:
 
 .. figure:: assets/stats/stats_hists_bands_stacked.png
    :align: center
@@ -96,6 +96,8 @@ Here we call as radiometry statistics the distribution of each image's band acco
 .. figure:: assets/stats/stats_radiometry.png
    :align: center
    :figclass: align-center
+
+In the example above, we can clearly see that the distributions of pixel values vary greatly within each class.
 
 Json file content
 =================

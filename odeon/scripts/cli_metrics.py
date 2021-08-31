@@ -6,6 +6,7 @@ This tool handles binary and multi-class cases.
 """
 import os
 import csv
+from datetime import datetime
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.image import image_to_ndarray
@@ -80,12 +81,13 @@ class CLI_Metrics(BaseTool):
         self.mask_path = mask_path
         self.pred_path = pred_path
 
-        if not os.path.exists(output_path):
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Output folder ${output_path} does not exist.")
-        elif not os.path.isdir(output_path):
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Output path ${output_path} should be a folder.")
+        if not os.path.exists(output_path) or not os.path.isdir(output_path):
+            name_output_path = os.path.join(os.path.dirname(output_path),
+                                            'metrics_report' + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"))
+            LOGGER.info(f"""Output folder ${output_path} does not exist or is not a folder.
+            Creation of an output directory at: {name_output_path}.
+            """)
+            self.output_path = name_output_path
         else:
             self.output_path = output_path
 

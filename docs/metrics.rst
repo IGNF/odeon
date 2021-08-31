@@ -22,27 +22,27 @@ The metrics computed
 Binary case
 -----------
 
-    - Confusion matrix (cm)
-    - (optional) normalized by classes cm.
-    - Accuracy
-    - Precision
-    - Recall
-    - Specificity
-    - F1 Score
-    - IoU
-    - ROC and PR curves
-    - AUC Score for ROC/PR curves
-    - Calibration Curve
-    - Histogram for each metric
+- Confusion matrix (cm)
+- (optional) normalized by classes cm.
+- Accuracy
+- Precision
+- Recall
+- Specificity
+- F1-Score
+- IoU
+- ROC and PR curves
+- AUC Score for ROC/PR curves
+- Calibration Curve
+- Histogram for each metric
 
 Multi-class case
 ----------------
-    - Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
-    - Macro : same metrics as the binary case for the sum of all classes but without ROC/PR and calibration curve.
-    - Micro : Precision, Recall, F1 Score, IoU and cm without ROC/PR and calibration curve.
+- Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
+- Macro : same metrics as the binary case for the sum of all classes but without ROC/PR and calibration curve.
+- Micro : Precision, Recall, F1 Score, IoU and cm without ROC/PR and calibration curve.
 
-**Binary case**
-===============
+Binary case
+===========
 
 Confusion Matrix
 ----------------
@@ -62,6 +62,12 @@ The following metrics are commonly used to assess the performance of classificat
    :align: center
    :figclass: align-center
 
+.. details:: For more details, table of metrics with relation between names in Remote Sensing and Deep Learning.
+    .. figure:: assets/metrics/metrics_relation_name_RS_DL.png
+        :align: center
+        :figclass: align-center
+    Figure extract from the paper `Accuracy Assessment in Convolutional Neural Network-Based Deep Learning Remote Sensing Studies—Part 1: Literature Review.<https://www.mdpi.com/2072-4292/13/13/2450>`
+
 ROC Curve
 ---------
 
@@ -80,20 +86,42 @@ The area under the receiving operating curve, also noted AUC or AUROC, is the ar
 PR Curve
 --------
 
-The precision-recall curve shows the tradeoff between precision and recall for different threshold. 
+The precision-recall (PR) curve shows the tradeoff between precision and recall for different threshold. 
 Precision-Recall is a useful measure of success of prediction when the classes are very imbalanced.
 
-Example:
+Example of PR curve:
 
 .. figure:: assets/metrics/metrics_pr_curve.png
    :align: center
    :figclass: align-center
 
-**Multiclass case**
-===================
+Calibration Curve
+-----------------
+When performing classification one often wants to predict not only the  lass label, but also the associated probability.
+This probability gives some kind of confidence on the prediction. Calibration is comparison of the actual output and the expected output given by a model.
 
-**Macro Strategy**
+The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
+The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
+
+
+.. figure:: assets/metrics/metrics_calibration_curve.png
+   :align: center
+   :figclass: align-center
+
+Metrics Histograms
 ------------------
+
+Histograms representing the values taken for each observation of a metric. These histograms allow to better see the distribution of the values forming the obtained results, because for each strategy the obtained metric is the average value of all the values obtained on the observations composing the dataset.
+
+.. figure:: assets/metrics/metrics_hists.png
+   :align: center
+   :figclass: align-center
+
+Multiclass case
+===============
+
+Macro Strategy
+--------------
 
 Macro strategy consists in looking at the performance of a model from a more global point of view.
 To do so, each class is first treated as in a binary case (1 vs all) in order to produce a confusion matrix for each class.
@@ -102,16 +130,16 @@ The confusion matrices are then added together to form a single matrix which wil
 .. note::
     The sum of the classes can be done in a pondered way by entering weights argument in the configuration file.
     These weights can be used to rebalance the importance of a class on a metric, or even by setting the weights to 0 for a class,
-    this class will not be taken into account for the calculation of macro and mean metrics. 
+    this class will not be taken into account for the calculation of macro metrics. 
 
-Example:
+Example a dataframe with metrics in marco strategy:
 
 .. figure:: assets/metrics/metrics_macro_df.png
    :align: center
    :figclass: align-center
 
-**Micro Strategy**
-------------------
+Micro Strategy
+--------------
 
 The micro strategy provides a global but more accurate view of the performance of a model.
 The quality of a prediction will not be judged by class but by looking at the whole number of TP, FN and FP made by the model.
@@ -138,11 +166,16 @@ Example of micro confusion matrix with 3 classes:
      - FP
      - TP
 
-Example:
+Example of confusion matrices:
 
 .. figure:: assets/metrics/metrics_cm_micro.png
    :align: center
    :figclass: align-center
+
+The matrix on the left is the confusion matrix where i-th row and j-th column entry indicates the number of samples with true label being i-th class and predicted label being j-th class.
+On the right the confusion matrix is normalized per true label class.
+
+Example of dataframe containing metrics from micro strategy:
 
 .. figure:: assets/metrics/metrics_micro_df.png
    :align: center
@@ -150,10 +183,10 @@ Example:
 
 .. note::
     It is possible to have a normalized confusion matrix per class as in the image above right.
-    This allows to see for a class the distribution of these predictions. In order to do this you need to use the `get_normalize`.
+    This allows to see for a class the distribution of these predictions. In order to do this you need to use the parameter `get_normalize`.
 
-**Per class strategy**
-----------------------
+Per class strategy
+------------------
 
 The class strategy is the even more precise view but only looks at the performance of each class one by one and independently. 
 Example of a confusion matrix for a class in  a multiclass case, here class A.
@@ -178,9 +211,17 @@ Example of a confusion matrix for a class in  a multiclass case, here class A.
      - TN
      - TN
 
-Example:
+Example of a dataframe with metrics for each class. The 'Overall' line represents the mean othe mean metrics over all classes:
 
 .. figure:: assets/metrics/metrics_classes_df.png
+   :align: center
+   :figclass: align-center
+
+**In the multiclass case, we find the same ROC, PR, calibration curves and histograms of the metrics as in the binary case except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a single class and opposing it to the others (1 vs. all)**
+
+Example of ROC and PR curves in multiclass case:
+
+.. figure:: assets/metrics/metrics_roc_pr_curves_multiclass.png
    :align: center
    :figclass: align-center
 
@@ -202,7 +243,7 @@ Json file content
         }
  
 .. warning::
-   By default, the format of the ouput fil will be "html".
+   By default, the format of the ouput file will be "html".
 
 .. details:: **full json example**
 
