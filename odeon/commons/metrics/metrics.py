@@ -606,7 +606,7 @@ class Metrics(ABC):
         _ = self.annotate_heatmap(im, valfmt=cm_val_fmt)
 
         fig.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
         return output_path
 
@@ -655,6 +655,6 @@ class Metrics(ABC):
         axs[0].set_title('Number of observations', y=-0.1, pad=-14, fontsize=12)
 
         fig.tight_layout(pad=2)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
         return output_path

@@ -512,7 +512,7 @@ class Statistics():
             plt.xlabel("Pixel distribution")
 
         plt.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
         return output_path
 

@@ -279,7 +279,7 @@ class Metrics_Binary(Metrics):
             plt.legend()
             plt.grid(True)
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 
@@ -320,7 +320,7 @@ class Metrics_Binary(Metrics):
             plt.xlabel('Mean predicted value')
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 
@@ -364,7 +364,7 @@ class Metrics_Binary(Metrics):
                 plt.ylabel("Samples count")
             plt.tight_layout(pad=3)
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 

@@ -1,5 +1,5 @@
 ***************
-Metrics how-to
+Metrics How To
 ***************
 
 ``metrics`` script compute metrics in order to analyse the quality of a model's predictions.
@@ -63,9 +63,11 @@ The following metrics are commonly used to assess the performance of classificat
    :figclass: align-center
 
 .. details:: For more details, table of metrics with relation between names in Remote Sensing and Deep Learning.
+
     .. figure:: assets/metrics/metrics_relation_name_RS_DL.png
         :align: center
         :figclass: align-center
+
     Figure extract from the paper `Accuracy Assessment in Convolutional Neural Network-Based Deep Learning Remote Sensing Studies—Part 1: Literature Review.<https://www.mdpi.com/2072-4292/13/13/2450>`
 
 ROC Curve
@@ -100,13 +102,15 @@ Calibration Curve
 When performing classification one often wants to predict not only the  lass label, but also the associated probability.
 This probability gives some kind of confidence on the prediction. Calibration is comparison of the actual output and the expected output given by a model.
 
-The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
-The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
-
-
 .. figure:: assets/metrics/metrics_calibration_curve.png
    :align: center
    :figclass: align-center
+
+
+The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
+
+The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
+
 
 Metrics Histograms
 ------------------
@@ -217,7 +221,7 @@ Example of a dataframe with metrics for each class. The 'Overall' line represent
    :align: center
    :figclass: align-center
 
-**In the multiclass case, we find the same ROC, PR, calibration curves and histograms of the metrics as in the binary case except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a single class and opposing it to the others (1 vs. all)**
+**In the multiclass case, we compute the same ROC, PR, calibration curves and histograms of the metrics as in the binary case except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a single class and opposing it to the others (1 vs. all)**
 
 Example of ROC and PR curves in multiclass case:
 
@@ -228,6 +232,9 @@ Example of ROC and PR curves in multiclass case:
 
 Json file content
 =================
+
+Examples of Json config file
+----------------------------
 
 .. details:: **minimalist json** (the minimum configuration required to start to compute the statistics)
 
@@ -269,7 +276,8 @@ Json file content
             }
         }
 
-**Description of JSON arguments**
+Description of JSON arguments
+-----------------------------
 
 - ``mask_path`` : str, required
     Path to the folder containing the masks.
