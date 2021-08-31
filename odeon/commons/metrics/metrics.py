@@ -120,9 +120,6 @@ class Metrics(ABC):
         if not os.path.exists(output_path):
             raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
                              f"Output folder ${output_path} does not exist.")
-        elif not os.path.isdir(output_path):
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Output path ${output_path} should be a folder.")
         else:
             self.output_path = output_path
 
