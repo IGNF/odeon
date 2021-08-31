@@ -13,7 +13,7 @@ Example :
 
 .. code-block:: console
 
-   $ odeon metrics -c ../config_files/metrics_conf.json
+   $ odeon metrics -c ../path/to/my/conf/file.json
 
 
 The metrics computed
@@ -38,8 +38,8 @@ Binary case
 Multi-class case
 ----------------
 - Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
-- Macro : same metrics as the binary case for the sum of all classes but without ROC/PR and calibration curve.
-- Micro : Precision, Recall, F1 Score, IoU and cm without ROC/PR and calibration curve.
+- Macro : same metrics as the binary case for the sum of all classes but without ROC, PR and calibration curves.
+- Micro : Precision, Recall, F1-Score, IoU and cm but no ROC, PR and calibration curves.
 
 Binary case
 ===========
@@ -73,7 +73,7 @@ The following metrics are commonly used to assess the performance of classificat
 ROC Curve
 ---------
 
-The receiver operating curve, also noted ROC, is the plot of TPR versus FPR by varying the threshold. These metrics are are summed up in the table below:
+The receiver operating curve, also noted ROC, is the plot of TPR versus FPR by varying the threshold. These metrics are summed up in the table below:
 
 .. figure:: assets/metrics/metrics_ROC_def.png
    :align: center
@@ -97,9 +97,13 @@ Example of PR curve:
    :align: center
    :figclass: align-center
 
+.. warning::
+It is possible to enter a list of thresholds to calculate with the ROC and PR curves using the argument ``threshold_range``.
+The more thresholds there are, the more precise the curves will be, but in counterpart it will take more time.
+
 Calibration Curve
 -----------------
-When performing classification one often wants to predict not only the  lass label, but also the associated probability.
+When performing classification one often wants to predict not only the class label, but also the associated probability.
 This probability gives some kind of confidence on the prediction. Calibration is comparison of the actual output and the expected output given by a model.
 
 .. figure:: assets/metrics/metrics_calibration_curve.png
@@ -215,7 +219,7 @@ Example of a confusion matrix for a class in  a multiclass case, here class A.
      - TN
      - TN
 
-Example of a dataframe with metrics for each class. The 'Overall' line represents the mean othe mean metrics over all classes:
+Example of a dataframe with metrics for each class. The 'Overall' line represents the mean metrics over all classes:
 
 .. figure:: assets/metrics/metrics_classes_df.png
    :align: center
