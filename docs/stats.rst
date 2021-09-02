@@ -35,8 +35,8 @@ Images bands statistics
 Example of a dataframe containing computed statistics:
 
 .. figure:: assets/stats/stats_bands.png
-   :align: center
-   :figclass: align-center
+    :align: center
+    :figclass: align-center
 
 Example of histograms on the pixels values of each band. The histograms of each band could be displayed on the same figure
 or on different figures (thanks to the parameter ``plot_stacked``):
