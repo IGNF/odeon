@@ -68,7 +68,7 @@ The following metrics are commonly used to assess the performance of classificat
         :align: center
         :figclass: align-center
 
-    Figure extract from the paper `Accuracy Assessment in Convolutional Neural Network-Based Deep Learning Remote Sensing Studies—Part 1: Literature Review. <https://www.mdpi.com/2072-4292/13/13/2450>`
+    Figure extract from the paper `Accuracy Assessment in Convolutional Neural Network-Based Deep Learning Remote Sensing Studies—Part 1: Literature Review. <https://www.mdpi.com/2072-4292/13/13/2450>`_
 
 ROC Curve
 ---------
