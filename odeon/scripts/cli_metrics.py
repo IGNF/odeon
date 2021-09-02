@@ -262,6 +262,7 @@ class CLI_Metrics(BaseTool):
 if __name__ == '__main__':
 
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
+
     # Cas binaire avec du soft
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
@@ -278,7 +279,7 @@ if __name__ == '__main__':
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='md', type_classifier='Multiclass')
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
 
     # # # Cas multiclass avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
