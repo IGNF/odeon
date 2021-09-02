@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
 from cycler import cycler
 
@@ -156,45 +156,41 @@ class Metrics_Multiclass(Metrics):
             Confusion matrix for micro strategy.
         """
         cm_micro = np.zeros([self.nbr_class, self.nbr_class])
-        # Dict to store info for ROC and PR curves.
-        self.vect_classes = {}
-        # Dicts to store info for claibrations curves.
-        self.dict_hist_counts, self.dict_prob_true, self.dict_prob_pred = {}, {}, {}
+        # Dict and dataframe to store data for ROC and PR curves.
+        self.cms_one_class = pd.DataFrame(index=self.threshold_range, columns=self.class_labels, dtype=object)
+        self.cms_one_class = self.cms_one_class.applymap(lambda x: np.zeros([2, 2]))
 
-        for i, class_i in tqdm(enumerate(self.class_labels), desc='Metrics processing time', leave=True):
-            # Dict for PR and ROC curves.
-            vects = {'Recall': [],
-                     'FPR': [],
-                     'Precision': []}
+        # Dicts to store info for calibrations curves.
+        self.dict_prob_true, self.dict_prob_pred = {}, {}
+        self.dict_hist_counts = {class_i: np.zeros(len(self.bins) - 1) for class_i in self.class_labels}
+        self.dict_bin_sums = {class_i: np.zeros(len(self.bins)) for class_i in self.class_labels}
+        self.dict_bin_true = {class_i: np.zeros(len(self.bins)) for class_i in self.class_labels}
+        self.dict_bin_total = {class_i: np.zeros(len(self.bins)) for class_i in self.class_labels}
 
-            # Data for calibration curves.
-            hist_counts = np.zeros(len(self.bins) - 1)
-            bin_sums = np.zeros(len(self.bins))
-            bin_true = np.zeros(len(self.bins))
-            bin_total = np.zeros(len(self.bins))
+        for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
+            mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
-            for threshold in tqdm(self.threshold_range, desc=class_i, leave=True):
-                cms_one_class = np.zeros([2, 2])
+            for i, class_i in enumerate(self.class_labels):
 
-                dataset_index = 0
-                for sample in self.dataset:
-                    mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
-
+                for threshold in self.threshold_range:
                     class_mask = mask.copy()[:, :, i]
                     class_pred = pred.copy()[:, :, i]
                     bin_pred = self.binarize('binary', class_pred, threshold=threshold)
                     cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
-                    cms_one_class += cr_cm
+                    self.cms_one_class.loc[threshold, class_i] += cr_cm
 
                     # To compute only once data for cm micro.
                     if threshold == self.threshold and i == 0:
                         # Compute cm micro for every sample and stack the results to a total micro cm.
+                        # Here binarization with an argmax.
                         mask_micro, pred_micro = self.binarize(self.type_classifier, pred.copy(), mask=mask)
                         cm = self.get_confusion_matrix(mask_micro.flatten(), pred_micro.flatten())
                         cm_micro += cm
 
                         # Compute metrics per patch
                         if self.get_metrics_per_patch:
+
+                            # Get a cm for every sample
                             metrics_by_class, metrics_micro, metrics_macro, _, _ = self.get_metrics_from_cm(cm)
                             self.df_dataset.loc[dataset_index, 'name_file'] = name_file
                             for name_column in self.metrics_names[:-1]:
@@ -205,7 +201,6 @@ class Metrics_Multiclass(Metrics):
                                 for name_column in self.metrics_names[:-1]:
                                     self.df_dataset.loc[dataset_index, '_'.join(label.split(' ')) + '_' + name_column] \
                                         = metrics_by_class[label][name_column]
-
                             # Mean metrics per sample
                             for metric in self.metrics_names[:-1]:
                                 mean_metric = 0
@@ -214,7 +209,6 @@ class Metrics_Multiclass(Metrics):
                                         weight * self.df_dataset.loc[dataset_index, '_'.join(class_name.split(' ')) +
                                                                                     '_' + metric]
                                 self.df_dataset.loc[dataset_index, 'mean_' + metric] = mean_metric / self.nbr_class
-                            dataset_index += 1
 
                     # To compute only once per class calibration curves.
                     if threshold == self.threshold:
@@ -225,37 +219,39 @@ class Metrics_Multiclass(Metrics):
                             pred_hist = self.to_prob_range(pred_hist)
 
                         # Bincounts for histogram of prediction
-                        hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
+                        self.dict_hist_counts[class_i] += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
                         # Indices of the bins where the predictions will be in there.
                         binids = np.digitize(pred_hist.flatten(), self.bins) - 1
                         # Bins counts of indices times the values of the predictions.
-                        bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
+                        self.dict_bin_sums[class_i] += np.bincount(binids, weights=pred_hist.flatten(),
+                                                                   minlength=len(self.bins))
                         # Bins counts of indices times the values of the masks.
-                        bin_true += np.bincount(binids, weights=mask_hist.flatten(), minlength=len(self.bins))
+                        self.dict_bin_true[class_i] += np.bincount(binids, weights=mask_hist.flatten(),
+                                                                   minlength=len(self.bins))
                         # Total number observation per bins.
-                        bin_total += np.bincount(binids, minlength=len(self.bins))
+                        self.dict_bin_total[class_i] += np.bincount(binids, minlength=len(self.bins))
 
-                cr_metrics = self.get_metrics_from_obs(cms_one_class[0][0],
-                                                       cms_one_class[0][1],
-                                                       cms_one_class[1][0],
-                                                       cms_one_class[1][1])
-
-                # Collect info for PR/ROC curves
-                vects['Recall'].append(cr_metrics['Recall'])
-                vects['FPR'].append(cr_metrics['FPR'])
-                vects['Precision'].append(cr_metrics['Precision'])
-
-            self.vect_classes[class_i] = vects
-
-            nonzero = bin_total != 0  # Avoid to display null bins.
+        self.cms_one_class = \
+            self.cms_one_class.applymap(lambda cm_one_class: self.get_metrics_from_obs(cm_one_class[0][0],
+                                                                                       cm_one_class[0][1],
+                                                                                       cm_one_class[1][0],
+                                                                                       cm_one_class[1][1]))
+        self.vect_classes = {}
+        for class_j in self.class_labels:
+            nonzero = self.dict_bin_total[class_j] != 0  # Avoid to display null bins.
             # The proportion of samples whose class is the positive class, in each bin (fraction of positives).
-            prob_true = bin_true[nonzero] / bin_total[nonzero]
+            prob_true = self.dict_bin_true[class_j][nonzero] / self.dict_bin_total[class_j][nonzero]
             # The mean predicted probability in each bin.
-            prob_pred = bin_sums[nonzero] / bin_total[nonzero]
+            prob_pred = self.dict_bin_sums[class_j][nonzero] / self.dict_bin_total[class_j][nonzero]
+            self.dict_prob_true[class_j] = prob_true
+            self.dict_prob_pred[class_j] = prob_pred
 
-            self.dict_hist_counts[class_i] = hist_counts
-            self.dict_prob_true[class_i] = prob_true
-            self.dict_prob_pred[class_i] = prob_pred
+            vects = {'Recall': [], 'FPR': [], 'Precision': []}
+            for metrics_raw in self.cms_one_class.loc[:, class_j]:
+                vects['Recall'].append(metrics_raw['Recall'])
+                vects['FPR'].append(metrics_raw['FPR'])
+                vects['Precision'].append(metrics_raw['Precision'])
+            self.vect_classes[class_j] = vects
 
         return cm_micro
 
@@ -430,7 +426,7 @@ class Metrics_Multiclass(Metrics):
             plt.legend(loc='lower left')
             plt.grid(True)
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 
@@ -484,7 +480,7 @@ class Metrics_Multiclass(Metrics):
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.tight_layout(pad=3)
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 
@@ -534,7 +530,7 @@ class Metrics_Multiclass(Metrics):
             plt.ylabel("Samples count")
 
         plt.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
         return output_path
 

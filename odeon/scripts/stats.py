@@ -11,6 +11,7 @@ import os
 import csv
 import torch
 import rasterio
+from datetime import datetime
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
@@ -97,7 +98,10 @@ class Stats(BaseTool):
             raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
                              f"Output path ${output_path} should be a folder.")
         else:
-            self.output_path = output_path
+            name_output_path = os.path.join(output_path,
+                                            'stats_report_' + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"))
+            os.makedirs(name_output_path)
+            self.output_path = name_output_path
 
         if output_type in ['md', 'json', 'html', 'terminal']:
             self.output_type = output_type

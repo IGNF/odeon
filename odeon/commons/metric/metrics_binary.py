@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from odeon.commons.metrics.metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
 from tqdm import tqdm
 
 FIGSIZE = (8, 6)
@@ -125,7 +125,7 @@ class Metrics_Binary(Metrics):
         df_thresholds = pd.DataFrame(index=range(len(self.threshold_range)),
                                      columns=(['threshold'] + self.metrics_names))
         df_thresholds['threshold'] = self.threshold_range
-        cms = {}
+        cms = {threshold: np.zeros([self.nbr_class, self.nbr_class]) for threshold in self.threshold_range}
         df_report_metrics = pd.DataFrame(index=['Values'], columns=self.metrics_names[:-1])
 
         return df_thresholds, cms, df_report_metrics
@@ -141,14 +141,10 @@ class Metrics_Binary(Metrics):
         bin_true = np.zeros(len(self.bins))
         bin_total = np.zeros(len(self.bins))
 
-        for threshold in tqdm(self.threshold_range, desc='Tresholds', leave=False):
-            self.cms[threshold] = np.zeros([self.nbr_class, self.nbr_class])
+        for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Samples', leave=False)):
+            mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
-            dataset_index = 0
-            for sample in self.dataset:
-                mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
-
-                # Compute cm on every sample
+            for threshold in self.threshold_range:
                 pred_cm = pred.copy()
                 pred_cm = self.binarize(self.type_classifier, pred_cm, threshold=threshold)
                 cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten())
@@ -160,7 +156,6 @@ class Metrics_Binary(Metrics):
                     self.df_dataset.loc[dataset_index, 'name_file'] = name_file
                     for name_column in self.metrics_names[:-1]:
                         self.df_dataset.loc[dataset_index, name_column] = sample_metrics[name_column]
-                    dataset_index += 1
 
                 # To calcultate info for calibrations curves only once.
                 if threshold == self.threshold_range[0]:
@@ -179,8 +174,9 @@ class Metrics_Binary(Metrics):
                     # Total number observation per bins.
                     bin_total += np.bincount(binids, minlength=len(self.bins))
 
+        # Compute metrics at every threshold value
+        for threshold in self.threshold_range:
             cr_metrics = self.get_metrics_from_cm(self.cms[threshold])
-
             for metric, metric_value in cr_metrics.items():
                 self.df_thresholds.loc[self.df_thresholds['threshold'] == threshold, metric] = metric_value
 
@@ -190,6 +186,7 @@ class Metrics_Binary(Metrics):
         self.prob_true = bin_true[nonzero] / bin_total[nonzero]
         self.prob_pred = bin_sums[nonzero] / bin_total[nonzero]
 
+        # Put in the df for the report the computed metrics for the threshold pass as input in the configuration file.
         self.df_report_metrics.loc['Values'] = \
             self.df_thresholds.loc[self.df_thresholds['threshold'] == self.threshold, self.metrics_names[:-1]].values
 
@@ -279,7 +276,7 @@ class Metrics_Binary(Metrics):
             plt.legend()
             plt.grid(True)
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 
@@ -320,7 +317,7 @@ class Metrics_Binary(Metrics):
             plt.xlabel('Mean predicted value')
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 
@@ -364,7 +361,7 @@ class Metrics_Binary(Metrics):
                 plt.ylabel("Samples count")
             plt.tight_layout(pad=3)
 
-            output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             return output_path
 

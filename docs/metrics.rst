@@ -1,5 +1,5 @@
 ***************
-Metrics how-to
+Metrics How To
 ***************
 
 ``metrics`` script compute metrics in order to analyse the quality of a model's predictions.
@@ -13,7 +13,7 @@ Example :
 
 .. code-block:: console
 
-   $ odeon metrics -c ../config_files/metrics_conf.json
+   $ odeon metrics -c ../path/to/my/conf/file.json
 
 
 The metrics computed
@@ -38,8 +38,8 @@ Binary case
 Multi-class case
 ----------------
 - Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
-- Macro : same metrics as the binary case for the sum of all classes but without ROC/PR and calibration curve.
-- Micro : Precision, Recall, F1 Score, IoU and cm without ROC/PR and calibration curve.
+- Macro : same metrics as the binary case for the sum of all classes but without ROC, PR and calibration curves.
+- Micro : Precision, Recall, F1-Score, IoU and cm but no ROC, PR and calibration curves.
 
 Binary case
 ===========
@@ -63,15 +63,17 @@ The following metrics are commonly used to assess the performance of classificat
    :figclass: align-center
 
 .. details:: For more details, table of metrics with relation between names in Remote Sensing and Deep Learning.
+
     .. figure:: assets/metrics/metrics_relation_name_RS_DL.png
         :align: center
         :figclass: align-center
+
     Figure extract from the paper `Accuracy Assessment in Convolutional Neural Network-Based Deep Learning Remote Sensing Studies—Part 1: Literature Review.<https://www.mdpi.com/2072-4292/13/13/2450>`
 
 ROC Curve
 ---------
 
-The receiver operating curve, also noted ROC, is the plot of TPR versus FPR by varying the threshold. These metrics are are summed up in the table below:
+The receiver operating curve, also noted ROC, is the plot of TPR versus FPR by varying the threshold. These metrics are summed up in the table below:
 
 .. figure:: assets/metrics/metrics_ROC_def.png
    :align: center
@@ -95,18 +97,24 @@ Example of PR curve:
    :align: center
    :figclass: align-center
 
+.. warning::
+It is possible to enter a list of thresholds to calculate with the ROC and PR curves using the argument ``threshold_range``.
+The more thresholds there are, the more precise the curves will be, but in counterpart it will take more time.
+
 Calibration Curve
 -----------------
-When performing classification one often wants to predict not only the  lass label, but also the associated probability.
+When performing classification one often wants to predict not only the class label, but also the associated probability.
 This probability gives some kind of confidence on the prediction. Calibration is comparison of the actual output and the expected output given by a model.
-
-The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
-The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
-
 
 .. figure:: assets/metrics/metrics_calibration_curve.png
    :align: center
    :figclass: align-center
+
+
+The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
+
+The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
+
 
 Metrics Histograms
 ------------------
@@ -211,13 +219,15 @@ Example of a confusion matrix for a class in  a multiclass case, here class A.
      - TN
      - TN
 
-Example of a dataframe with metrics for each class. The 'Overall' line represents the mean othe mean metrics over all classes:
+Example of a dataframe with metrics for each class. The 'Overall' line represents the mean metrics over all classes:
 
 .. figure:: assets/metrics/metrics_classes_df.png
    :align: center
    :figclass: align-center
 
-**In the multiclass case, we find the same ROC, PR, calibration curves and histograms of the metrics as in the binary case except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a single class and opposing it to the others (1 vs. all)**
+**In the multiclass case, we compute the same ROC, PR, calibration curves and histograms of the metrics as in the binary case
+except that this time these metrics are applied to each of the classes in an independent way and will be obtained by taking a
+single class and opposing it to the others (1 vs. all)**
 
 Example of ROC and PR curves in multiclass case:
 
@@ -228,6 +238,9 @@ Example of ROC and PR curves in multiclass case:
 
 Json file content
 =================
+
+Examples of Json config file
+----------------------------
 
 .. details:: **minimalist json** (the minimum configuration required to start to compute the statistics)
 
@@ -269,7 +282,9 @@ Json file content
             }
         }
 
-**Description of JSON arguments**
+Description of JSON arguments
+-----------------------------
+
 - ``mask_path`` : str, required
     Path to the folder containing the masks.
 - ``pred_path`` : str, required

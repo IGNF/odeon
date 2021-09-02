@@ -427,13 +427,13 @@ class CollectionDatasetReader:
         handle_dem = False
         stacked_bands = None
 
-        if ("DSM" in dict_of_raster.keys()) and ("DTM" in dict_of_raster) and dem is True:
+        if "DSM" in dict_of_raster.keys() and "DTM" in dict_of_raster.keys() and dem is True:
 
             handle_dem = True
 
         for key, value in dict_of_raster.items():
 
-            if (key not in ["DSM", "DTM"]) or handle_dem is False:
+            if key not in ["DSM", "DTM"] or handle_dem is False:
 
                 src = value["connection"]
                 window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], src.meta["transform"])
@@ -455,45 +455,45 @@ class CollectionDatasetReader:
                 stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
                 LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
 
-        if handle_dem:
+            if handle_dem:
 
-            dsm_ds = dict_of_raster["DSM"]["connection"]
-            dtm_ds = dict_of_raster["DTM"]["connection"]
-            dsm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
-            dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
-            band_indices = value["bands"]
-            src = dsm_ds
+                dsm_ds = dict_of_raster["DSM"]["connection"]
+                dtm_ds = dict_of_raster["DTM"]["connection"]
+                dsm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
+                dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
+                band_indices = value["bands"]
+                src = dsm_ds
 
-            dsm_img, _ = raster_to_ndarray_from_dataset(src,
-                                                        width,
-                                                        height,
-                                                        resolution,
-                                                        band_indices=band_indices,
-                                                        resampling=Resampling.bilinear,
-                                                        window=dsm_window)
+                dsm_img, _ = raster_to_ndarray_from_dataset(src,
+                                                            width,
+                                                            height,
+                                                            resolution,
+                                                            band_indices=band_indices,
+                                                            resampling=Resampling.bilinear,
+                                                            window=dsm_window)
 
-            src = dtm_ds
-            dtm_img, _ = raster_to_ndarray_from_dataset(src,
-                                                        width,
-                                                        height,
-                                                        resolution,
-                                                        band_indices=band_indices,
-                                                        resampling=Resampling.bilinear,
-                                                        window=dtm_window)
+                src = dtm_ds
+                dtm_img, _ = raster_to_ndarray_from_dataset(src,
+                                                            width,
+                                                            height,
+                                                            resolution,
+                                                            band_indices=band_indices,
+                                                            resampling=Resampling.bilinear,
+                                                            window=dtm_window)
 
-            img = dsm_img - dtm_img
-            # LOGGER.debug(img.sum())
-            mne_msk = dtm_img > dsm_img
-            img[mne_msk] = 0
-            img *= 5  # empircally chosen factor
-            xmin, xmax = max(resolution[0], resolution[1]), 255
-            img[img < xmin] = xmin  # low pass filter
-            img[img > xmax] = xmax  # high pass filter
-            img = img / 255
+                img = dsm_img - dtm_img
+                # LOGGER.debug(img.sum())
+                mne_msk = dtm_img > dsm_img
+                img[mne_msk] = 0
+                img *= 5  # empircally chosen factor
+                xmin, xmax = max(resolution[0], resolution[1]), 255
+                img[img < xmin] = xmin  # low pass filter
+                img[img > xmax] = xmax  # high pass filter
+                img = img / 255
 
-            # LOGGER.debug(f"img min: {img.min()}, img max: {img.max()}, img shape: {img.shape}")
+                # LOGGER.debug(f"img min: {img.min()}, img max: {img.max()}, img shape: {img.shape}")
 
-            stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
-            LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
+                stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
+                LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
 
         return img_as_float(stacked_bands)

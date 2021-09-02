@@ -465,9 +465,9 @@ class Statistics():
         if not self.plot_stacked:
             n_plot = self.nbr_bands
             n_rows = ((n_plot - 1) // n_cols) + 1
-            _, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(size_col * n_cols, size_row * n_rows))
+            fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(size_col * n_cols, size_row * n_rows))
             axes = axes.ravel()
-
+            axes_to_del = len(axes) - n_plot
             for i, ax_prop in enumerate(zip(self.bands_labels, default_cycler)):
                 band_label, c = ax_prop[0], ax_prop[1]
                 bincount = bincounts[i]
@@ -493,7 +493,9 @@ class Statistics():
                 axes[i].grid(b=True, which='major', linestyle='-')
                 axes[i].minorticks_on()
                 axes[i].grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
-
+            if axes_to_del != 0:
+                for i in range(axes_to_del):
+                    fig.delaxes(axes[n_plot + i])
         else:
             plt.figure(figsize=(12, 6))
             for i, plot_prop in enumerate(zip(self.bands_labels, default_cycler)):
@@ -512,7 +514,7 @@ class Statistics():
             plt.xlabel("Pixel distribution")
 
         plt.tight_layout(pad=3)
-        output_path = os.path.join(os.path.dirname(self.output_path), name_plot)
+        output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
         return output_path
 

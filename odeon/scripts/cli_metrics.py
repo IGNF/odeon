@@ -12,8 +12,8 @@ from odeon.commons.core import BaseTool
 from odeon.commons.image import image_to_ndarray
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.nn.datasets import MetricsDataset
-from odeon.commons.metrics.metrics_factory import Metrics_Factory
-from odeon.commons.metrics.metrics import DEFAULTS_VARS
+from odeon.commons.metric.metrics_factory import Metrics_Factory
+from odeon.commons.metric.metrics import DEFAULTS_VARS
 
 
 class CLI_Metrics(BaseTool):
@@ -81,15 +81,17 @@ class CLI_Metrics(BaseTool):
         self.mask_path = mask_path
         self.pred_path = pred_path
 
-        if not os.path.exists(output_path) or not os.path.isdir(output_path):
-            name_output_path = os.path.join(os.path.dirname(output_path),
-                                            'metrics_report' + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"))
-            LOGGER.info(f"""Output folder ${output_path} does not exist or is not a folder.
-            Creation of an output directory at: {name_output_path}.
-            """)
-            self.output_path = name_output_path
+        if not os.path.exists(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output folder ${output_path} does not exist.")
+        elif not os.path.isdir(output_path):
+            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
+                             f"Output path ${output_path} should be a folder.")
         else:
-            self.output_path = output_path
+            name_output_path = os.path.join(output_path,
+                                            'metrics_report_' + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"))
+            os.makedirs(name_output_path)
+            self.output_path = name_output_path
 
         if output_type in ['md', 'json', 'html']:
             self.output_type = output_type
@@ -260,6 +262,7 @@ class CLI_Metrics(BaseTool):
 if __name__ == '__main__':
 
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
+
     # Cas binaire avec du soft
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
     # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
@@ -276,7 +279,7 @@ if __name__ == '__main__':
     mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
     pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
     output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='md', type_classifier='Multiclass')
+    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
 
     # # # Cas multiclass avec du hard
     # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
