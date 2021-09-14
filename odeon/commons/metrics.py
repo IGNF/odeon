@@ -49,7 +49,6 @@ def binarizes(detection, threshold=0.5, multilabel=False):
     ndarray
         binarized mask
     """
-
     no_of_class = detection.shape[1]
     if no_of_class == 1 or multilabel:  # Monoclass or multilabel
         assert threshold is not None

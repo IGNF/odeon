@@ -13,5 +13,12 @@ Changes
 
 0.1.1 (2021-01-06)
 ------------------
--fix issue 16
--fix resolution change in detection
+- fix issue 16
+- fix resolution change in detection
+
+0.2 (2021-09-13)
+------------------
+- add tool stats
+- add tool metrics
+- add of the documentation relative to these tools
+- add module report
