@@ -18,7 +18,7 @@ def parse_arguments():
 
     """
 
-    available_tools = ['sample_grid', 'sample_sys', 'stats', 'generate', 'train', 'detect']
+    available_tools = ['sample_grid', 'sample_sys', 'stats', 'generate', 'train', 'detect', 'metrics']
     parser = argparse.ArgumentParser()
     parser.add_argument("tool", help="command to be launched", choices=available_tools)
     parser.add_argument("-c", "--config", action='store', type=str, help="json configuration file (required)",
@@ -195,6 +195,23 @@ def main():
                                              dataset=dataset)
                     detector()
 
+                return 0
+
+            except OdeonError as oe:
+
+                LOGGER.error(oe)
+                return oe.error_code
+
+    elif tool == "metrics":
+
+        from odeon.scripts.cli_metrics import CLI_Metrics
+
+        with Timer("Metrics"):
+
+            try:
+                metrics_conf = conf['metrics_setup']
+                metrics = CLI_Metrics(**metrics_conf)
+                metrics()
                 return 0
 
             except OdeonError as oe:
