@@ -4,7 +4,7 @@ from skimage.util import img_as_float
 import rasterio
 # from rasterio.plot import reshape_as_raster
 import numpy as np
-from odeon.commons.image import image_to_ndarray, raster_to_ndarray, CollectionDatasetReader
+from odeon.commons.image import raster_to_ndarray, CollectionDatasetReader
 from odeon.nn.transforms import ToDoubleTensor, ToPatchTensor, ToWindowTensor
 from odeon import LOGGER
 from odeon.commons.rasterio import affine_to_ndarray
@@ -99,13 +99,27 @@ class PatchDataset(Dataset):
 
         # load image file
         image_file = self.image_files[index]
-        img = image_to_ndarray(image_file, width=self.width, height=self.height, band_indices=self.image_bands)
+        img, _ = raster_to_ndarray(
+                                    image_file,
+                                    width=self.width,
+                                    height=self.height,
+                                    resolution=None,
+                                    band_indices=self.image_bands
+                                    )
+
         # pixels are normalized to [0, 1]
         img = img_as_float(img)
 
         # load mask file
         mask_file = self.mask_files[index]
-        msk = image_to_ndarray(mask_file, width=self.width, height=self.height, band_indices=self.mask_bands)
+        msk, _ = raster_to_ndarray(
+                                    mask_file,
+                                    width=self.width,
+                                    height=self.height,
+                                    resolution=None,
+                                    band_indices=self.mask_bands
+                                    )
+
         sample = {"image": img, "mask": msk}
 
         # apply transforms
