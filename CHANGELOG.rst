@@ -22,3 +22,8 @@ Changes
 - add tool metrics
 - add of the documentation relative to these tools
 - add module report
+
+0.2.1 (2021-09-14)
+------------------
+- fix zone detection problem in tile generation
+

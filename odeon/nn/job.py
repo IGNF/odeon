@@ -260,9 +260,9 @@ class ZoneDetectionJob(PatchJobDetection):
 
                             i = max_x - out_dalle_size
 
-                        if j + output_size_u[1] > max_y:
+                        if j + out_dalle_size > max_y:
 
-                            j = max_y - output_size_u[1]
+                            j = max_y - out_dalle_size
 
                         left = i
                         right = i + out_dalle_size
