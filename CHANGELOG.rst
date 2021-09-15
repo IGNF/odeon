@@ -27,3 +27,6 @@ Changes
 ------------------
 - fix zone detection problem in tile generation
 
+0.2.2 (2021-09-14)
+------------------
+- removed the image_to_ndarray (using gdal) replacing every call to raster_to_ndarray (using rasterio). Should fix issue 22 (closed)
