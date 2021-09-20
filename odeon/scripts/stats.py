@@ -282,7 +282,7 @@ class Stats(BaseTool):
             Number of bands in the raster.
         """
         with rasterio.open(path_raster, 'r') as raster:
-            return list(range(raster.count)), raster.height, raster.width
+            return list(range(1, raster.count + 1)), raster.height, raster.width
 
     def check_raster_bands(self, raster_band, proposed_bands):
         """Check if the bands in the configuration file are correct and correspond to the bands in the raster.
