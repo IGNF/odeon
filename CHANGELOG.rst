@@ -30,3 +30,9 @@ Changes
 0.2.2 (2021-09-14)
 ------------------
 - removed the image_to_ndarray (using gdal) replacing every call to raster_to_ndarray (using rasterio). Should fix issue 22 (closed)
+
+0.2.3 (2021-09-24)
+------------------
+- Correct the problem in generation when a source have NoDataValue. Should fix issue 23.
+- fix minimum version number for packages pandas and geopandas. Fix issue #30 (closed)
+- fix problem of homogeneity in band indices between tools in code and in documentation. Fix issue #29 (closed)

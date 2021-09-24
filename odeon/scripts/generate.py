@@ -360,13 +360,14 @@ class Generator(BaseTool):
 
         """
         with rasterio.open(next(iter(self.dict_of_raster.values()))["path"][0]) as dst:
+            self.meta_msk = {"crs": dst.meta["crs"],
+                             "transform": dst.meta["transform"],
+                             "driver": "GTiff",
+                             "count": len(self.vector_classes) + 1,
+                             "width": self.img_size,
+                             "height": self.img_size,
+                             "dtype": rasterio.uint8}
 
-            self.meta_msk = dst.meta.copy()
-            self.meta_msk["driver"] = "GTiff"
-            self.meta_msk["count"] = len(self.vector_classes) + 1
-            self.meta_msk["width"] = self.img_size
-            self.meta_msk["height"] = self.img_size
-            self.meta_msk["dtype"] = rasterio.uint8
             self.meta_img = self.meta_msk.copy()
             self.meta_img["count"] = self.nb_of_image_band
             self.meta_img["dtype"] = get_max_type(self.dict_of_raster)
