@@ -164,7 +164,7 @@ a full example of a configuration file needed for train process:
            "data_source": {
               "train_file": "/path/to/train/csv/file.csv",
               "val_file": "/path/to/validation/csv/file.csv",
-              "image_bands": [0, 1, 2],
+              "image_bands": [1, 2, 3],
               "mask_bands": [2, 3, 7]
            },
            "model_setup": {
