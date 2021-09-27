@@ -36,3 +36,10 @@ Changes
 - Correct the problem in generation when a source have NoDataValue. Should fix issue 23.
 - fix minimum version number for packages pandas and geopandas. Fix issue #30 (closed)
 - fix problem of homogeneity in band indices between tools in code and in documentation. Fix issue #29 (closed)
+
+0.2.4 (2021-09-27)
+------------------
+- Refactoring of DEM computation to align detection and generation. Fix issue # 21 (closed)
+- Correction of bug when bands are after DSM or DTM when dem option is set to true. Fix issue #20 (closed)
+- Fixing the option compute_only_mask to compute only masks and not images. Fix issue #18 (closed)
+- Correct problems in stats related to the modifications made to remove gdal dependencies. Fix issue #24 (closed)

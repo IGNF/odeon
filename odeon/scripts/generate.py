@@ -14,18 +14,14 @@ import rasterio
 import fiona
 from rasterio.windows import transform
 from rasterio.features import rasterize, geometry_window
-from odeon.commons.rasterio import stack_window_raster
-from odeon.commons.rasterio import get_scale_factor_and_img_size, get_max_type
+from odeon.commons.image import CollectionDatasetReader
+from odeon.commons.rasterio import get_max_type
 from odeon import LOGGER
 from odeon.commons.dataframe import set_path_to_center, split_dataset_from_df
 from odeon.commons.folder_manager import build_directories
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.guard import geo_projection_raster_guard
-from odeon.commons.guard import geo_projection_vector_guard
-from odeon.commons.guard import vector_driver_guard
-from odeon.commons.guard import files_exist
-from odeon.commons.guard import dirs_exist
-from odeon.commons.guard import raster_bands_exist
+from odeon.commons.guard import geo_projection_raster_guard, geo_projection_vector_guard
+from odeon.commons.guard import vector_driver_guard, files_exist, dirs_exist, raster_bands_exist
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.core import BaseTool
 
@@ -82,8 +78,7 @@ class Generator(BaseTool):
 
             """
         self.shape_files = vector_classes
-        self.raster_out = os.path.join(output_path,
-                                       "full_mask.tiff")
+        self.raster_out = os.path.join(output_path, "full_mask.tiff")
         self.dict_of_raster = image_layers
         self.vector_classes = vector_classes
         self.img_size = image_size_pixel
@@ -120,7 +115,6 @@ class Generator(BaseTool):
             self.get_bounds()
             self.set_sequence()
             self.split()
-            self.scale_resolution()
             self.set_number_of_image_band()
             self.set_meta_img_msk()
 
@@ -297,40 +291,6 @@ class Generator(BaseTool):
         LOGGER.debug(self.extent)
         LOGGER.debug(self.df)
 
-    def scale_resolution(self):
-        """
-        Set scale to each image band based on output resolution
-
-        Returns
-        -------
-
-        """
-
-        for raster_name, raster in self.dict_of_raster.items():
-
-            x_scale = []
-            y_scale = []
-            scaled_width = []
-            scaled_height = []
-
-            for r in raster["path"]:
-
-                x_s, y_s, s_width, s_height = \
-                    get_scale_factor_and_img_size(r,
-                                                  self.resolution,
-                                                  self.img_size,
-                                                  self.img_size)
-                x_scale.append(x_s)
-                y_scale.append(y_s)
-                scaled_width.append(s_width)
-                scaled_height.append(s_height)
-
-            raster["x_scale"] = x_scale
-            raster["y_scale"] = y_scale
-            raster["scaled_width"] = scaled_width
-            raster["scaled_height"] = scaled_height
-        LOGGER.debug(self.dict_of_raster)
-
     def set_number_of_image_band(self):
         """
         Compute and set the number of band for each image Patch
@@ -371,6 +331,7 @@ class Generator(BaseTool):
             self.meta_img = self.meta_msk.copy()
             self.meta_img["count"] = self.nb_of_image_band
             self.meta_img["dtype"] = get_max_type(self.dict_of_raster)
+            self.meta_img["resolution"] = self.resolution
 
         LOGGER.debug(f"meta mask: {self.meta_msk}, meta img: {self.meta_img}")
 
@@ -677,8 +638,7 @@ class Generator(BaseTool):
                           raster_out,
                           dict_of_raster,
                           dem,
-                          compute_only_masks,
-                          pointer):
+                          compute_only_masks):
             """
             generate and writes a Patch (a tuple image, mask) for each
             row of the dataframe representing the Dataset.
@@ -700,26 +660,25 @@ class Generator(BaseTool):
             compute_only_masks : bool
              computer only mask or not
 
-
             Returns
             -------
             None
 
             """
-
-            for idx, center in tqdm(df.iterrows(), total=len(df)):
+            for _, center in tqdm(df.iterrows(), total=len(df)):
 
                 try:
+                    # Verification if the future output file already exists. If True, the former one will be deleted.
+                    if os.path.isfile(center["img_file"]):
+                        os.remove(center["img_file"])
 
-                    stack_window_raster(center,
-                                        pointer,
-                                        dict_of_raster,
-                                        meta_img,
-                                        dem,
-                                        compute_only_masks,
-                                        raster_out,
-                                        meta_msk)
-
+                    CollectionDatasetReader.stack_window_raster(center,
+                                                                dict_of_raster,
+                                                                meta_img,
+                                                                dem,
+                                                                compute_only_masks,
+                                                                raster_out,
+                                                                meta_msk)
                 except Exception as error:
 
                     raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
@@ -736,8 +695,16 @@ class Generator(BaseTool):
 
         STD_OUT_LOGGER.info(stdout)
 
-        for split_name, split in self.splits.items():
+        # Modifications on dict_of_raster from generation to match with the dict_of_raster in detection
+        # in order to use the same function get_stacked_window_collection for DEM computation.
 
+        for i, source_type in enumerate(self.dict_of_raster.keys()):
+            self.dict_of_raster[source_type]['connection'] = \
+                rasterio.open(self.dict_of_raster[source_type]['path'][pointer])
+            if i == 0:
+                self.meta_msk['transform'] = self.dict_of_raster[source_type]['connection'].transform
+
+        for split_name, split in self.splits.items():
             LOGGER.info(f"generating {split_name} data")
             s = split[split["num_seq"] == pointer]
             LOGGER.debug(s)
@@ -747,26 +714,24 @@ class Generator(BaseTool):
                           self.raster_out,
                           self.dict_of_raster,
                           self.dem,
-                          self.compute_only_masks,
-                          pointer)
+                          self.compute_only_masks)
 
             output_split = os.path.join(self.output_path, f"{split_name}.csv")
 
             if (self.append or pointer > 0) is True and os.path.isfile(output_split):
-
-                df = pd.read_csv(output_split, header=None,
-                                 names=["img_file", "msk_file"])
+                df = pd.read_csv(output_split, header=None, names=["img_file", "msk_file"])
                 df = df.append(split, ignore_index=True)
-
                 df[["img_file", "msk_file"]].to_csv(output_split,
                                                     index=False,
                                                     header=False)
 
             else:
-
                 split[["img_file", "msk_file"]].to_csv(output_split,
                                                        index=False,
                                                        header=False)
+        # Close all opened rasters
+        for source_type in self.dict_of_raster.keys():
+            self.dict_of_raster[source_type]['connection'].close()
 
     def clean(self):
         """Clean temporary pre-rasterized mask
