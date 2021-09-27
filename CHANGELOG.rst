@@ -43,3 +43,8 @@ Changes
 - Correction of bug when bands are after DSM or DTM when dem option is set to true. Fix issue #20 (closed)
 - Fixing the option compute_only_mask to compute only masks and not images. Fix issue #18 (closed)
 - Correct problems in stats related to the modifications made to remove gdal dependencies. Fix issue #24 (closed)
+
+0.2.5 (2021-09-27)
+------------------
+- fix issue with BCE loss.
+  Don't call torch loss directly and convert target tensor to long only for CrossEntropyWithLogitLoss.

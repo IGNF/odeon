@@ -25,7 +25,6 @@ import csv
 from sklearn.model_selection import train_test_split
 
 import torch
-from torch import nn
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
@@ -38,7 +37,7 @@ from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDou
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
 from odeon.nn.models import build_model, model_list
-from odeon.nn.losses import CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
+from odeon.nn.losses import BCEWithLogitsLoss, CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_training")
@@ -368,7 +367,7 @@ val: {len(val_dataset)})""")
                 return CrossEntropyWithLogitsLoss()
 
         elif loss_name == "bce":
-            return nn.BCEWithLogitsLoss()
+            return BCEWithLogitsLoss()
         elif loss_name == "focal":
             return FocalLoss2d()
         elif loss_name == "combo":

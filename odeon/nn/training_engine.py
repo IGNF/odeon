@@ -174,7 +174,8 @@ class TrainingEngine:
                     preds = torch.softmax(logits, dim=1)
 
                 # compute loss
-                loss = self.loss(logits, masks.long())
+                loss = self.loss(logits, masks)
+                # loss = self.loss(logits, masks.long())
 
                 # backward pass (calculate gradient)
                 loss.backward()
@@ -222,7 +223,7 @@ class TrainingEngine:
                     preds = torch.softmax(logits, dim=1)
 
                 # compute loss
-                loss = self.loss(logits, masks.long())
+                loss = self.loss(logits, masks)
 
                 # update statistics
                 #    loss
