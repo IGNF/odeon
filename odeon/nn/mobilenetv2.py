@@ -1,6 +1,10 @@
 from torch import nn
 from torchvision.models import MobileNetV2
-from torchvision.models.mobilenet import _make_divisible, ConvBNReLU
+
+try:
+    from torchvision.models.mobilenetv2 import _make_divisible, ConvBNReLU
+except ModuleNotFoundError:
+    from torchvision.models.mobilenet import _make_divisible, ConvBNReLU
 
 
 class MobileNetV2(MobileNetV2):

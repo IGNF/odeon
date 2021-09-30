@@ -48,3 +48,7 @@ Changes
 ------------------
 - fix issue with BCE loss.
   Don't call torch loss directly and convert target tensor to long only for CrossEntropyWithLogitLoss.
+
+0.2.6 (2021-09-30)
+------------------
+- fix issue with new mobilenetv2 module on new torchvision version without regression
