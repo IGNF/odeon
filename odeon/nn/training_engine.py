@@ -1,12 +1,11 @@
 import os
 from collections import OrderedDict
 from tqdm import tqdm
-import numpy as np
 
 import torch
 
 from odeon.nn.history import History
-from odeon.commons.metrics import AverageMeter, get_confusion_matrix, get_iou_metrics
+from odeon.commons.metrics import AverageMeter, get_confusion_matrix_torch, get_iou_metrics_torch
 
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
@@ -70,6 +69,8 @@ class TrainingEngine:
         self.output_filename = output_filename
         self.optimizer_filename = f'optimizer_{output_filename}'
         self.train_iou = verbose
+        self.multilabel = False
+        self.micro_iou = True
 
     def run(self, train_loader, val_loader):
 
@@ -150,7 +151,13 @@ class TrainingEngine:
     def _train_epoch(self, loader):
 
         losses = AverageMeter("train_loss")
-        confusion_matrix = np.zeros((2, 2), dtype=np.uint64)
+        use_cuda = True if self.device.startswith('cuda') else False
+        if self.multilabel:
+            confusion_matrix = torch.zeros((self.net.n_classes, 2, 2), dtype=torch.long)
+        else:
+            confusion_matrix = torch.zeros((self.net.n_classes, self.net.n_classes), dtype=torch.long)
+        if use_cuda:
+            confusion_matrix = confusion_matrix.cuda()
 
         with tqdm(total=len(loader),
                   desc=f"Epochs {self.epoch_counter + 1}/{self.epochs}",
@@ -192,8 +199,9 @@ class TrainingEngine:
                 miou = None
                 if self.train_iou:
                     with torch.no_grad():
-                        confusion_matrix = confusion_matrix + get_confusion_matrix(preds, masks)
-                        miou = get_iou_metrics(confusion_matrix)
+                        confusion_matrix = confusion_matrix + get_confusion_matrix_torch(
+                            preds, masks, multilabel=self.multilabel, cuda=use_cuda)
+                        miou = get_iou_metrics_torch(confusion_matrix, micro=self.micro_iou, cuda=use_cuda)
                     pbar_odict.update({'mean_iou': f'{miou:1.5f}'})
 
                 pbar.set_postfix(pbar_odict)
@@ -204,7 +212,14 @@ class TrainingEngine:
     def _validate_epoch(self, loader):
 
         losses = AverageMeter("val_loss")
-        confusion_matrix = np.zeros((2, 2), dtype=np.uint64)
+        # confusion_matrix_np = np.zeros((2, 2), dtype=np.uint64)
+        use_cuda = True if self.device.startswith('cuda') else False
+        if self.multilabel:
+            confusion_matrix = torch.zeros((self.net.n_classes, 2, 2), dtype=torch.long)
+        else:
+            confusion_matrix = torch.zeros((self.net.n_classes, self.net.n_classes), dtype=torch.long)
+        if use_cuda:
+            confusion_matrix = confusion_matrix.cuda()
 
         with tqdm(total=len(loader), desc="Validating", leave=False) as pbar:
 
@@ -230,8 +245,11 @@ class TrainingEngine:
                 losses.update(loss.item(), self.batch_size)
 
                 #    IOU
-                confusion_matrix = confusion_matrix + get_confusion_matrix(preds, masks)
+                confusion_matrix = confusion_matrix + get_confusion_matrix_torch(
+                    preds, masks, multilabel=self.multilabel, cuda=use_cuda)
 
                 pbar.update(1)
-        miou = get_iou_metrics(confusion_matrix)
+
+        # miou_np = get_iou_metrics(confusion_matrix_np)
+        miou = get_iou_metrics_torch(confusion_matrix, micro=self.micro_iou, cuda=use_cuda)
         return losses.avg, miou

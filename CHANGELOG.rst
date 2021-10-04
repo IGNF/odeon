@@ -52,3 +52,8 @@ Changes
 0.2.6 (2021-09-30)
 ------------------
 - fix issue with new mobilenetv2 module on new torchvision version without regression
+
+0.2.7 (2021-09-31)
+------------------
+- improve miou computation speed during training
+  use pytorch in place of numpy to do MiOu computation.
