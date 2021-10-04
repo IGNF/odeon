@@ -57,3 +57,7 @@ Changes
 ------------------
 - improve miou computation speed during training
   use pytorch in place of numpy to do MiOu computation.
+
+0.2.8 (2021-10-04)
+------------------
+- fix regression introduce in v0.2.4 in detection zone.

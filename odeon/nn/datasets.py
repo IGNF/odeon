@@ -240,7 +240,6 @@ class ZoneDetectionDataset(PatchDetectionDataset):
             # LOGGER.info(image_file)
             # LOGGER.info(self.image_files)
             img = CollectionDatasetReader.get_stacked_window_collection(self.dict_of_raster,
-                                                                        self.meta,
                                                                         bounds,
                                                                         self.width,
                                                                         self.height,
