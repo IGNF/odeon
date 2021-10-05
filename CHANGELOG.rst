@@ -61,3 +61,7 @@ Changes
 0.2.8 (2021-10-04)
 ------------------
 - fix regression introduce in v0.2.4 in detection zone.
+
+0.2.9 (2021-10-05)
+------------------
+- fix issue 34 : regression introduced in generate dataset on batch mode.

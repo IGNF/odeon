@@ -437,7 +437,8 @@ class CollectionDatasetReader:
                             dem,
                             compute_only_masks=False,
                             raster_out=None,
-                            meta_msk=None):
+                            meta_msk=None,
+                            output_type="uint8"):
         """stack band at window level of geotif layer and create a
         couple patch image and patch mask
 
@@ -457,6 +458,8 @@ class CollectionDatasetReader:
             path of rasterized full mask where to extract the window mask
         meta_msk: dict
             metadata in rasterio format for raster mask
+        output_type: str
+            output type of output patch raster in numpy dtype format
 
         Returns
         -------
@@ -495,7 +498,7 @@ class CollectionDatasetReader:
                                                                         meta_img_patch['resolution'],
                                                                         dem,
                                                                         resampling=resampling)
-            raster_img = reshape_as_raster(img) * 255
+            raster_img = (reshape_as_raster(img) * 255).astype(output_type)
 
             with rasterio.open(center["img_file"], 'w', **meta_img_patch) as dst:
                 dst.write(raster_img)

@@ -703,6 +703,7 @@ class Generator(BaseTool):
                 rasterio.open(self.dict_of_raster[source_type]['path'][pointer])
             if i == 0:
                 self.meta_msk['transform'] = self.dict_of_raster[source_type]['connection'].transform
+                self.meta_img['transform'] = self.meta_msk['transform']
 
         for split_name, split in self.splits.items():
             LOGGER.info(f"generating {split_name} data")
