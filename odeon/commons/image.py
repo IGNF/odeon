@@ -415,20 +415,37 @@ class CollectionDatasetReader:
                                                         resampling=resampling,
                                                         window=dtm_window)
 
+            # raw dem = dsm - dtm
             img = dsm_img - dtm_img
             # LOGGER.debug(img.sum())
+            # dsm should not be under dtm theorically but this could happen
+            # due to product specification (rounding) etc.. so add check
             mne_msk = dtm_img > dsm_img
             img[mne_msk] = 0
+            # scaling to vertical resolution such that it should be ok when convert
+            # to uint8
             img *= 5  # empircally chosen factor
-            xmin, xmax = max(resolution[0], resolution[1]), 255
-            img[img < xmin] = xmin  # low pass filter
-            img[img > xmax] = xmax  # high pass filter
-            # img = img / 255
+
+            # probably a wrong thing to do.. resolution[0] and 1 are x and y resolution
+            # and not min/max elevation
+            # xmin, xmax = max(resolution[0], resolution[1]), 255
+            # img[img < xmin] = xmin  # low pass filter
+            # img[img > xmax] = xmax  # high pass filter
+
+            # low pass filer, should not do anatyhing as we should
+            # already have only positives values.
+            img[img < 0] = 0
+            # high pass filter.
+            img[img > 255] = 255
+
+            # normalize to [0, 1]. as input are float img_as_float could not be used for
+            # normalization.
+            img = img / 255
             # LOGGER.debug(f"img min: {img.min()}, img max: {img.max()}, img shape: {img.shape}")
             stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
             LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
 
-        return img_as_float(stacked_bands)
+        return stacked_bands
 
     @staticmethod
     def stack_window_raster(center,

@@ -65,3 +65,7 @@ Changes
 0.2.9 (2021-10-05)
 ------------------
 - fix issue 34 : regression introduced in generate dataset on batch mode.
+
+0.2.10 (2021-10-08)
+------------------
+- fix issue 35 : generation and detection regression since 0.2.4 in float conversion
