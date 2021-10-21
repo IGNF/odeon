@@ -25,8 +25,10 @@ class CLI_Metrics(BaseTool):
                  output_path,
                  type_classifier,
                  in_prob_range,
-                 class_labels=None,
                  output_type=DEFAULTS_VARS['output_type'],
+                 class_labels=DEFAULTS_VARS['class_labels'],
+                 mask_bands=DEFAULTS_VARS['mask_bands'],
+                 pred_bands=DEFAULTS_VARS['pred_bands'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  n_thresholds=DEFAULTS_VARS['n_thresholds'],
@@ -57,6 +59,10 @@ class CLI_Metrics(BaseTool):
             to be easily reusable, by default html.
         class_labels : list of str, optional
             Label for each class in the dataset, by default None.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands. (Selection of the classes)
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
@@ -134,8 +140,40 @@ class CLI_Metrics(BaseTool):
             LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter labels is incorrect.")
+        elif mask_bands is not None and class_labels is not None:
+            if len(class_labels) != len(mask_bands):
+                LOGGER.error('ERROR: parameter labels should have a number of input values equal to the number of\
+                            selected bands.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                 "The input parameter labels is incorrect.")
         else:
             self.class_labels = class_labels
+
+        if not ((mask_bands is None or pred_bands is None) or (mask_bands is not None and pred_bands is not None)):
+            LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                  "The input parameters mask_bands and pred_bands are incorrect.")
+        elif mask_bands is not None and pred_bands is not None:
+            if len(mask_bands) != len(pred_bands):
+                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and pred_bands are incorrect.")
+            elif self.type_classifier != 'multiclass':
+                LOGGER.error('ERROR: in the fact that even if we are only interested in one band the input set\
+                            containing several bands is considered as a multiclass case.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and  or type_classifier should be changed.")
+            else:
+                # Standardization of band indices with rasterio/gdal, so the user will input the index 1 for the band 0.
+                mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
+
+                # Checks if the bands entered in the configuration file have values corresponding to the bands of the
+                # images present in the dataset entered
+                self.check_raster_bands(list(range(self.nbr_class)), mask_bands)
+                self.check_raster_bands(list(range(self.nbr_class)), pred_bands)
+
+        self.mask_bands = mask_bands
+        self.pred_bands = pred_bands
 
         if weights is not None and len(weights) != self.nbr_class:
             LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
@@ -157,6 +195,8 @@ class CLI_Metrics(BaseTool):
                                                              in_prob_range=self.in_prob_range,
                                                              class_labels=self.class_labels,
                                                              output_type=self.output_type,
+                                                             mask_bands=self.mask_bands,
+                                                             pred_bands=self.pred_bands,
                                                              weights=self.weights,
                                                              threshold=self.threshold,
                                                              n_thresholds=self.n_thresholds,
@@ -242,6 +282,27 @@ class CLI_Metrics(BaseTool):
                 LOGGER.warning(f'Problem of matching names between mask {msk} and prediction {pred}.')
         return mask_files, pred_files
 
+    def check_raster_bands(self, raster_band, proposed_bands):
+        """Check if the bands in the configuration file are correct and correspond to the bands in the raster.
+
+        Parameters
+        ----------
+        raster_band : list
+            Bands found by opening the first sample of the dataset.
+        proposed_bands : list
+            Bands proposed in the configuration file.
+        """
+        if isinstance(proposed_bands, list) and len(proposed_bands) >= 1:
+            if not all([band in raster_band for band in proposed_bands]):
+                LOGGER.error(f'ERROR: the bands in the configuration file do not correspond\
+                to the available bands in the image. The bands in the image are : {raster_band}.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and pred_bands are incorrect.")
+        else:
+            LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                  "The input parameters mask_bands and pred_bands are incorrect.")
+
     def get_samples_shapes(self):
         """Get the shape of the input masks and predictions.
 
@@ -284,48 +345,3 @@ class CLI_Metrics(BaseTool):
             "Mask must contain a maximum number of unique values equal to the number of classes"
 
         return mask.shape[0], mask.shape[1], nbr_class
-
-
-if __name__ == '__main__':
-
-    img_path = '/home/SPeillet/OCSGE/data/metrics/img'
-
-    # Cas binaire avec du soft
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, n_thresholds=10,
-    #                       in_prob_range=False, type_classifier='binary')
-
-    # Cas binaire avec du hard
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/pred'
-    # output_path = '/home/SPeillet/OCSGE'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Binary')
-
-    # Cas multiclass avec du soft
-    # mask_path = "/home/SPeillet/OCSGE/data/metrics/data_test_2_bands_multiclass/msk"
-    # pred_path = "/home/SPeillet/OCSGE/data/metrics/data_test_2_bands_multiclass/pred"
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, in_prob_range=False, type_classifier='multiclass')
-
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, mask_path, output_path, n_thresholds=10, in_prob_range=False,
-    #                       type_classifier='multiclass', n_bins=20)
-
-    # Cas multiclass avec du hard
-    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
-    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
-    output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, in_prob_range=False,
-                          output_type='html', type_classifier='multiclass')
-
-    # Test dataset intégral (cas multiclass en soft)
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/detection_soft/'
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, get_normalize=True, type_classifier='Multiclass')
-
-    metrics()

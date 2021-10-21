@@ -259,10 +259,13 @@ Examples of Json config file
                 "mask_path": "/path/to/intput/folder/msk",
                 "pred_path": "/path/to/input/folder/pred",
                 "output_path": "/path/to/output/folder/",
+                "output_type": "html",
                 "type_classifier": "multiclass",
                 "in_prob_range": false,
                 "weights": [0.3, 0.5, 0.0, 0.0, 0.9, 0.1, 0.1],
-                "class_labels": ["batiments", "route", "ligneux", "herbacé", "eau", "mineraux", "piscines"],
+                "class_labels": ["batiments", "route", "ligneux"],
+                "mask_bands": [1, 2, 3],
+                "pred_bands": [1, 2, 3],
                 "threshold": 0.6,
                 "n_thresholds": 10,
                 "bit_depth": "8 bits",
@@ -281,6 +284,18 @@ Examples of Json config file
    be noted by the value 1 if present otherwise 0. The expected predictions must be of the same size as the masks. If the values of
    the predictions are not "probabilities" between 0 and 1, the ``in_prob_range`` parameter must be set to False so that the values
    are changed to be in the range [0, 1].
+
+.. note::
+    There is the possibility to calculate metrics only on selected bands. To do so, it is necessary to use the parameters ``mask_bands`` and
+    ``pred_bands`` to define the indices of the bands of the classes you want to select in the mask and do the same with the corresponding
+    bands in the prediction.
+    By selecting bands in the mask and in the prediction we will be able to extract the metrics for each class, some metrics will change.
+    For the macro strategy, the metrics per class (Accuracy, Precision, Recall, Specificity, F1-Score and IoU) and also the curves for each
+    class (ROC, PR, calibration) will remain the same but the global metrics of this strategy will not. The confusion matrix will keep the
+    same values for the selected classes but there will be in addition the integration of a class named 'Other' representing the grouping of
+    the non selected classes.
+    For the micro strategy, the classes are not the same anymore and the strategy consists in summing the confusion matrices of each class, 
+    that's why we won't get the same confusion matrix and metrics in output as if we had used all the bands present in the dataset. 
 
 Description of JSON arguments
 -----------------------------
@@ -304,6 +319,10 @@ Description of JSON arguments
 - ``class_labels`` : list of str, optional
     Label for each class in the dataset.
     If None the labels of the classes will be of type:  0 and 1 by default None
+- ``mask_bands`` : list of int
+    List of the selected bands in the dataset masks bands. (Selection of the classes)
+- ``pred_bands`` : list of int
+    List of the selected bands in the dataset preds bands. (Selection of the classes)
 - ``weights`` : list of number, optional
     List of weights to balance the metrics.
     In the binary case the weights are not used in the metrics computation, by default None.

@@ -23,8 +23,10 @@ class Metrics_Binary(Metrics):
                  output_path,
                  type_classifier,
                  in_prob_range,
-                 class_labels=None,
                  output_type=DEFAULTS_VARS['output_type'],
+                 class_labels=DEFAULTS_VARS['class_labels'],
+                 mask_bands=DEFAULTS_VARS['mask_bands'],
+                 pred_bands=DEFAULTS_VARS['pred_bands'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  n_thresholds=DEFAULTS_VARS['n_thresholds'],
@@ -58,8 +60,11 @@ class Metrics_Binary(Metrics):
             If the output type is json, all the data will be exported in a dict in order
             to be easily reusable, by default html.
         class_labels : list of str, optional
-            Label for each class in the dataset.
-            If None the labels of the classes will be of type:  0 and 1 by default None
+            Label for each class in the dataset, by default None.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands. (Selection of the classes)
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
@@ -93,8 +98,10 @@ class Metrics_Binary(Metrics):
                          output_path=output_path,
                          type_classifier=type_classifier,
                          in_prob_range=in_prob_range,
-                         class_labels=class_labels,
                          output_type=output_type,
+                         class_labels=class_labels,
+                         mask_bands=mask_bands,
+                         pred_bands=pred_bands,
                          weights=weights,
                          threshold=threshold,
                          n_thresholds=n_thresholds,
@@ -289,6 +296,7 @@ class Metrics_Binary(Metrics):
             plt.tight_layout(pad=3)
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
+            plt.close()
             return output_path
 
     def plot_calibration_curve(self, name_plot='binary_calibration_curves.png'):
@@ -331,6 +339,7 @@ class Metrics_Binary(Metrics):
             plt.tight_layout(pad=3)
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
+            plt.close()
             return output_path
 
     def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png'):
@@ -379,6 +388,7 @@ class Metrics_Binary(Metrics):
 
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
+            plt.close()
             return output_path
 
     def export_metrics_per_patch_csv(self):

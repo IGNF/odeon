@@ -43,9 +43,12 @@ NBR_METRICS_PER_CLASS = len(['Accuracy', 'Precision', 'Recall', 'Specificity', '
 
 # Dict with the default variables used to init Metrics and CLI_metrics objects.
 DEFAULTS_VARS = {'output_type': 'html',
+                 'class_labels': None,
+                 'mask_bands': None,
+                 'pred_bands': None,
+                 'weights': None,
                  'threshold': 0.5,
                  'n_thresholds': 10,
-                 'weights': None,
                  'bins': None,
                  'n_bins': None,
                  'bit_depth': '8 bits',
@@ -65,8 +68,10 @@ class Metrics(ABC):
                  output_path,
                  type_classifier,
                  in_prob_range,
-                 class_labels=None,
                  output_type=DEFAULTS_VARS['output_type'],
+                 class_labels=DEFAULTS_VARS['class_labels'],
+                 mask_bands=DEFAULTS_VARS['mask_bands'],
+                 pred_bands=DEFAULTS_VARS['pred_bands'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  n_thresholds=DEFAULTS_VARS['n_thresholds'],
@@ -102,6 +107,10 @@ class Metrics(ABC):
             to be easily reusable, by default html.
         class_labels : list of str, optional
             Label for each class in the dataset, by default None.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands. (Selection of the classes)
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
@@ -167,7 +176,6 @@ class Metrics(ABC):
             self.weights = weights
             self.weighted = True
 
-        self.class_ids = np.arange(self.nbr_class)  # Each class is identified by a number
         self.threshold = threshold
         self.n_thresholds = n_thresholds
         self.threshold_range = np.linspace(0.0, 1.0, self.n_thresholds)
@@ -182,6 +190,8 @@ class Metrics(ABC):
         self.nbr_metrics_micro = NBR_METRICS_MICR0
         self.nbr_metrics_macro = NBR_METRICS_MACR0
         self.nbr_metrics_per_class = NBR_METRICS_PER_CLASS
+        self.mask_bands = mask_bands
+        self.pred_bands = pred_bands
 
         self.depth_dict = {'keep':  1,
                            '8 bits': 255,
@@ -203,7 +213,7 @@ class Metrics(ABC):
                                           'threshold': self.threshold,
                                           'threshold_range': self.threshold_range.tolist(),
                                           'bins': self.bins.tolist(),
-                                          'weights': self.weights}
+                                          'weights': self.weights.tolist()}
         self.report = Report_Factory(self)
 
     def __call__(self):
@@ -248,7 +258,32 @@ class Metrics(ABC):
         else:
             self.bins_xticks = [np.round(bin_i, decimals=decimals) for bin_i in np.linspace(0.0, 1.0, 11)]
 
-    def binarize(self, type_classifier, prediction, mask=None, threshold=None):
+    @staticmethod
+    def select_bands(array, select_bands):
+        """
+        Function allowing to select bands in a mask/prediction array thanks to a list containing the indices of the
+        bands you want to extract. The other unselected bands will be grouped into a single one, which will contain
+        the largest value among them for a given pixel.
+
+        Parameters
+        ----------
+        array : np.array
+            Arrays on which we want to extract the bands.
+        select_bands : list of int
+            List containing the indices of the bands to extract.
+        """
+        bands_selected = [array[:, :, i] for i in select_bands]
+        bands_unselected = [array[:, :, i] for i in list(set(np.arange(array.shape[-1])) - set(select_bands))]
+        bands_selected = np.stack(bands_selected, axis=-1)
+
+        if bands_unselected:
+            bands_unselected = np.stack(bands_unselected, axis=-1)
+            bands_unselected = np.amax(bands_unselected, axis=-1).reshape(array.shape[0], array.shape[1], 1)
+            bands_selected = np.concatenate([bands_selected, bands_unselected], axis=-1)
+
+        return bands_selected
+
+    def binarize(self, type_classifier, prediction, mask=None, threshold=None, pred_bands=None, mask_bands=None):
         """
         Allows the binarisation of predictions according to the type of classifier. If the classification is binary,
         the function will take in input only one prediction and will assign to each of these values either 0 or 1
@@ -266,18 +301,27 @@ class Metrics(ABC):
             Mask/ground truth values, by default None
         threshold : float, optional
             Threshold to binarize input data., by default None
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands.
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands.
 
         Returns
         -------
-        np.array
-            Transformed prediction data.
+        np.array or Tuple(np.array)
+            Transformed prediction data (with mask data if multiclass case).
         """
         pred = prediction.copy()
         if not self.in_prob_range:
             pred = self.to_prob_range(pred)
-        if type_classifier == 'multiclass':
+        if type_classifier == 'multiclass' and mask_bands is None and pred_bands is None:
             assert mask is not None
             return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
+        elif type_classifier == 'multiclass' and mask_bands is not None and pred_bands is not None:
+            mask_bands_selected = self.select_bands(mask, select_bands=mask_bands)
+            pred_bands_selected = self.select_bands(pred, select_bands=pred_bands)
+            return np.argmax(mask_bands_selected, axis=2), np.argmax(pred_bands_selected, axis=2)
+
         elif type_classifier == 'binary':
             assert threshold is not None
             pred[pred < threshold] = 0
@@ -319,9 +363,7 @@ class Metrics(ABC):
         assert isinstance(truth, (np.ndarray, np.generic)) and isinstance(pred, (np.ndarray, np.generic))
         if nbr_class is None:
             nbr_class = self.nbr_class
-            class_ids = self.class_ids
-        else:
-            class_ids = list(range(nbr_class))
+        class_ids = list(range(nbr_class))
 
         cm = np.zeros([nbr_class, nbr_class], dtype=np.float64)
         for i, class_i in enumerate(class_ids):
@@ -602,7 +644,8 @@ class Metrics(ABC):
         str
             Ouput path of the image containing the plot.
         """
-        fig, ax = plt.subplots(figsize=(10, 6))
+        figsize = (10, 7) if cm.shape[0] < 10 else (12, 9)
+        fig, ax = plt.subplots(figsize=figsize)
         cbarlabel = 'Coefficients values'
 
         im, _ = self.heatmap(cm, labels, labels, ax=ax, cmap=cmap, cbarlabel=cbarlabel)
@@ -614,6 +657,7 @@ class Metrics(ABC):
         fig.tight_layout(pad=3)
         output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
+        plt.close()
         return output_path
 
     def plot_norm_and_value_cms(self, cm, labels, name_plot='norm_and_values_cms.png',
@@ -639,8 +683,9 @@ class Metrics(ABC):
         str
             Ouput path of the image containing the plot.
         """
+        figsize = (20, 7) if cm.shape[0] < 10 else (23, 9)
 
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(20, 7))
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=figsize)
         cbarlabel = 'Coefficients values'
 
         # On ax0, normalize cm
@@ -669,4 +714,5 @@ class Metrics(ABC):
         fig.tight_layout(pad=2)
         output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
+        plt.close()
         return output_path

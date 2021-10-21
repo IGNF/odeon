@@ -52,9 +52,9 @@ class Report_Multiclass(Report):
         dict_export['report macro'] = self.round_df_values(self.input_object.df_report_macro).T.to_dict()
         dict_export['report micro'] = self.round_df_values(self.input_object.df_report_micro).T.to_dict()
         dict_export['report classes'] = self.round_df_values(self.input_object.df_report_classes).T.to_dict()
-
+        json_object = json.dumps(dict_export, indent=4)
         with open(os.path.join(self.input_object.output_path, 'report_metrics.json'), "w") as output_file:
-            json.dump(dict_export, output_file, indent=4)
+            output_file.write(json_object)
 
     def to_md(self):
         """Create a report in the markdown format.

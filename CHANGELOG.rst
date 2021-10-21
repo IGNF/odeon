@@ -69,3 +69,10 @@ Changes
 0.2.10 (2021-10-08)
 ------------------
 - fix issue 35 : generation and detection regression since 0.2.4 in float conversion
+
+0.2.11 (2021-10-21)
+------------------
+- fix issue 31 : metric script don't work when predicition and mask files do not have the same number of bands.
+- add the feature to select the classes on which we want to use the metrics 
+- correction on cm figure size when the number of classes is large.
+- correction on the export of metrics in a json file.

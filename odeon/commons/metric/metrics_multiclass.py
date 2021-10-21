@@ -20,8 +20,10 @@ class Metrics_Multiclass(Metrics):
                  output_path,
                  type_classifier,
                  in_prob_range,
-                 class_labels=None,
                  output_type=DEFAULTS_VARS['output_type'],
+                 class_labels=DEFAULTS_VARS['class_labels'],
+                 mask_bands=DEFAULTS_VARS['mask_bands'],
+                 pred_bands=DEFAULTS_VARS['pred_bands'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
                  n_thresholds=DEFAULTS_VARS['n_thresholds'],
@@ -59,8 +61,11 @@ class Metrics_Multiclass(Metrics):
             If the output type is json, all the data will be exported in a dict in order
             to be easily reusable, by default html.
         class_labels : list of str, optional
-            Label for each class in the dataset.
-            If None the labels of the classes will be of type: class 1, class 2, etc .., by default None
+            Label for each class in the dataset, by default None.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands. (Selection of the classes)
         weights : list of number, optional
             List of weights to balance the metrics.
             Used for the macro matrix and the mean metrics, by default None.
@@ -94,11 +99,12 @@ class Metrics_Multiclass(Metrics):
                          output_path=output_path,
                          type_classifier=type_classifier,
                          in_prob_range=in_prob_range,
-                         class_labels=class_labels,
                          output_type=output_type,
+                         class_labels=class_labels,
+                         mask_bands=mask_bands,
+                         pred_bands=pred_bands,
                          weights=weights,
                          threshold=threshold,
-
                          n_thresholds=n_thresholds,
                          bit_depth=bit_depth,
                          bins=bins,
@@ -108,6 +114,14 @@ class Metrics_Multiclass(Metrics):
                          get_ROC_PR_curves=get_ROC_PR_curves,
                          get_calibration_curves=get_calibration_curves,
                          get_hists_per_metrics=get_hists_per_metrics)
+
+        if self.mask_bands is not None and self.pred_bands is not None:
+            if self.nbr_class != len(self.mask_bands):
+                # Add 1 because we create a class other for all the bands not selected.
+                self.nbr_class = len(self.mask_bands) + 1
+                self.class_labels = [label for i, label in enumerate(self.class_labels) if i in self.mask_bands]
+                self.class_labels.append('Other')
+            # else maybe all bands are selected with swaps or not
 
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
 
@@ -205,7 +219,11 @@ class Metrics_Multiclass(Metrics):
                     if threshold == self.threshold and i == 0:
                         # Compute cm micro for every sample and stack the results to a total micro cm.
                         # Here binarization with an argmax.
-                        mask_macro, pred_macro = self.binarize(self.type_classifier, pred, mask=mask)
+                        mask_macro, pred_macro = self.binarize(type_classifier=self.type_classifier,
+                                                               prediction=pred,
+                                                               mask=mask,
+                                                               pred_bands=self.pred_bands,
+                                                               mask_bands=self.mask_bands)
                         cm = self.get_confusion_matrix(mask_macro.flatten(), pred_macro.flatten(), revert_order=False)
                         cm_macro += cm
 
@@ -308,12 +326,12 @@ class Metrics_Multiclass(Metrics):
 
         Parameters
         ----------
-        cm_micro : np.array
-            Confusion matrix in micro strategy.
+        cm_macro : np.array
+            Confusion matrix in macro strategy.
         Returns
         -------
         (dict, dict, dict, np.array, np.array)
-            Metrics (macro, micro, per class) and cms (macro, per class).
+            Metrics (per class, micro, macro) and cms (per class, micro).
         """
         obs_by_class = self.get_obs_by_class_from_cm(cm_macro)
         cms_classes = np.zeros([self.nbr_class, 2, 2])
@@ -433,6 +451,7 @@ class Metrics_Multiclass(Metrics):
             plt.tight_layout(pad=3)
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
+            plt.close()
             return output_path
 
     def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png'):
@@ -489,6 +508,7 @@ class Metrics_Multiclass(Metrics):
 
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
+            plt.close()
             return output_path
 
     def plot_hists(self, list_metrics, n_cols=3, size_col=5, size_row=4, bins=None, name_plot=None):
@@ -537,6 +557,7 @@ class Metrics_Multiclass(Metrics):
         plt.tight_layout(pad=3)
         output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
+        plt.close()
         return output_path
 
     def plot_dataset_metrics_histograms(self):
