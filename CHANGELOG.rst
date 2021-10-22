@@ -76,3 +76,8 @@ Changes
 - add the feature to select the classes on which we want to use the metrics 
 - correction on cm figure size when the number of classes is large.
 - correction on the export of metrics in a json file.
+
+0.2.12 (2021-10-22)
+------------------
+- fix issue 39: Reports become unreadable when the number of classes is too high and we would like to add the
+possibility to output in a csv file the threshold values corresponding to each point of the ROC/PR curves.

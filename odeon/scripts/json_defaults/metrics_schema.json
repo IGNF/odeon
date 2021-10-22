@@ -23,6 +23,7 @@
                 "get_normalize": {"type": "boolean", "default": true},
                 "get_metrics_per_patch": {"type": "boolean", "default": true},
                 "get_ROC_PR_curves": {"type": "boolean", "default": true},
+                "get_ROC_PR_values": {"type": "boolean", "default": false},
                 "get_calibration_curves": {"type": "boolean", "default": true},
                 "get_hists_per_metrics": {"type": "boolean", "default": true}
             },

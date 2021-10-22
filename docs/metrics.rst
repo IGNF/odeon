@@ -273,6 +273,7 @@ Examples of Json config file
                 "get_normalize": true,
                 "get_metrics_per_patch": true,
                 "get_ROC_PR_curves": true,
+                "get_ROC_PR_values": true,
                 "get_calibration_curves": false,
                 "get_hists_per_metrics": false
             }
@@ -345,6 +346,8 @@ Description of JSON arguments
     won't be created, by default True
 - ``get_ROC_PR_curves`` : bool, optional
     Boolean to know if the user wants to generate ROC and PR curves, by default True
+- ``get_ROC_PR_values`` : bool, optional
+    Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
 - ``get_calibration_curves`` : bool, optional
     Boolean to know if the user wants to generate calibration curves, by default True
 - ``get_hists_per_metrics`` : bool, optional

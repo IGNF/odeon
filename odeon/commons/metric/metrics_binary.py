@@ -36,6 +36,7 @@ class Metrics_Binary(Metrics):
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
@@ -87,6 +88,8 @@ class Metrics_Binary(Metrics):
             won't be created, by default True
         get_ROC_PR_curves : bool, optional
             Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_ROC_PR_values: bool, optional
+            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
         get_calibration_curves : bool, optional
             Boolean to know if the user wants to generate calibration curves, by default True
         get_hists_per_metrics : bool, optional
@@ -111,6 +114,7 @@ class Metrics_Binary(Metrics):
                          get_normalize=get_normalize,
                          get_metrics_per_patch=get_metrics_per_patch,
                          get_ROC_PR_curves=get_ROC_PR_curves,
+                         get_ROC_PR_values=get_ROC_PR_values,
                          get_calibration_curves=get_calibration_curves,
                          get_hists_per_metrics=get_hists_per_metrics)
 
@@ -134,6 +138,8 @@ class Metrics_Binary(Metrics):
         self.cm = self.cms[self.threshold]
         if self.get_metrics_per_patch:
             self.export_metrics_per_patch_csv()
+        if self.get_ROC_PR_values:
+            self.export_ROC_PR_values()
 
     def create_data_for_metrics(self):
         """
@@ -397,3 +403,15 @@ class Metrics_Binary(Metrics):
         """
         path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
         self.df_dataset.to_csv(path_csv, index=False)
+
+    def export_ROC_PR_values(self):
+        """
+            Export the values used to create PR and ROC curves in a csv file.
+        """
+        path_ROC_ROC_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
+        df_ROC_PR_values = pd.DataFrame(data={"Thresholds": self.threshold_range,
+                                              "TPR": self.df_thresholds['Recall'],
+                                              "FPR": self.df_thresholds['FPR'],
+                                              "Precision": self.df_thresholds['Precision'],
+                                              "Recall": self.df_thresholds['Recall']})
+        df_ROC_PR_values.to_csv(path_ROC_ROC_csv, index=False)

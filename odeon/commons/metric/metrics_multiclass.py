@@ -33,6 +33,7 @@ class Metrics_Multiclass(Metrics):
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
@@ -88,6 +89,8 @@ class Metrics_Multiclass(Metrics):
             won't be created, by default True
         get_ROC_PR_curves : bool, optional
             Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_ROC_PR_values: bool, optional
+            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
         get_calibration_curves : bool, optional
             Boolean to know if the user wants to generate calibration curves, by default True
         get_hists_per_metrics : bool, optional
@@ -112,6 +115,7 @@ class Metrics_Multiclass(Metrics):
                          get_normalize=get_normalize,
                          get_metrics_per_patch=get_metrics_per_patch,
                          get_ROC_PR_curves=get_ROC_PR_curves,
+                         get_ROC_PR_values=get_ROC_PR_values,
                          get_calibration_curves=get_calibration_curves,
                          get_hists_per_metrics=get_hists_per_metrics)
 
@@ -152,6 +156,9 @@ class Metrics_Multiclass(Metrics):
         # Create a csv to export the computed metrics per patch.
         if self.get_metrics_per_patch:
             self.export_metrics_per_patch_csv()
+
+        if self.get_ROC_PR_values:
+            self.export_ROC_PR_values()
 
     def create_data_for_metrics(self):
         """
@@ -411,19 +418,22 @@ class Metrics_Multiclass(Metrics):
         str
             Output path where an image with the plot will be created.
         """
+        cmap_colors = [plt.get_cmap('rainbow')(1. * i/self.nbr_class) for i in range(self.nbr_class)]
+        colors = cycler(color=cmap_colors)
+
         if self.output_type == 'json':
             self.dict_export['PR ROC info'] = self.vect_classes
         else:
             plt.figure(figsize=(16, 8))
             plt.subplot(121)
-            for class_i in self.class_labels:
+            for class_i, c in zip(self.class_labels, colors):
                 fpr = np.array(self.vect_classes[class_i]['FPR'])
                 tpr = np.array(self.vect_classes[class_i]['Recall'])
                 fpr, tpr = fpr[::-1], tpr[::-1]
                 fpr, tpr = np.insert(fpr, 0, 0), np.insert(tpr, 0, 0)
                 fpr, tpr = np.append(fpr, 1), np.append(tpr, 1)
                 roc_auc = auc(fpr, tpr)
-                plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}')
+                plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}', color=c['color'])
             plt.plot([0, 1], [0, 1], 'r--')
             plt.ylabel('True Positive Rate')
             plt.xlabel('False Positive Rate')
@@ -432,7 +442,7 @@ class Metrics_Multiclass(Metrics):
             plt.grid(True)
 
             plt.subplot(122)
-            for class_i in self.class_labels:
+            for class_i, c in zip(self.class_labels, colors):
                 precision = np.array(self.vect_classes[class_i]['Precision'])
                 recall = np.array(self.vect_classes[class_i]['Recall'])
                 precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
@@ -441,7 +451,7 @@ class Metrics_Multiclass(Metrics):
                 recall, precision = np.insert(recall, 0, 0), np.insert(precision, 0, 1)
                 recall, precision = np.append(recall, 1), np.append(precision, 0)
                 pr_auc = auc(recall, precision)
-                plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}')
+                plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}', color=c['color'])
             plt.plot([1, 0], [0, 1], 'r--')
             plt.title('Precision-Recall Curve')
             plt.ylabel('Precision')
@@ -469,6 +479,9 @@ class Metrics_Multiclass(Metrics):
         str
             Output path where an image with the plot will be created.
         """
+        cmap_colors = [plt.get_cmap('rainbow')(1. * i/self.nbr_class) for i in range(self.nbr_class)]
+        colors = cycler(color=cmap_colors)
+
         # Normalize dict_hist_counts to put the values between 0 and 1:
         total_pixel = np.sum(self.dict_hist_counts[self.class_labels[0]])
         self.dict_hist_counts = {key: value / total_pixel for key, value in self.dict_hist_counts.items()}
@@ -488,8 +501,9 @@ class Metrics_Multiclass(Metrics):
             # Plot 1: calibration curves
             plt.subplot(211)
             plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-            for class_i in self.class_labels:
-                plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-", label=class_i)
+            for class_i, c in zip(self.class_labels, colors):
+                plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-",
+                         label=class_i, color=c["color"])
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.title('Calibration plots (reliability curve)')
             plt.ylabel('Fraction of positives')
@@ -497,9 +511,9 @@ class Metrics_Multiclass(Metrics):
 
             # Plot 2: Hist of predictions distributions
             plt.subplot(212)
-            for class_i in self.class_labels:
+            for class_i, c in zip(self.class_labels, colors):
                 plt.hist(self.bins[:-1], weights=self.dict_hist_counts[class_i],
-                         bins=self.bins, histtype="step", label=class_i, lw=2)
+                         bins=self.bins, histtype="step", label=class_i, lw=2, color=c['color'])
             plt.xticks(self.bins_xticks, self.bins_xticks)
             plt.ylabel('Count')
             plt.xlabel('Mean predicted value')
@@ -535,9 +549,9 @@ class Metrics_Multiclass(Metrics):
         str
             Output path where an image with the plot will be created.
         """
+        # Here 7 corresponds to the average number of metrics.
         cmap_colors = [plt.get_cmap('turbo')(1. * i/7) for i in range(7)][1:]
         colors = cycler(color=cmap_colors)
-        plt.rc('axes', prop_cycle=colors)
 
         n_plot = len(list_metrics)
         n_rows = ((n_plot - 1) // n_cols) + 1
@@ -616,3 +630,18 @@ class Metrics_Multiclass(Metrics):
         """
         path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
         self.df_dataset.to_csv(path_csv, index=False)
+
+    def export_ROC_PR_values(self):
+        """
+            Export the values used to create PR and ROC curves in a csv file.
+        """
+        path_ROC_ROC_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
+        data = {}
+        data['Thresholds'] = self.threshold_range
+        for class_i in self.class_labels:
+            data[class_i + '_tpr'] = self.vect_classes[class_i]['Recall']
+            data[class_i + '_fpr'] = self.vect_classes[class_i]['FPR']
+            data[class_i + '_precision'] = self.vect_classes[class_i]['Precision']
+            data[class_i + '_recall'] = self.vect_classes[class_i]['Recall']
+        df_ROC_PR_values = pd.DataFrame(data=data)
+        df_ROC_PR_values.to_csv(path_ROC_ROC_csv, index=False)

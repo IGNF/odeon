@@ -38,6 +38,7 @@ class CLI_Metrics(BaseTool):
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
@@ -85,6 +86,8 @@ class CLI_Metrics(BaseTool):
             won't be created, by default True
         get_ROC_PR_curves : bool, optional
             Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_ROC_PR_values: bool, optional
+            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
         get_calibration_curves : bool, optional
             Boolean to know if the user wants to generate calibration curves, by default True
         get_hists_per_metrics : bool, optional
@@ -121,6 +124,7 @@ class CLI_Metrics(BaseTool):
         self.get_normalize = get_normalize
         self.get_metrics_per_patch = get_metrics_per_patch
         self.get_ROC_PR_curves = get_ROC_PR_curves
+        self.get_ROC_PR_values = get_ROC_PR_values
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
@@ -206,6 +210,7 @@ class CLI_Metrics(BaseTool):
                                                              get_normalize=get_normalize,
                                                              get_metrics_per_patch=self.get_metrics_per_patch,
                                                              get_ROC_PR_curves=self.get_ROC_PR_curves,
+                                                             get_ROC_PR_values=get_ROC_PR_values,
                                                              get_calibration_curves=get_calibration_curves,
                                                              get_hists_per_metrics=get_hists_per_metrics)
 

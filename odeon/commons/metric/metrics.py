@@ -57,6 +57,7 @@ DEFAULTS_VARS = {'output_type': 'html',
                  'get_normalize': True,
                  'get_metrics_per_patch': True,
                  'get_ROC_PR_curves': True,
+                 'get_ROC_PR_values': False,
                  'get_calibration_curves': True,
                  'get_hists_per_metrics': True}
 
@@ -81,6 +82,7 @@ class Metrics(ABC):
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
@@ -133,6 +135,8 @@ class Metrics(ABC):
             won't be created, by default True
         get_ROC_PR_curves : bool, optional
             Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_ROC_PR_values: bool, optional
+            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
         get_calibration_curves : bool, optional
             Boolean to know if the user wants to generate calibration curves, by default True
         get_hists_per_metrics : bool, optional
@@ -184,6 +188,7 @@ class Metrics(ABC):
         self.get_normalize = get_normalize
         self.get_metrics_per_patch = get_metrics_per_patch
         self.get_ROC_PR_curves = get_ROC_PR_curves
+        self.get_ROC_PR_values = get_ROC_PR_values
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
         self.metrics_names = METRICS_NAMES
@@ -213,7 +218,8 @@ class Metrics(ABC):
                                           'threshold': self.threshold,
                                           'threshold_range': self.threshold_range.tolist(),
                                           'bins': self.bins.tolist(),
-                                          'weights': self.weights.tolist()}
+                                          'weights': self.weights if isinstance(self.weights, list)
+                                          else self.weights.tolist()}
         self.report = Report_Factory(self)
 
     def __call__(self):
@@ -644,7 +650,13 @@ class Metrics(ABC):
         str
             Ouput path of the image containing the plot.
         """
-        figsize = (10, 7) if cm.shape[0] < 10 else (12, 9)
+        if cm.shape[0] < 10:
+            figsize = (10, 7)
+        elif cm.shape[0] >= 10 and cm.shape[0] <= 16:
+            figsize = (12, 9)
+        else:
+            figsize = (16, 11)
+
         fig, ax = plt.subplots(figsize=figsize)
         cbarlabel = 'Coefficients values'
 
@@ -683,7 +695,12 @@ class Metrics(ABC):
         str
             Ouput path of the image containing the plot.
         """
-        figsize = (20, 7) if cm.shape[0] < 10 else (23, 9)
+        if cm.shape[0] < 10:
+            figsize = (20, 7)
+        elif cm.shape[0] >= 10 and cm.shape[0] <= 16:
+            figsize = (23, 9)
+        else:
+            figsize = (26, 11)
 
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=figsize)
         cbarlabel = 'Coefficients values'
