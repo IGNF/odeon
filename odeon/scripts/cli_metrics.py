@@ -140,16 +140,14 @@ class CLI_Metrics(BaseTool):
                 self.class_labels = [class_labels[0], 'no_' + class_labels[0]]
             else:
                 self.class_labels = ['Positive', 'Negative']
-        elif class_labels is not None and len(class_labels) != self.nbr_class:
+        elif mask_bands is None and class_labels is not None and len(class_labels) != self.nbr_class:
             LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter labels is incorrect.")
-        elif mask_bands is not None and class_labels is not None:
-            if len(class_labels) != len(mask_bands):
-                LOGGER.error('ERROR: parameter labels should have a number of input values equal to the number of\
-                            selected bands.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                 "The input parameter labels is incorrect.")
+        elif mask_bands is not None and class_labels is not None and len(class_labels) != len(mask_bands):
+            LOGGER.error('ERROR: parameter labels should have a number of input values equal to the number of\
+                         selected bands.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, "The input parameter labels is incorrect.")
         else:
             self.class_labels = class_labels
 
