@@ -248,6 +248,7 @@ class Metrics_Multiclass(Metrics):
                                 for name_column in self.metrics_names[:-1]:
                                     self.df_dataset.loc[dataset_index, '_'.join(label.split(' ')) + '_' + name_column] \
                                         = metrics_by_class[label][name_column]
+
                             # Mean metrics per sample
                             for metric in self.metrics_names[:-1]:
                                 mean_metric = 0

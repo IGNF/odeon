@@ -40,11 +40,6 @@ Multi-class case
 - Micro : Micro confusion marix and Precision, Recall, F1-Score, IoU.
 - Macro : Global confusion matrix, and compute Precision, Recall, F1-Score, IoU. 
 - Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
-<<<<<<< HEAD
-- Macro : same metrics as the binary case for the sum of all classes but without ROC, PR and calibration curves.
-- Micro : Precision, Recall, F1-Score, IoU and cm but no ROC, PR and calibration curves.
-=======
->>>>>>> upstream/master
 
 Binary case
 ===========
@@ -103,11 +98,7 @@ Example of PR curve:
    :figclass: align-center
 
 .. warning::
-<<<<<<< HEAD
-It is possible to enter a list of thresholds to calculate with the ROC and PR curves using the argument ``threshold_range``.
-=======
 It is possible to enter the number of thresholds used in the computation of ROC and PR curves using the argument ``n_thresholds``.
->>>>>>> upstream/master
 The more thresholds there are, the more precise the curves will be, but in counterpart it will take more time.
 
 Calibration Curve
@@ -122,11 +113,7 @@ This probability gives some kind of confidence on the prediction. Calibration is
 
 The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
 
-<<<<<<< HEAD
-The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
-=======
 The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution. To compare the obtained curves we can rely on the ``f(x) = y`` line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
->>>>>>> upstream/master
 
 
 Metrics Histograms
@@ -292,8 +279,6 @@ Examples of Json config file
             }
         }
 
-<<<<<<< HEAD
-=======
 .. warning::
    To describe in more detail the data to be passed as input to the metrics tool, the tool expects to receive a hotencoder tensor for 
    the masks, i.e. each band (third dimension) of the tensor will correspond to a class and the presence of a class on a pixel will 
@@ -313,7 +298,6 @@ Examples of Json config file
     For the micro strategy, the classes are not the same anymore and the strategy consists in summing the confusion matrices of each class, 
     that's why we won't get the same confusion matrix and metrics in output as if we had used all the bands present in the dataset. 
 
->>>>>>> upstream/master
 Description of JSON arguments
 -----------------------------
 

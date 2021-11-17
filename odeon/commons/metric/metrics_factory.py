@@ -7,4 +7,4 @@ def Metrics_Factory(type_classifier):
     metrics = {"binary": Metrics_Binary,
                "multiclass": Metrics_Multiclass}
 
-    return metrics[type_classifier.lower()]
+    return metrics[type_classifier]
