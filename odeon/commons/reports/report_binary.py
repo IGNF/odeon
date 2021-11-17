@@ -18,15 +18,15 @@ class Report_Binary(Report):
     def create_data(self):
         if self.input_object.output_type != 'json':
             if self.input_object.get_normalize:
-                self.cm = self.input_object.plot_norm_and_value_cms(self.input_object.cms[self.input_object.threshold],
-                                                                    labels=['Positive', 'Negative'],
-                                                                    name_plot='cm_binary.png')
+                self.cm = self.input_object.plot_norm_and_value_cms(self.input_object.cm,
+                                                                    labels=self.input_object.class_labels,
+                                                                    name_plot='cm_binary.png', per_class_norm=False)
             else:
-                self.cm = self.input_object.plot_confusion_matrix(self.input_object.cms[self.input_object.threshold],
-                                                                  labels=['Positive', 'Negative'],
+                self.cm = self.input_object.plot_confusion_matrix(self.input_object.cm,
+                                                                  labels=self.input_object.class_labels,
                                                                   name_plot='cm_binary.png')
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+        if self.input_object.get_calibration_curves:
             self.calibration_curve = self.input_object.plot_calibration_curve()
 
         if self.input_object.get_ROC_PR_curves:
@@ -47,8 +47,9 @@ class Report_Binary(Report):
 
         dict_export['cms'] = cms_json
 
+        json_object = json.dumps(dict_export)
         with open(os.path.join(self.input_object.output_path, 'report_metrics.json'), "w") as output_file:
-            json.dump(dict_export, output_file, indent=4)
+            output_file.write(json_object)
 
     def to_md(self):
         """Create a report in the markdown format.
@@ -75,7 +76,7 @@ class Report_Binary(Report):
 """
             md_elements.append(roc_pr_curves)
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+        if self.input_object.get_calibration_curves:
             calibration_curves = f"""
 ## Calibration Curve
 ![Calibration curve](./{os.path.basename(self.calibration_curve)})
@@ -96,9 +97,6 @@ class Report_Binary(Report):
     def to_html(self):
         """Create a report in the html format.
         """
-        with open(self.html_file, "r") as reader:
-            begin_html = reader.read()
-
         header_html = """
         <!DOCTYPE html>
         <html>
@@ -122,7 +120,7 @@ class Report_Binary(Report):
             <h2>Confusion Matrix</h2>
             <p><img alt="Confusion Matrix" src=./{os.path.basename(self.cm)} /></p>"""
 
-        html_elements = [header_html, begin_html, main_html]
+        html_elements = [header_html, self.begin_html, main_html]
 
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
@@ -131,7 +129,7 @@ class Report_Binary(Report):
             """
             html_elements.append(roc_pr_curves)
 
-        if self.input_object.get_calibration_curves and not self.input_object.type_prob == 'hard':
+        if self.input_object.get_calibration_curves:
             calibration_curves = f"""
                 <h2>Calibration Curve</h2>
                 <p><img alt="Calibration Curve" src=./{os.path.basename(self.calibration_curve)} /></p>

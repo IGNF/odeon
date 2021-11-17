@@ -18,20 +18,21 @@ class Report_Multiclass(Report):
     def create_data(self):
         if self.input_object.output_type != 'json':
             if self.input_object.get_normalize:
-                self.path_cm_micro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_micro,
-                                                                               labels=self.input_object.class_labels,
-                                                                               name_plot='cm_micro.png')
                 self.path_cm_macro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_macro,
-                                                                               labels=['Positive', 'Negative'],
+                                                                               labels=self.input_object.class_labels,
                                                                                name_plot='cm_macro.png')
+                self.path_cm_micro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_micro,
+                                                                               labels=['Positive', 'Negative'],
+                                                                               name_plot='cm_micro.png',
+                                                                               per_class_norm=False)
             else:
-                self.path_cm_micro = self.input_object.plot_confusion_matrix(self.input_object.cm_micro,
-                                                                             labels=self.input_object.class_labels,
-                                                                             name_plot='cm_micro.png')
-
                 self.path_cm_macro = self.input_object.plot_confusion_matrix(self.input_object.cm_macro,
-                                                                             labels=['Positive', 'Negative'],
+                                                                             labels=self.input_object.class_labels,
                                                                              name_plot='cm_macro.png')
+
+                self.path_cm_micro = self.input_object.plot_confusion_matrix(self.input_object.cm_micro,
+                                                                             labels=['Positive', 'Negative'],
+                                                                             name_plot='cm_micro.png')
 
         if self.input_object.get_calibration_curves:
             self.path_calibration_curves = self.input_object.plot_calibration_curve()
@@ -51,15 +52,25 @@ class Report_Multiclass(Report):
         dict_export['report macro'] = self.round_df_values(self.input_object.df_report_macro).T.to_dict()
         dict_export['report micro'] = self.round_df_values(self.input_object.df_report_micro).T.to_dict()
         dict_export['report classes'] = self.round_df_values(self.input_object.df_report_classes).T.to_dict()
-
+        json_object = json.dumps(dict_export, indent=4)
         with open(os.path.join(self.input_object.output_path, 'report_metrics.json'), "w") as output_file:
-            json.dump(dict_export, output_file, indent=4)
+            output_file.write(json_object)
 
     def to_md(self):
         """Create a report in the markdown format.
         """
         md_main = f"""
 # ODEON - Metrics
+
+## Micro Strategy
+
+### Metrics
+{self.df_to_md(self.round_df_values(self.input_object.df_report_micro))}
+
+(*) micro-F1 = micro-precision = micro-recall = accuracy
+
+### Confusion matrix
+![Confusion matrix micro](./{os.path.basename(self.path_cm_micro)})
 
 ## Macro Strategy
 
@@ -68,16 +79,6 @@ class Report_Multiclass(Report):
 
 ### Confusion matrix
 ![Confusion matrix macro](./{os.path.basename(self.path_cm_macro)})
-
-
-## Micro Strategy
-
-### Metrics
-{self.df_to_md(self.round_df_values(self.input_object.df_report_micro))}
-
-### Confusion matrix
-![Confusion matrix micro](./{os.path.basename(self.path_cm_micro)})
-
 
 ## Per Class Strategy
 
@@ -105,11 +106,11 @@ class Report_Multiclass(Report):
             metrics_histograms = f"""
 ## Metrics Histograms
 
-### Macro strategy
-![Histograms macro](./{os.path.basename(self.path_hists['macro'])})
-
 ### Micro strategy
 ![Histograms micro](./{os.path.basename(self.path_hists['micro'])})
+
+### Macro strategy
+![Histograms macro](./{os.path.basename(self.path_hists['macro'])})
 
 ### Mean metrics
 ![Histograms means](./{os.path.basename(self.path_hists['means'])})
@@ -132,9 +133,6 @@ class Report_Multiclass(Report):
     def to_html(self):
         """Create a report in the html format.
         """
-        with open(self.html_file, "r") as reader:
-            begin_html = reader.read()
-
         header_html = """
         <!DOCTYPE html>
         <html>
@@ -148,28 +146,34 @@ class Report_Multiclass(Report):
 
         end_html = '</div></div></body></html>'
 
-        main_html = f"""
+        main_html = """
             <h1><center> ODEON  Metrics</center></h1>
+            """
+        html_elements = [header_html, self.begin_html, main_html]
+
+        micro_html = f"""
+            <h2>Micro Strategy</h2>
+            <h3>* Metrics</h3>
+            {self.df_to_html(self.round_df_values(self.input_object.df_report_micro))}
+            (*) micro-F1 = micro-precision = micro-recall = accuracy
+
+            <h3>* Confusion Matrix</h3>
+            <p><img alt="Micro Confusion Matrix" src=./{os.path.basename(self.path_cm_micro)} /></p>
+            """
+        html_elements.append(micro_html)
+
+        if self.input_object.weighted:
+            weigths_html = f'<p>Confusion matrix micro made with weights : {self.input_object.weights}</p>'
+            html_elements.append(weigths_html)
+
+        macro_html = f"""
             <h2>Macro Strategy</h2>
             <h3>* Metrics</h3>
             {self.df_to_html(self.round_df_values(self.input_object.df_report_macro))}
             <h3>* Confusion Matrix</h3>
             <p><img alt="Macro Confusion Matrix" src=./{os.path.basename(self.path_cm_macro)} /></p>
             """
-        html_elements = [header_html, begin_html, main_html]
-
-        if self.input_object.weighted:
-            weigths_html = f'<p>Confusion matrix made with weights : {self.input_object.weights}</p>'
-            html_elements.append(weigths_html)
-
-        micro_html = f"""
-            <h2>Micro Strategy</h2>
-            <h3>* Metrics</h3>
-            {self.df_to_html(self.round_df_values(self.input_object.df_report_micro))}
-            <h3>* Confusion Matrix</h3>
-            <p><img alt="Micro Confusion Matrix" src=./{os.path.basename(self.path_cm_micro)} /></p>
-            """
-        html_elements.append(micro_html)
+        html_elements.append(macro_html)
 
         classes_html = f"""
             <h2>Per class Strategy</h2>
@@ -204,11 +208,11 @@ class Report_Multiclass(Report):
             metrics_histograms = f"""
             <h2>Metrics Histograms</h2>
 
-            <h3>Macro strategy</h3>
-            <p><img alt="Histograms Macro" src=./{os.path.basename(self.path_hists['macro'])} /></p>
-
             <h3>Micro strategy</h3>
             <p><img alt="Histograms Micro" src=./{os.path.basename(self.path_hists['micro'])} /></p>
+
+            <h3>Macro strategy</h3>
+            <p><img alt="Histograms Macro" src=./{os.path.basename(self.path_hists['macro'])} /></p>
 
             <h3>Mean metrics</h3>
             <p><img alt="Histograms Means" src=./{os.path.basename(self.path_hists['means'])} /></p>

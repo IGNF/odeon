@@ -31,9 +31,15 @@ class BCEWithLogitsLoss(nn.Module):
         self.bce_loss = nn.BCEWithLogitsLoss(weight, reduction=reduction, pos_weight=pos_weight)
 
     def forward(self, logits, targets):
-        probs_flat = logits.view(-1)  # Flatten
-        targets_flat = targets.view(-1)  # Flatten
-        return self.bce_loss(probs_flat, targets_flat)
+        # flatten should not be needed
+        # probs_flat = logits.view(-1)  # Flatten
+        # targets_flat = targets.view(-1)  # Flatten
+
+        # we should have logits of shape N,1,H,W and target also of shape N,1,H,W
+        # targets need to be converted to float for pytorch BCEWithLogitsLoss
+        # see :
+        # https://discuss.pytorch.org/t/multi-label-binary-classification-result-type-float-cant-be-cast-to-the-desired-output-type-long/117915
+        return self.bce_loss(logits, targets.float())
 
 
 class CrossEntropyWithLogitsLoss(nn.Module):
@@ -55,7 +61,8 @@ class CrossEntropyWithLogitsLoss(nn.Module):
 
     def forward(self, logits, targets):
         # flatten masks to get rid of channel dimension
-        targets = torch.argmax(targets, dim=1)
+        # force/cast target tensor to long
+        targets = torch.argmax(targets.long(), dim=1)
         return self.cross_entropy(logits, targets)
 
 
@@ -63,7 +70,7 @@ class ComboLoss(nn.Module):
     def __init__(self, weights, per_image=False):
         super().__init__()
         self.weights = weights
-        self.bce = nn.BCEWithLogitsLoss()
+        self.bce = BCEWithLogitsLoss()
         self.dice = DiceLoss(per_image=False)
         self.jaccard = JaccardLoss(per_image=False)
         self.lovasz = LovaszLoss(per_image=per_image)
@@ -181,7 +188,9 @@ class JaccardLoss(nn.Module):
 
     def forward(self, input, target):
         input = torch.sigmoid(input)
-        return jaccard(input, target, per_image=self.per_image, non_empty=self.non_empty, min_pixels=self.min_pixels)
+        return jaccard(
+            input, target, per_image=self.per_image,
+            non_empty=self.non_empty, min_pixels=self.min_pixels)
 
 
 def lovasz_grad(gt_sorted):

@@ -37,9 +37,14 @@ Binary case
 
 Multi-class case
 ----------------
+- Micro : Micro confusion marix and Precision, Recall, F1-Score, IoU.
+- Macro : Global confusion matrix, and compute Precision, Recall, F1-Score, IoU. 
 - Per class: same metrics as the binary case for each class. Metrics per class and mean metrics.
+<<<<<<< HEAD
 - Macro : same metrics as the binary case for the sum of all classes but without ROC, PR and calibration curves.
 - Micro : Precision, Recall, F1-Score, IoU and cm but no ROC, PR and calibration curves.
+=======
+>>>>>>> upstream/master
 
 Binary case
 ===========
@@ -98,7 +103,11 @@ Example of PR curve:
    :figclass: align-center
 
 .. warning::
+<<<<<<< HEAD
 It is possible to enter a list of thresholds to calculate with the ROC and PR curves using the argument ``threshold_range``.
+=======
+It is possible to enter the number of thresholds used in the computation of ROC and PR curves using the argument ``n_thresholds``.
+>>>>>>> upstream/master
 The more thresholds there are, the more precise the curves will be, but in counterpart it will take more time.
 
 Calibration Curve
@@ -113,7 +122,11 @@ This probability gives some kind of confidence on the prediction. Calibration is
 
 The bottom graph is a histogram representing the distribution of predictions in the input dataset. Thus, for a bin we have the number of pixels in the predictions equal to the value of the bin (for example for the bin 0.2, we have the total number of pixels with a value of 0.2 in all predictions.)
 
+<<<<<<< HEAD
 The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution.And to compare the obtained curves we can rely on the x=y line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
+=======
+The figure above is a curve showing the percentage of positive values among the observations in each bin. We consider a positive value when the value in the mask is equal to 1. We therefore have a representation of the predicted distribution according to the desired distribution. To compare the obtained curves we can rely on the ``f(x) = y`` line representing a perfectly calibrated model because we want the distributions between the predictions and the ground truth to be similar.
+>>>>>>> upstream/master
 
 
 Metrics Histograms
@@ -128,64 +141,55 @@ Histograms representing the values taken for each observation of a metric. These
 Multiclass case
 ===============
 
-Macro Strategy
+Micro Strategy
 --------------
 
-Macro strategy consists in looking at the performance of a model from a more global point of view.
+Micro strategy consists in looking at the performance of a model from a more global point of view.
+The quality of a prediction will not be judged by class but by looking at the whole number of TP, FN and FP made by the model.
 To do so, each class is first treated as in a binary case (1 vs all) in order to produce a confusion matrix for each class.
 The confusion matrices are then added together to form a single matrix which will be our macro confusion matrix.
+In micro strategy, precision = recall = F1-score = Overall Accuracy (OA).
 
 .. note::
     The sum of the classes can be done in a pondered way by entering weights argument in the configuration file.
     These weights can be used to rebalance the importance of a class on a metric, or even by setting the weights to 0 for a class,
     this class will not be taken into account for the calculation of macro metrics. 
 
-Example a dataframe with metrics in marco strategy:
+Example a dataframe with metrics in micro strategy:
 
-.. figure:: assets/metrics/metrics_macro_df.png
+.. figure:: assets/metrics/metrics_micro_df.png
    :align: center
    :figclass: align-center
 
-Micro Strategy
+Example of a confusion matrix in micro strategy:
+.. figure:: assets/metrics/metrics_micro_cm.png
+   :align: center
+   :figclass: align-center
+
+Macro Strategy
 --------------
 
-The micro strategy provides a global but more accurate view of the performance of a model.
-The quality of a prediction will not be judged by class but by looking at the whole number of TP, FN and FP made by the model.
+In macro strategy, the metrics are calculated for each classes and then we compute their mean.
+The first line 'average' is the unweighted mean, this does not take label imbalance into account.
+The second line, 'weighted avg' is the weighted mean. We calculate metrics for each label, and find 
+their average weighted by the number of true instances for each label. This alters ‘macro’ to account
+for label imbalance; it can result in an F-score that is not between precision and recall.
 
-Example of micro confusion matrix with 3 classes:
-
-.. list-table:: Confusion Matrice for micro strategy
-   :widths: 20 20 20 20
-
-   * - 
-     - A
-     - B
-     - C
-   * - A
-     - TP
-     - FN
-     - FN
-   * - B
-     - FP
-     - TP
-     - FN
-   * - C
-     - FP
-     - FP
-     - TP
+.. note::
+    The user can also compute weighted means using his own weights, by using the parameter `weights`.
 
 Example of confusion matrices:
 
-.. figure:: assets/metrics/metrics_cm_micro.png
+.. figure:: assets/metrics/metrics_cm_macro.png
    :align: center
    :figclass: align-center
 
 The matrix on the left is the confusion matrix where i-th row and j-th column entry indicates the number of samples with true label being i-th class and predicted label being j-th class.
-On the right the confusion matrix is normalized per true label class.
+On the right the confusion matrix is normalized per true label class. 
 
-Example of dataframe containing metrics from micro strategy:
+Example of dataframe containing metrics from macro strategy:
 
-.. figure:: assets/metrics/metrics_micro_df.png
+.. figure:: assets/metrics/metrics_macro_df.png
    :align: center
    :figclass: align-center
 
@@ -251,7 +255,8 @@ Examples of Json config file
                 "mask_path": "/path/to/intput/folder/msk",
                 "pred_path": "/path/to/input/folder/pred",
                 "output_path": "/path/to/output/folder/",
-                "type_classifier": "binary"
+                "type_classifier": "binary",
+                "in_prob_range": false
                 }
         }
  
@@ -267,21 +272,48 @@ Examples of Json config file
                 "mask_path": "/path/to/intput/folder/msk",
                 "pred_path": "/path/to/input/folder/pred",
                 "output_path": "/path/to/output/folder/",
+                "output_type": "html",
                 "type_classifier": "multiclass",
+                "in_prob_range": false,
                 "weights": [0.3, 0.5, 0.0, 0.0, 0.9, 0.1, 0.1],
-                "class_labels": ["batiments", "route", "ligneux", "herbacé", "eau", "mineraux", "piscines"],
+                "class_labels": ["batiments", "route", "ligneux"],
+                "mask_bands": [1, 2, 3],
+                "pred_bands": [1, 2, 3],
                 "threshold": 0.6,
-                "threshold_range": [0.45, ,0.5, 0.55, 0.6, 0.65, 0.7],
+                "n_thresholds": 10,
                 "bit_depth": "8 bits",
-                "nb_calibration_bins": 10,
+                "n_bins": 10,
                 "get_normalize": true,
                 "get_metrics_per_patch": true,
                 "get_ROC_PR_curves": true,
+                "get_ROC_PR_values": true,
                 "get_calibration_curves": false,
                 "get_hists_per_metrics": false
             }
         }
 
+<<<<<<< HEAD
+=======
+.. warning::
+   To describe in more detail the data to be passed as input to the metrics tool, the tool expects to receive a hotencoder tensor for 
+   the masks, i.e. each band (third dimension) of the tensor will correspond to a class and the presence of a class on a pixel will 
+   be noted by the value 1 if present otherwise 0. The expected predictions must be of the same size as the masks. If the values of
+   the predictions are not "probabilities" between 0 and 1, the ``in_prob_range`` parameter must be set to False so that the values
+   are changed to be in the range [0, 1].
+
+.. note::
+    There is the possibility to calculate metrics only on selected bands. To do so, it is necessary to use the parameters ``mask_bands`` and
+    ``pred_bands`` to define the indices of the bands of the classes you want to select in the mask and do the same with the corresponding
+    bands in the prediction.
+    By selecting bands in the mask and in the prediction we will be able to extract the metrics for each class, some metrics will change.
+    For the macro strategy, the metrics per class (Accuracy, Precision, Recall, Specificity, F1-Score and IoU) and also the curves for each
+    class (ROC, PR, calibration) will remain the same but the global metrics of this strategy will not. The confusion matrix will keep the
+    same values for the selected classes but there will be in addition the integration of a class named 'Other' representing the grouping of
+    the non selected classes.
+    For the micro strategy, the classes are not the same anymore and the strategy consists in summing the confusion matrices of each class, 
+    that's why we won't get the same confusion matrix and metrics in output as if we had used all the bands present in the dataset. 
+
+>>>>>>> upstream/master
 Description of JSON arguments
 -----------------------------
 
@@ -293,6 +325,9 @@ Description of JSON arguments
     Path where the report/output data will be created.
 - ``type_classifier`` : str, required
     String allowing to know if the classifier is of type binary or multiclass.
+- ``in_prob_range`` : boolean, required
+    Boolean to be set to true if the values in the predictions passed as inputs are between 0 and 1.
+    If not, set the parameter to false so that the tool modifies the values to be normalized between 0 and 1.
 - ``output_type`` : str, optional
     Desired format for the output file. Could be json, md or html.
     A report will be created if the output type is html or md.
@@ -301,18 +336,23 @@ Description of JSON arguments
 - ``class_labels`` : list of str, optional
     Label for each class in the dataset.
     If None the labels of the classes will be of type:  0 and 1 by default None
+- ``mask_bands`` : list of int
+    List of the selected bands in the dataset masks bands. (Selection of the classes)
+- ``pred_bands`` : list of int
+    List of the selected bands in the dataset preds bands. (Selection of the classes)
 - ``weights`` : list of number, optional
     List of weights to balance the metrics.
     In the binary case the weights are not used in the metrics computation, by default None.
 - ``threshold`` : float, optional
     Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
     Use for macro, micro cms and metrics for all strategies, by default 0.5.
-- ``threshold_range`` : list of float, optional
-    List of values that will be used as a threshold when calculating the ROC and PR curves,
-    by default np.arange(0.1, 1.1, 0.1).
+- ``n_thresholds`` : int, optional
+    Number of thresholds used in the computation of ROC and PR, by default 10.
 - ``bit_depth`` : str, optional
     The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
-- ``nb_calibration_bins`` : int, optional
+- ``bins`` : list of float, optional
+    List of bins used for the creation of histograms.
+- ``n_bins`` : int, optional
     Number of bins used in the construction of calibration curves, by default 10.
 - ``get_normalize`` : bool, optional
     Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
@@ -322,6 +362,8 @@ Description of JSON arguments
     won't be created, by default True
 - ``get_ROC_PR_curves`` : bool, optional
     Boolean to know if the user wants to generate ROC and PR curves, by default True
+- ``get_ROC_PR_values`` : bool, optional
+    Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
 - ``get_calibration_curves`` : bool, optional
     Boolean to know if the user wants to generate calibration curves, by default True
 - ``get_hists_per_metrics`` : bool, optional

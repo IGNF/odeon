@@ -6,10 +6,14 @@ This tool handles binary and multi-class cases.
 """
 import os
 import csv
+<<<<<<< HEAD
+=======
+import numpy as np
+import rasterio
+>>>>>>> upstream/master
 from datetime import datetime
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
-from odeon.commons.image import image_to_ndarray
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.nn.datasets import MetricsDataset
 from odeon.commons.metric.metrics_factory import Metrics_Factory
@@ -23,16 +27,21 @@ class CLI_Metrics(BaseTool):
                  pred_path,
                  output_path,
                  type_classifier,
-                 class_labels=None,
+                 in_prob_range,
                  output_type=DEFAULTS_VARS['output_type'],
+                 class_labels=DEFAULTS_VARS['class_labels'],
+                 mask_bands=DEFAULTS_VARS['mask_bands'],
+                 pred_bands=DEFAULTS_VARS['pred_bands'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
-                 threshold_range=DEFAULTS_VARS['threshold_range'],
+                 n_thresholds=DEFAULTS_VARS['n_thresholds'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
+                 bins=DEFAULTS_VARS['bins'],
+                 n_bins=DEFAULTS_VARS['n_bins'],
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
@@ -44,6 +53,9 @@ class CLI_Metrics(BaseTool):
             Path where the report/output data will be created.
         type_classifier : str
             String allowing to know if the classifier is of type binary or multiclass.
+        in_prob_range : boolean,
+            Boolean to be set to true if the values in the predictions passed as inputs are between 0 and 1.
+            If not, set the parameter to false so that the tool modifies the values to be normalized between 0 and 1.
         output_type : str, optional
             Desired format for the output file. Could be json, md or html.
             A report will be created if the output type is html or md.
@@ -51,18 +63,23 @@ class CLI_Metrics(BaseTool):
             to be easily reusable, by default html.
         class_labels : list of str, optional
             Label for each class in the dataset, by default None.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands. (Selection of the classes)
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
         threshold : float, optional
             Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
             Use for macro, micro cms and metrics for all strategies, by default 0.5.
-        threshold_range : list of float, optional
-            List of values that will be used as a threshold when calculating the ROC and PR curves,
-            by default np.arange(0.1, 1.1, 0.1).
+        n_thresholds : int, optional
+            Number of thresholds used in the computation of ROC and PR, by default 10.
         bit_depth : str, optional
             The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
-        nb_calibration_bins : int, optional
+        bins: list of float, optional
+            List of bins used for the creation of histograms.
+        n_bins : int, optional
             Number of bins used in the construction of calibration curves, by default 10.
         get_normalize : bool, optional
             Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
@@ -72,6 +89,8 @@ class CLI_Metrics(BaseTool):
             won't be created, by default True
         get_ROC_PR_curves : bool, optional
             Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_ROC_PR_values: bool, optional
+            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
         get_calibration_curves : bool, optional
             Boolean to know if the user wants to generate calibration curves, by default True
         get_hists_per_metrics : bool, optional
@@ -98,27 +117,68 @@ class CLI_Metrics(BaseTool):
         else:
             LOGGER.error('ERROR: the output file can only be in md, json, html.')
 
-        self.type_classifier = type_classifier
+        self.in_prob_range = in_prob_range
+        self.type_classifier = type_classifier.lower()
         self.threshold = threshold
-        self.threshold_range = threshold_range
+        self.n_thresholds = n_thresholds
         self.bit_depth = bit_depth
-        self.nb_calibration_bins = nb_calibration_bins
+        self.n_bins = n_bins
+        self.bins = bins
         self.get_normalize = get_normalize
-
         self.get_metrics_per_patch = get_metrics_per_patch
         self.get_ROC_PR_curves = get_ROC_PR_curves
+        self.get_ROC_PR_values = get_ROC_PR_values
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
-
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
         self.height, self.width, self.nbr_class = self.get_samples_shapes()
 
-        if class_labels is not None and len(class_labels) != self.nbr_class:
+        if self.nbr_class > 2 and self.type_classifier == 'binary':
+            LOGGER.error("ERROR: If you have more than 2 classes, please use the classifier type 'multiclass'.")
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                             "The input parameter type classifier is incorrect.")
+
+        if self.nbr_class == 2 and class_labels is not None and len(class_labels) == 1:
+            if isinstance(class_labels, list):
+                self.class_labels = [class_labels[0], 'no_' + class_labels[0]]
+            else:
+                self.class_labels = ['Positive', 'Negative']
+        elif mask_bands is None and class_labels is not None and len(class_labels) != self.nbr_class:
             LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter labels is incorrect.")
+        elif mask_bands is not None and class_labels is not None and len(class_labels) != len(mask_bands):
+            LOGGER.error('ERROR: parameter labels should have a number of input values equal to the number of\
+                         selected bands.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, "The input parameter labels is incorrect.")
         else:
             self.class_labels = class_labels
+
+        if not ((mask_bands is None or pred_bands is None) or (mask_bands is not None and pred_bands is not None)):
+            LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                  "The input parameters mask_bands and pred_bands are incorrect.")
+        elif mask_bands is not None and pred_bands is not None:
+            if len(mask_bands) != len(pred_bands):
+                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and pred_bands are incorrect.")
+            elif self.type_classifier != 'multiclass':
+                LOGGER.error('ERROR: in the fact that even if we are only interested in one band the input set\
+                            containing several bands is considered as a multiclass case.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and  or type_classifier should be changed.")
+            else:
+                # Standardization of band indices with rasterio/gdal, so the user will input the index 1 for the band 0.
+                mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
+
+                # Checks if the bands entered in the configuration file have values corresponding to the bands of the
+                # images present in the dataset entered
+                self.check_raster_bands(list(range(self.nbr_class)), mask_bands)
+                self.check_raster_bands(list(range(self.nbr_class)), pred_bands)
+
+        self.mask_bands = mask_bands
+        self.pred_bands = pred_bands
 
         if weights is not None and len(weights) != self.nbr_class:
             LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
@@ -131,21 +191,27 @@ class CLI_Metrics(BaseTool):
                                          self.pred_files,
                                          nbr_class=self.nbr_class,
                                          width=self.width,
-                                         height=self.height)
+                                         height=self.height,
+                                         type_classifier=self.type_classifier)
 
         self.metrics = Metrics_Factory(self.type_classifier)(dataset=metrics_dataset,
                                                              output_path=self.output_path,
                                                              type_classifier=self.type_classifier,
+                                                             in_prob_range=self.in_prob_range,
                                                              class_labels=self.class_labels,
                                                              output_type=self.output_type,
+                                                             mask_bands=self.mask_bands,
+                                                             pred_bands=self.pred_bands,
                                                              weights=self.weights,
                                                              threshold=self.threshold,
-                                                             threshold_range=self.threshold_range,
+                                                             n_thresholds=self.n_thresholds,
                                                              bit_depth=self.bit_depth,
-                                                             nb_calibration_bins=self.nb_calibration_bins,
+                                                             bins=self.bins,
+                                                             n_bins=self.n_bins,
                                                              get_normalize=get_normalize,
                                                              get_metrics_per_patch=self.get_metrics_per_patch,
                                                              get_ROC_PR_curves=self.get_ROC_PR_curves,
+                                                             get_ROC_PR_values=get_ROC_PR_values,
                                                              get_calibration_curves=get_calibration_curves,
                                                              get_hists_per_metrics=get_hists_per_metrics)
 
@@ -222,6 +288,27 @@ class CLI_Metrics(BaseTool):
                 LOGGER.warning(f'Problem of matching names between mask {msk} and prediction {pred}.')
         return mask_files, pred_files
 
+    def check_raster_bands(self, raster_band, proposed_bands):
+        """Check if the bands in the configuration file are correct and correspond to the bands in the raster.
+
+        Parameters
+        ----------
+        raster_band : list
+            Bands found by opening the first sample of the dataset.
+        proposed_bands : list
+            Bands proposed in the configuration file.
+        """
+        if isinstance(proposed_bands, list) and len(proposed_bands) >= 1:
+            if not all([band in raster_band for band in proposed_bands]):
+                LOGGER.error(f'ERROR: the bands in the configuration file do not correspond\
+                to the available bands in the image. The bands in the image are : {raster_band}.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and pred_bands are incorrect.")
+        else:
+            LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                  "The input parameters mask_bands and pred_bands are incorrect.")
+
     def get_samples_shapes(self):
         """Get the shape of the input masks and predictions.
 
@@ -243,22 +330,27 @@ class CLI_Metrics(BaseTool):
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
                              f"File ${mask_file} does not exist.")
         else:
-            mask = image_to_ndarray(mask_file)
+            with rasterio.open(mask_file) as mask_raster:
+                mask = mask_raster.read().swapaxes(0, 2).swapaxes(0, 1)
 
         if not os.path.exists(pred_file):
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
                              f"File ${pred_file} does not exist.")
         else:
-            pred = image_to_ndarray(pred_file)
+            with rasterio.open(pred_file) as pred_raster:
+                pred = pred_raster.read().swapaxes(0, 2).swapaxes(0, 1)
 
         assert mask.shape == pred.shape, "Mask shape and prediction shape should be the same."
+
         if mask.shape[-1] == 1:
             nbr_class = 2
         else:
             nbr_class = mask.shape[-1]
-        return mask.shape[0], mask.shape[1], nbr_class
 
+        assert len(np.unique(mask.flatten())) <= nbr_class, \
+            "Mask must contain a maximum number of unique values equal to the number of classes"
 
+<<<<<<< HEAD
 if __name__ == '__main__':
 
     img_path = '/home/SPeillet/OCSGE/data/metrics/img'
@@ -294,3 +386,6 @@ if __name__ == '__main__':
     # metrics = CLI_Metrics(mask_path, pred_path, output_path, get_normalize=True, type_classifier='Multiclass')
 
     metrics()
+=======
+        return mask.shape[0], mask.shape[1], nbr_class
+>>>>>>> upstream/master

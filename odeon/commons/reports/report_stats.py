@@ -114,9 +114,6 @@ class Report_Stats(Report):
         """Create a report in the html format.
         """
         self.rounded_stats()
-        # TODO: the use of html is not really clean and should be change in the future.
-        with open(self.html_file, "r") as reader:
-            begin_html = reader.read()
 
         header_html = """
         <!DOCTYPE html>
@@ -179,7 +176,7 @@ class Report_Stats(Report):
 
             """
 
-        parts_html = [header_html, begin_html, stats_html]
+        parts_html = [header_html, self.begin_html, stats_html]
         if self.input_object.get_radio_stats:
             self.path_radios = self.input_object.plot_hists_radiometry()
             radio_class_html = []

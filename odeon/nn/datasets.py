@@ -4,7 +4,7 @@ from skimage.util import img_as_float
 import rasterio
 # from rasterio.plot import reshape_as_raster
 import numpy as np
-from odeon.commons.image import image_to_ndarray, raster_to_ndarray, CollectionDatasetReader
+from odeon.commons.image import raster_to_ndarray, CollectionDatasetReader
 from odeon.nn.transforms import ToDoubleTensor, ToPatchTensor, ToWindowTensor
 from odeon import LOGGER
 from odeon.commons.rasterio import affine_to_ndarray
@@ -17,6 +17,7 @@ class MetricsDataset(Dataset):
                  mask_files,
                  pred_files,
                  nbr_class,
+                 type_classifier,
                  width=None,
                  height=None):
         self.mask_files = mask_files
@@ -25,22 +26,26 @@ class MetricsDataset(Dataset):
         self.width = width
         self.height = height
         self.patch_size = width * height
+        self.type_classifier = type_classifier
 
     def __len__(self):
-
         return len(self.pred_files)
+
+    def read_raster(self, path_raster):
+        with rasterio.open(path_raster) as raster:
+            img = raster.read().swapaxes(0, 2).swapaxes(0, 1).astype(np.float32)
+            if self.nbr_class == 2 and self.type_classifier == 'binary':
+                return img[:, :, 0]
+            else:
+                return img
 
     def __getitem__(self, index):
 
         mask_file = self.mask_files[index]
         pred_file = self.pred_files[index]
 
-        if self.nbr_class == 2:
-            msk = image_to_ndarray(mask_file)[:, :, 0].astype(np.float32)
-            pred = image_to_ndarray(pred_file)[:, :, 0].astype(np.float32)
-        else:
-            msk = image_to_ndarray(mask_file).astype(np.float32)
-            pred = image_to_ndarray(pred_file).astype(np.float32)
+        msk = self.read_raster(mask_file)
+        pred = self.read_raster(pred_file)
 
         assert os.path.basename(mask_file) == os.path.basename(pred_file)
         sample = {"mask": msk, "pred": pred, "name_file": mask_file}
@@ -94,13 +99,27 @@ class PatchDataset(Dataset):
 
         # load image file
         image_file = self.image_files[index]
-        img = image_to_ndarray(image_file, width=self.width, height=self.height, band_indices=self.image_bands)
+        img, _ = raster_to_ndarray(
+                                    image_file,
+                                    width=self.width,
+                                    height=self.height,
+                                    resolution=None,
+                                    band_indices=self.image_bands
+                                    )
+
         # pixels are normalized to [0, 1]
         img = img_as_float(img)
 
         # load mask file
         mask_file = self.mask_files[index]
-        msk = image_to_ndarray(mask_file, width=self.width, height=self.height, band_indices=self.mask_bands)
+        msk, _ = raster_to_ndarray(
+                                    mask_file,
+                                    width=self.width,
+                                    height=self.height,
+                                    resolution=None,
+                                    band_indices=self.mask_bands
+                                    )
+
         sample = {"image": img, "mask": msk}
 
         # apply transforms
@@ -221,7 +240,6 @@ class ZoneDetectionDataset(PatchDetectionDataset):
             # LOGGER.info(image_file)
             # LOGGER.info(self.image_files)
             img = CollectionDatasetReader.get_stacked_window_collection(self.dict_of_raster,
-                                                                        self.meta,
                                                                         bounds,
                                                                         self.width,
                                                                         self.height,

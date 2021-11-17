@@ -213,8 +213,7 @@ tile factor: {self.zone["tile_factor"]}
             if self.dataset["path"].endswith(".csv"):
 
                 self.df = pd.read_csv(self.dataset["path"], usecols=[0], header=None, names=["img_file"])
-                # Intéressant à rajouter pour les métriques?
-                # self.df = pd.read_csv(self.dataset["path"], usecols=[1], header=None, names=["msk_file"])
+
             else:
 
                 img_array = [f for f in os.listdir(self.dataset["path"]) if os.path.isfile(os.path.join(

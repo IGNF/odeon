@@ -2,7 +2,6 @@
 module of Detection jobs
 """
 import os
-import torch.multiprocessing
 import math
 import multiprocessing
 import torch
@@ -22,8 +21,6 @@ from odeon.commons.rasterio import ndarray_to_affine, RIODatasetCollection
 from odeon.commons.image import TypeConverter, substract_margin
 from odeon.commons.shape import create_polygon_from_bounds
 from odeon.commons.folder_manager import create_folder
-
-torch.multiprocessing.set_sharing_strategy('file_system')
 NB_PROCESSOR = multiprocessing.cpu_count()
 
 

@@ -34,19 +34,30 @@ from odeon.commons.reports.report_factory import Report_Factory
 from odeon.commons.exception import OdeonError, ErrorCodes
 
 FIGSIZE = (8, 6)
+SMOOTH = 0.000001
+METRICS_NAMES = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
+NBR_METRICS_MICR0 = len(['Accuracy', 'IoU'])
+NBR_METRICS_MACR0 = len(['Precision', 'Recall', 'F1-Score', 'IoU'])
+NBR_METRICS_PER_CLASS = len(['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU'])
+
 
 # Dict with the default variables used to init Metrics and CLI_metrics objects.
 DEFAULTS_VARS = {'output_type': 'html',
-                 'threshold': 0.5,
-                 'threshold_range': np.arange(0.1, 1.1, 0.1),
+                 'class_labels': None,
+                 'mask_bands': None,
+                 'pred_bands': None,
                  'weights': None,
-                 'nb_calibration_bins': 10,
+                 'threshold': 0.5,
+                 'n_thresholds': 10,
+                 'bins': None,
+                 'n_bins': None,
                  'bit_depth': '8 bits',
                  'batch_size': 1,
                  'num_workers': 1,
                  'get_normalize': True,
                  'get_metrics_per_patch': True,
                  'get_ROC_PR_curves': True,
+                 'get_ROC_PR_values': False,
                  'get_calibration_curves': True,
                  'get_hists_per_metrics': True}
 
@@ -57,16 +68,21 @@ class Metrics(ABC):
                  dataset,
                  output_path,
                  type_classifier,
-                 class_labels=None,
+                 in_prob_range,
                  output_type=DEFAULTS_VARS['output_type'],
+                 class_labels=DEFAULTS_VARS['class_labels'],
+                 mask_bands=DEFAULTS_VARS['mask_bands'],
+                 pred_bands=DEFAULTS_VARS['pred_bands'],
                  weights=DEFAULTS_VARS['weights'],
                  threshold=DEFAULTS_VARS['threshold'],
-                 threshold_range=DEFAULTS_VARS['threshold_range'],
+                 n_thresholds=DEFAULTS_VARS['n_thresholds'],
                  bit_depth=DEFAULTS_VARS['bit_depth'],
-                 nb_calibration_bins=DEFAULTS_VARS['nb_calibration_bins'],
+                 bins=DEFAULTS_VARS['bins'],
+                 n_bins=DEFAULTS_VARS['n_bins'],
                  get_normalize=DEFAULTS_VARS['get_normalize'],
                  get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
+                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
@@ -83,6 +99,9 @@ class Metrics(ABC):
             Path where the report/output data will be created.
         type_classifier : str
             String allowing to know if the classifier is of type binary or multiclass.
+        in_prob_range : boolean,
+            Boolean to be set to true if the values in the predictions passed as inputs are between 0 and 1.
+            If not, set the parameter to false so that the tool modifies the values to be normalized between 0 and 1.
         output_type : str, optional
             Desired format for the output file. Could be json, md or html.
             A report will be created if the output type is html or md.
@@ -90,18 +109,23 @@ class Metrics(ABC):
             to be easily reusable, by default html.
         class_labels : list of str, optional
             Label for each class in the dataset, by default None.
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands. (Selection of the classes)
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands. (Selection of the classes)
         weights : list of number, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
         threshold : float, optional
             Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
             Use for macro, micro cms and metrics for all strategies, by default 0.5.
-        threshold_range : list of float, optional
-            List of values that will be used as a threshold when calculating the ROC and PR curves,
-            by default np.arange(0.1, 1.1, 0.1).
+        n_thresholds : int, optional
+            Number of thresholds used in the computation of ROC and PR, by default 10.
         bit_depth : str, optional
             The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
-        nb_calibration_bins : int, optional
+        bins: list of float, optional
+            List of bins used for the creation of histograms.
+        n_bins : int, optional
             Number of bins used in the construction of calibration curves, by default 10.
         get_normalize : bool, optional
             Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
@@ -111,6 +135,8 @@ class Metrics(ABC):
             won't be created, by default True
         get_ROC_PR_curves : bool, optional
             Boolean to know if the user wants to generate ROC and PR curves, by default True
+        get_ROC_PR_values: bool, optional
+            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
         get_calibration_curves : bool, optional
             Boolean to know if the user wants to generate calibration curves, by default True
         get_hists_per_metrics : bool, optional
@@ -154,20 +180,23 @@ class Metrics(ABC):
             self.weights = weights
             self.weighted = True
 
-        self.class_ids = np.arange(self.nbr_class)  # Each class is identified by a number
         self.threshold = threshold
-        self.threshold_range = sorted(threshold_range)
+        self.n_thresholds = n_thresholds
+        self.threshold_range = np.linspace(0.0, 1.0, self.n_thresholds)
         self.bit_depth = bit_depth
-        self.nb_calibration_bins = nb_calibration_bins
-        self.bins = np.linspace(0., 1. + 1e-8, self.nb_calibration_bins + 1)
+        self.define_bins(bins, n_bins)
         self.get_normalize = get_normalize
-
         self.get_metrics_per_patch = get_metrics_per_patch
         self.get_ROC_PR_curves = get_ROC_PR_curves
+        self.get_ROC_PR_values = get_ROC_PR_values
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
-        self.plot_ids = 0
-        self.metrics_names = ['Accuracy', 'Precision', 'Recall', 'Specificity', 'F1-Score', 'IoU', 'FPR']
+        self.metrics_names = METRICS_NAMES
+        self.nbr_metrics_micro = NBR_METRICS_MICR0
+        self.nbr_metrics_macro = NBR_METRICS_MACR0
+        self.nbr_metrics_per_class = NBR_METRICS_PER_CLASS
+        self.mask_bands = mask_bands
+        self.pred_bands = pred_bands
 
         self.depth_dict = {'keep':  1,
                            '8 bits': 255,
@@ -175,44 +204,92 @@ class Metrics(ABC):
                            '14 bits': 16383,
                            '16 bits': 65535}
 
-        self.type_prob, self.in_prob_range = self.get_info_pred()
+        self.in_prob_range = in_prob_range
 
-        if not self.get_ROC_PR_curves or self.type_prob == 'hard':
+        if not self.get_ROC_PR_curves:
             self.threshold_range = [self.threshold]
 
-        assert self.threshold in self.threshold_range, 'Threshold should be in the threshold range list.'
+        if self.threshold not in self.threshold_range:
+            self.threshold_range = np.sort(np.append(self.threshold_range, self.threshold))
 
         if self.output_type == 'json':
             self.dict_export = {}
             self.dict_export['params'] = {'class_labels': self.class_labels,
                                           'threshold': self.threshold,
-                                          'threshold_range': self.threshold_range
-                                          if isinstance(self.threshold_range, list) else self.threshold_range.tolist(),
+                                          'threshold_range': self.threshold_range.tolist(),
                                           'bins': self.bins.tolist(),
-                                          'weights': self.weights}
+                                          'weights': self.weights if isinstance(self.weights, list)
+                                          else self.weights.tolist()}
         self.report = Report_Factory(self)
 
     def __call__(self):
         """
         Create a report when the object is called.
         """
+        self.run()
         self.report.create_report()
 
     @abstractmethod
-    def create_data_for_metrics(self):
+    def run(self):
         """
-        Create data to store metrics for each case.
-        """
-        pass
-
-    @abstractmethod
-    def get_metrics_from_cm(self):
-        """
-        Compute the metrics from an input confusion matrix.
+        Run the methods to compute metrics.
         """
         pass
 
-    def binarize(self, type_classifier, prediction, mask=None, threshold=None):
+    def define_bins(self, bins, n_bins):
+        """
+        Create a bins list to compute probabilities histograms in functions of the
+        inputs arguments n_bins, bins.
+
+        Parameters
+        ----------
+        bins : list/None
+            Bins to compute the histogram of the image bands.
+        n_bins: int
+            Number of desired bins.
+        """
+        if bins is None and n_bins is not None:
+            bins = np.linspace(0.0, 1.0, n_bins)
+        elif bins is None and n_bins is None:
+            bins = np.linspace(0.0, 1.0, 11)
+        else:
+            assert min(bins) >= 0 and max(bins) <= 1
+            bins = bins
+        self.bins = bins
+        self.n_bins = len(bins)
+        decimals = 2 if self.n_bins > 10 else 1
+
+        if self.n_bins <= 20:
+            self.bins_xticks = [np.round(bin_i, decimals=decimals) for bin_i in self.bins]
+        else:
+            self.bins_xticks = [np.round(bin_i, decimals=decimals) for bin_i in np.linspace(0.0, 1.0, 11)]
+
+    @staticmethod
+    def select_bands(array, select_bands):
+        """
+        Function allowing to select bands in a mask/prediction array thanks to a list containing the indices of the
+        bands you want to extract. The other unselected bands will be grouped into a single one, which will contain
+        the largest value among them for a given pixel.
+
+        Parameters
+        ----------
+        array : np.array
+            Arrays on which we want to extract the bands.
+        select_bands : list of int
+            List containing the indices of the bands to extract.
+        """
+        bands_selected = [array[:, :, i] for i in select_bands]
+        bands_unselected = [array[:, :, i] for i in list(set(np.arange(array.shape[-1])) - set(select_bands))]
+        bands_selected = np.stack(bands_selected, axis=-1)
+
+        if bands_unselected:
+            bands_unselected = np.stack(bands_unselected, axis=-1)
+            bands_unselected = np.amax(bands_unselected, axis=-1).reshape(array.shape[0], array.shape[1], 1)
+            bands_selected = np.concatenate([bands_selected, bands_unselected], axis=-1)
+
+        return bands_selected
+
+    def binarize(self, type_classifier, prediction, mask=None, threshold=None, pred_bands=None, mask_bands=None):
         """
         Allows the binarisation of predictions according to the type of classifier. If the classification is binary,
         the function will take in input only one prediction and will assign to each of these values either 0 or 1
@@ -230,30 +307,38 @@ class Metrics(ABC):
             Mask/ground truth values, by default None
         threshold : float, optional
             Threshold to binarize input data., by default None
+        mask_bands: list of int
+            List of the selected bands in the dataset masks bands.
+        pred_bands: list of int
+            List of the selected bands in the dataset preds bands.
 
         Returns
         -------
-        np.array
-            Transformed prediction data.
+        np.array or Tuple(np.array)
+            Transformed prediction data (with mask data if multiclass case).
         """
         pred = prediction.copy()
         if not self.in_prob_range:
             pred = self.to_prob_range(pred)
-        if type_classifier == 'multiclass':
+        if type_classifier == 'multiclass' and mask_bands is None and pred_bands is None:
             assert mask is not None
             return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
+        elif type_classifier == 'multiclass' and mask_bands is not None and pred_bands is not None:
+            mask_bands_selected = self.select_bands(mask, select_bands=mask_bands)
+            pred_bands_selected = self.select_bands(pred, select_bands=pred_bands)
+            return np.argmax(mask_bands_selected, axis=2), np.argmax(pred_bands_selected, axis=2)
+
         elif type_classifier == 'binary':
-            if self.type_prob == 'soft':
-                assert threshold is not None
-                pred[pred < threshold] = 0
-                pred[pred >= threshold] = 1
+            assert threshold is not None
+            pred[pred < threshold] = 0
+            pred[pred >= threshold] = 1
             return pred
         else:
             LOGGER.error('ERROR: type_classifier should be Binary or Multiclass')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter 'type_classifier' is incorrect.")
 
-    def get_confusion_matrix(self, truth, pred, nbr_class=None):
+    def get_confusion_matrix(self, truth, pred, nbr_class=None, revert_order=True):
         """
         Return a confusion matrix whose i-th row and j-th column entry indicates the number of samples
         with true label being i-th class and predicted label being j-th class. (example in  binary case)
@@ -284,17 +369,19 @@ class Metrics(ABC):
         assert isinstance(truth, (np.ndarray, np.generic)) and isinstance(pred, (np.ndarray, np.generic))
         if nbr_class is None:
             nbr_class = self.nbr_class
-            class_ids = self.class_ids
-        else:
-            class_ids = list(range(nbr_class))
+        class_ids = list(range(nbr_class))
 
         cm = np.zeros([nbr_class, nbr_class], dtype=np.float64)
         for i, class_i in enumerate(class_ids):
             for j, class_j in enumerate(class_ids):
                 cm[i, j] = np.sum(np.logical_and(truth == class_i, pred == class_j))
-        return np.flip(cm)
+        if revert_order:
+            return np.flip(cm)
+        else:
+            return cm
 
-    def get_metrics_from_obs(self, tp, fn, fp, tn):
+    @staticmethod
+    def get_metrics_from_obs(tp, fn, fp, tn, smooth=SMOOTH):
         """
         Function to calculate the metrics from the observations of the number tp, fn, fp, tn of a confusion matrix.
 
@@ -314,34 +401,13 @@ class Metrics(ABC):
         dict
             Dictionary containing the desired metrics.
         """
-        # Accuracy
-        if tp != 0.0 and tn != 0.0 and tp + tn != 0.0 and tp + fp + tn + fn != 0:
-            accuracy = (tp + tn) / (tp + fp + tn + fn)
-        else:
-            accuracy = 0.0
-
-        # Specificity
-        if tn != 0:
-            specificity = tn / (tn + fp)
-        else:
-            specificity = 0.0
-
-        # Precision, Recall, F1-Score and IoU
-        if tp != 0:
-            precision = tp / (tp + fp)
-            recall = tp / (tp + fn)
-            f1_score = (2 * tp) / (2 * tp + fp + fn)
-            iou = tp / (tp + fp + fn)
-        else:
-            precision = 0.0
-            recall = 0.0
-            f1_score = 0.0
-            iou = 0.0
-
-        if fp != 0:
-            fpr = fp / (fp + tn)
-        else:
-            fpr = 0.0
+        accuracy = (tp + tn) / (tp + fp + tn + fn + smooth)
+        precision = tp / (tp + fp + smooth)
+        recall = tp / (tp + fn + smooth)
+        specificity = tn / (tn + fp + smooth)
+        fpr = fp / (fp + tn + smooth)
+        f1_score = (2 * tp) / (2 * tp + fp + fn + smooth)
+        iou = tp / (tp + fp + fn + smooth)
 
         return {'Accuracy': accuracy,
                 'Precision': precision,
@@ -350,28 +416,6 @@ class Metrics(ABC):
                 'F1-Score': f1_score,
                 'IoU': iou,
                 'FPR': fpr}
-
-    def get_info_pred(self):
-        """
-            Tests on the first tenth of the predictions to check if inputs preds are in soft or in hard,
-            and if pixels values are the expected range value.
-        """
-        nuniques = 0
-        maxu = - float('inf')
-        max_steps = len(self.dataset) // 10
-
-        for i in range(max_steps):
-            sample = self.dataset[i]
-            pred = sample['pred']
-            cr_nuniques = np.unique(pred.flatten())
-            if len(cr_nuniques) > nuniques:
-                nuniques = len(cr_nuniques)
-            if max(cr_nuniques) > maxu:
-                maxu = max(cr_nuniques)
-
-        type_prob = 'soft' if nuniques > self.nbr_class else 'hard'
-        in_prob_range = True if maxu <= 1 else False
-        return type_prob, in_prob_range
 
     def to_prob_range(self, value):
         """
@@ -390,7 +434,8 @@ class Metrics(ABC):
         """
         return value / self.depth_dict[self.bit_depth]
 
-    def heatmap(self, data, row_labels, col_labels, ax=None,
+    @staticmethod
+    def heatmap(data, row_labels, col_labels, ax=None,
                 cbar_kw={}, cbarlabel="", **kwargs):
         """
         Create a heatmap from a numpy array and two lists of labels.
@@ -452,7 +497,8 @@ class Metrics(ABC):
 
         return im, cbar
 
-    def annotate_heatmap(self, im, data=None, valfmt="{x:.3f}",
+    @staticmethod
+    def annotate_heatmap(im, data=None, valfmt="{x:.3f}",
                          textcolors=("black", "white"), threshold=None, **textkw):
         """
         A function to annotate a heatmap.
@@ -504,10 +550,15 @@ class Metrics(ABC):
             for i in range(data.shape[0]):
                 for j in range(data.shape[1]):
                     kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
-                    text = im.axes.text(j, i,
-                                        str(np.round(data[i, j] / valfmt[i, j][0] if data[i, j] != 0 else 0, 1))
-                                        + valfmt[i, j][1],
-                                        **kw)
+                    if valfmt[i, j] == 'nodata':
+                        text = im.axes.text(j, i, valfmt[i, j], **kw)
+                    else:
+                        decimals = 1 if data[i, j] >= 1 else 3
+                        text = im.axes.text(j, i,
+                                            str(np.round(data[i, j] / valfmt[i, j][0] if data[i, j] != 0 else 0,
+                                                         decimals))
+                                            + valfmt[i, j][1],
+                                            **kw)
                     texts.append(text)
         else:
             for i in range(data.shape[0]):
@@ -517,7 +568,8 @@ class Metrics(ABC):
                     texts.append(text)
         return texts
 
-    def get_cm_val_fmt(self, cm):
+    @staticmethod
+    def get_cm_val_fmt(cm, mark_no_data=False):
         """
         Function allowing to obtain a matrix containing the elements necessary to format each cell of a confusion matrix
         so that the number of observations can be entered in a cell. Each element of the matrix consist of tuple with a
@@ -572,9 +624,11 @@ class Metrics(ABC):
 
         cm_val_fmt = np.zeros_like(cm, dtype=object)
         for i in range(cm.shape[0]):
-            for j in range(cm.shape[1]):
-                cm_val_fmt[i, j] = find_val_fmt(cm[i, j])
-
+            if mark_no_data and all(np.equal(cm[i], 0)):
+                cm_val_fmt[i] = ['nodata' for _ in range(cm.shape[1])]
+            else:
+                for j in range(cm.shape[1]):
+                    cm_val_fmt[i, j] = find_val_fmt(cm[i, j])
         return cm_val_fmt
 
     def plot_confusion_matrix(self, cm, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
@@ -596,7 +650,14 @@ class Metrics(ABC):
         str
             Ouput path of the image containing the plot.
         """
-        fig, ax = plt.subplots(figsize=(10, 6))
+        if cm.shape[0] < 10:
+            figsize = (10, 7)
+        elif cm.shape[0] >= 10 and cm.shape[0] <= 16:
+            figsize = (12, 9)
+        else:
+            figsize = (16, 11)
+
+        fig, ax = plt.subplots(figsize=figsize)
         cbarlabel = 'Coefficients values'
 
         im, _ = self.heatmap(cm, labels, labels, ax=ax, cmap=cmap, cbarlabel=cbarlabel)
@@ -608,6 +669,7 @@ class Metrics(ABC):
         fig.tight_layout(pad=3)
         output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
+        plt.close()
         return output_path
 
     def plot_norm_and_value_cms(self, cm, labels, name_plot='norm_and_values_cms.png',
@@ -633,17 +695,29 @@ class Metrics(ABC):
         str
             Ouput path of the image containing the plot.
         """
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(20, 7))
+        if cm.shape[0] < 10:
+            figsize = (20, 7)
+        elif cm.shape[0] >= 10 and cm.shape[0] <= 16:
+            figsize = (23, 9)
+        else:
+            figsize = (26, 11)
+
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=figsize)
         cbarlabel = 'Coefficients values'
 
         # On ax0, normalize cm
         if not per_class_norm:
-            cm_norm = cm.astype('float') / np.sum(cm.flatten())
+            a = cm.astype('float')
+            b = np.sum(cm.flatten())
+            cm_norm = np.divide(a, b, out=np.zeros_like(a), where=b != 0)
         else:
-            cm_norm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+            a = cm.astype('float')
+            b = cm.sum(axis=1)[:, np.newaxis]
+            cm_norm = np.divide(a, b, out=np.zeros_like(a), where=b != 0)
 
         im0, _ = self.heatmap(cm_norm, labels, labels, ax=axs[1], cmap=cmap, cbarlabel=cbarlabel)
-        _ = self.annotate_heatmap(im0, data=np.round(cm_norm, decimals=3))
+        cm_val_fmt_norm = self.get_cm_val_fmt(cm_norm, mark_no_data=True)
+        _ = self.annotate_heatmap(im0, data=np.round(cm_norm, decimals=3), valfmt=cm_val_fmt_norm)
         if not per_class_norm:
             axs[1].set_title('Normalized values', y=-0.1, pad=-14, fontsize=12)
         else:
@@ -657,4 +731,5 @@ class Metrics(ABC):
         fig.tight_layout(pad=2)
         output_path = os.path.join(self.output_path, name_plot)
         plt.savefig(output_path)
+        plt.close()
         return output_path

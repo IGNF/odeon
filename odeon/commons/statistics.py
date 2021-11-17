@@ -196,6 +196,10 @@ class Statistics():
         self.df_dataset, self.df_bands_stats, self.df_classes_stats, self.df_global_stats, self.bands_hists =\
             self.create_data_for_stats()
 
+    def run(self):
+        """
+        Run the methods to compute metrics.
+        """
         self.scan_dataset()
         self.compute_stats()
         self.report = Report_Factory(self)
@@ -204,6 +208,7 @@ class Statistics():
         """
         Function to generate an output file when the instance is called.
         """
+        self.run()
         self.report.create_report()
 
     def get_bins(self, bins):

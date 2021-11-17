@@ -5,7 +5,7 @@ Stats How To
 ``stats`` script compute descriptive statistics on a dataset according to the following items:
 
 * the bands of the images.
-* the classes contained in the masks 
+* the classes contained in the masks
 * the globality of the dataset
 * the radiometry for each class.
 
@@ -27,10 +27,10 @@ Details on the computed statistics
 
 Images bands statistics
 -----------------------
-- ``min``, ``max``: minimum and maximum pixel values for each bands. 
+- ``min``, ``max``: minimum and maximum pixel values for each bands.
 - ``mean``, ``std``: mean and standard deviation of the pixel distribution of each band.
 - ``skewness``, ``kurtosis``: skewness and kurtosis of the pixel distribution of each band. (optional)
-- histograms of pixels distributions per band with selected bins.  
+- histograms of pixels distributions per band with selected bins.
 
 Example of a dataframe containing computed statistics:
 
@@ -57,7 +57,7 @@ or on different figures (thanks to the parameter ``plot_stacked``):
     To have a clearer statistics report, it is possible to enter the labels you want for the bands of the images and the classes present in the masks. Otherwise the image bands will be named band 1, band 2, etc.. and the classes in the masks will be named class 1, class 2, etc..
     (In order to do so, use the parameters ``bands_labels`` and ``masks_labels``).
 
-Classes statistics  
+Classes statistics
 ------------------
 - ``regu L1``: Class-Balanced Loss Based on Effective Number of
     Samples 1/frequency(i)
@@ -79,7 +79,7 @@ Statistics based on the overall dataset
 Global statistics are computed either with all classes or without the last class if we are not in a binary case.
 
 - ``share multilabel``: Percentage of pixels shared by several classes
-- ``avg nb class in patch``: Mean of the number of classes present in each sample 
+- ``avg nb class in patch``: Mean of the number of classes present in each sample
 - ``avg entropy``: Mean of the class distribution entropy for each sample. For each sample, the entropy is at least 0 if a single class is represented and at most log(C) with C the number of classes. The entropy of a sample is log(C) if every class is equally represented. The greater the entropy, the semantically richer the sample is.
 
 Example of a dataframe with a dataset global stats:
@@ -111,21 +111,21 @@ Json file content
         "input_path": "/path/to/input/dataset/train.csv",
         "output_path" : "/path/to/output/folder/"}
  }
- 
+
 .. warning::
    By default, the format of the ouput fil will be "html".
 
 **full json example**
 
 .. code-block:: json
-   
+
    {
     "stats_setup": {
         "input_path": "/path/to/input/dataset/train.csv",
         "output_path": "/path/to/output/folder/",
         "output_type": "html",
-        "image_bands": [0, 1, 2],
-        "mask_bands": [0, 1, 2, 3, 4, 5, 6],
+        "image_bands": [1, 2, 3],
+        "mask_bands": [1, 2, 3, 4, 5, 6],
         "bands_labels": ["red", "green", "blue"],
         "class_labels":["batiments", "route", "eau", "herbace", "ligneux", "mineraux", "autre"],
         "get_skewness_kurtosis": true,

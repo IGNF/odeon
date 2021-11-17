@@ -3,12 +3,12 @@ The report can be created in a certain format (.json, .md. html) and can also be
 directly in the terminal. The created report will be located in the path defined in the
 configuration file of the tool on which the report is made.
 """
-
+import os
 import numpy as np
 import pandas as pd
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 
-HTML_FILE = 'odeon/commons/reports/jupyter_layout.html'
+HTML_FILE = 'jupyter_layout.html'
 PADDING = 1
 ROUND_DECIMALS = 3
 
@@ -28,6 +28,11 @@ class Report(object):
         self.html_file = HTML_FILE
         self.padding = PADDING
         self.round_decimals = ROUND_DECIMALS
+
+        if self.input_object.output_type == 'html':
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            with open(os.path.join(dir_path, self.html_file), "r") as reader:
+                self.begin_html = reader.read()
 
         " A logger for big message "
         self.STD_OUT_LOGGER = get_new_logger("stdout_report")
