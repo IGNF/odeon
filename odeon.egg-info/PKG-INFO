@@ -1,0 +1,69 @@
+Metadata-Version: 2.1
+Name: odeon
+Version: 0.2.12
+Summary: python toolkit for Object Delineation on Earth Observations with Neural network
+Home-page: https://gitlab.com/dai-projets/odeon-landcover
+Author: ODEON Team
+License: MIT
+Keywords: machine-learning,semantic segmentation,earth observation
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+# ODEON Landcover
+
+ODEON stands for Object Delineation on Earth Observations with Neural network.
+It is a set of command-line tools performing semantic segmentation on remote
+sensing images (aerial and/or satellite) with as many layers as you wish.
+
+## Installation
+
+These instructions assume that you already have [conda](https://conda.io/) installed.
+
+First, download and extract a copy of odeon from [repository](https://gitlab.com/dai-projets/odeon-landcover).
+Then navigate to the root of the odeon directory in a terminal and run the following:
+
+```bash
+# Clone repository
+git clone git@gitlab.com:dai-projets/odeon-landcover.git
+or
+git clone https://gitlab.com/dai-projets/odeon-landcover.git
+or
+download a release at https://gitlab.com/dai-projets/odeon-landcover/-/releases
+
+# Go to the root project folder
+cd odeon-landcover
+
+# Install the environment
+conda env create --file=environment.yml
+
+# Activate the environment
+conda activate odeon
+
+# Install snorkel in the environment
+pip install .
+```
+## Documentation
+You can find the documentation of the project at [https://dai-projets.gitlab.io/odeon-landcover/](https://dai-projets.gitlab.io/odeon-landcover/)
+
+## Quickstart
+
+Odeon toolkit is run through main command:
+```bash
+$ odeon
+usage: odeon [-h] -c CONFIG [-v] {sample_grid,trainer}
+odeon: error: the following arguments are required: tool, -c/--config
+```
+
+Each tool needs a specific JSON configuration file. Available schemas can be found in `odeon/scripts/json_defaults` folder.
+
+More information is available in `docs` folder
+
+
