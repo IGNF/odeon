@@ -10,10 +10,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
 from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
-<<<<<<< HEAD:odeon/commons/metric/metrics_binary.py
-=======
 from cycler import cycler
->>>>>>> upstream/master:odeon/commons/metrics/metrics_binary.py
 from tqdm import tqdm
 
 FIGSIZE = (8, 6)
@@ -171,22 +168,12 @@ class Metrics_Binary(Metrics):
         bin_true = np.zeros(len(self.bins))
         bin_total = np.zeros(len(self.bins))
 
-<<<<<<< HEAD:odeon/commons/metric/metrics_binary.py
-        for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Samples', leave=False)):
-            mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
-
-            for threshold in self.threshold_range:
-                pred_cm = pred.copy()
-                pred_cm = self.binarize(self.type_classifier, pred_cm, threshold=threshold)
-                cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten())
-=======
         for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
             mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
             for threshold in self.threshold_range:
                 pred_cm = self.binarize(self.type_classifier, pred, threshold=threshold)
                 cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten(), revert_order=True)
->>>>>>> upstream/master:odeon/commons/metrics/metrics_binary.py
                 self.cms[threshold] += cm
 
                 # Compute metrics per patch and return an histogram of the values
@@ -312,11 +299,7 @@ class Metrics_Binary(Metrics):
             plt.xlabel('Recall')
             plt.legend()
             plt.grid(True)
-<<<<<<< HEAD:odeon/commons/metric/metrics_binary.py
-
-=======
             plt.tight_layout(pad=3)
->>>>>>> upstream/master:odeon/commons/metrics/metrics_binary.py
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             plt.close()
@@ -359,11 +342,7 @@ class Metrics_Binary(Metrics):
             plt.ylabel('Count')
             plt.xlabel('Mean predicted value')
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-<<<<<<< HEAD:odeon/commons/metric/metrics_binary.py
-
-=======
             plt.tight_layout(pad=3)
->>>>>>> upstream/master:odeon/commons/metrics/metrics_binary.py
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             plt.close()

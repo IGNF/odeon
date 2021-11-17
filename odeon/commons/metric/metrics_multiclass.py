@@ -193,11 +193,7 @@ class Metrics_Multiclass(Metrics):
         np.array
             Confusion matrix for micro strategy.
         """
-<<<<<<< HEAD:odeon/commons/metric/metrics_multiclass.py
-        cm_micro = np.zeros([self.nbr_class, self.nbr_class])
-=======
         cm_macro = np.zeros([self.nbr_class, self.nbr_class])
->>>>>>> upstream/master:odeon/commons/metrics/metrics_multiclass.py
         # Dict and dataframe to store data for ROC and PR curves.
         self.cms_one_class = pd.DataFrame(index=self.threshold_range, columns=self.class_labels, dtype=object)
         self.cms_one_class = self.cms_one_class.applymap(lambda x: np.zeros([2, 2]))
@@ -209,18 +205,6 @@ class Metrics_Multiclass(Metrics):
         self.dict_bin_true = {class_i: np.zeros(len(self.bins)) for class_i in self.class_labels}
         self.dict_bin_total = {class_i: np.zeros(len(self.bins)) for class_i in self.class_labels}
 
-<<<<<<< HEAD:odeon/commons/metric/metrics_multiclass.py
-        for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
-            mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
-
-            for i, class_i in enumerate(self.class_labels):
-
-                for threshold in self.threshold_range:
-                    class_mask = mask.copy()[:, :, i]
-                    class_pred = pred.copy()[:, :, i]
-                    bin_pred = self.binarize('binary', class_pred, threshold=threshold)
-                    cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(), nbr_class=2)
-=======
         self.counts_sample_per_class = {class_i: 0 for class_i in self.class_labels}
 
         for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
@@ -236,24 +220,12 @@ class Metrics_Multiclass(Metrics):
                     bin_pred = self.binarize('binary', class_pred, threshold=threshold)
                     cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(),
                                                       nbr_class=2, revert_order=True)
->>>>>>> upstream/master:odeon/commons/metrics/metrics_multiclass.py
                     self.cms_one_class.loc[threshold, class_i] += cr_cm
 
                     # To compute only once data for cm micro.
                     if threshold == self.threshold and i == 0:
                         # Compute cm micro for every sample and stack the results to a total micro cm.
                         # Here binarization with an argmax.
-<<<<<<< HEAD:odeon/commons/metric/metrics_multiclass.py
-                        mask_micro, pred_micro = self.binarize(self.type_classifier, pred.copy(), mask=mask)
-                        cm = self.get_confusion_matrix(mask_micro.flatten(), pred_micro.flatten())
-                        cm_micro += cm
-
-                        # Compute metrics per patch
-                        if self.get_metrics_per_patch:
-
-                            # Get a cm for every sample
-                            metrics_by_class, metrics_micro, metrics_macro, _, _ = self.get_metrics_from_cm(cm)
-=======
                         mask_macro, pred_macro = self.binarize(type_classifier=self.type_classifier,
                                                                prediction=pred,
                                                                mask=mask,
@@ -266,7 +238,6 @@ class Metrics_Multiclass(Metrics):
                         if self.get_metrics_per_patch:
                             # Get a cm for every sample
                             metrics_by_class, metrics_micro,  _, _ = self.get_metrics_from_cm(cm)
->>>>>>> upstream/master:odeon/commons/metrics/metrics_multiclass.py
                             self.df_dataset.loc[dataset_index, 'name_file'] = name_file
                             # in micro, recall = precision = f1-score = oa
                             self.df_dataset.loc[dataset_index, 'OA'] = metrics_micro['Precision']
@@ -285,11 +256,8 @@ class Metrics_Multiclass(Metrics):
                                         weight * self.df_dataset.loc[dataset_index, '_'.join(class_name.split(' ')) +
                                                                                     '_' + metric]
                                 self.df_dataset.loc[dataset_index, 'mean_' + metric] = mean_metric / self.nbr_class
-<<<<<<< HEAD:odeon/commons/metric/metrics_multiclass.py
-=======
                                 if metric in ['Precision', 'Recall', 'F1-Score', 'IoU']:
                                     self.df_dataset.loc[dataset_index, 'macro_' + metric] = mean_metric / self.nbr_class
->>>>>>> upstream/master:odeon/commons/metrics/metrics_multiclass.py
 
                     # To compute only once per class calibration curves.
                     if threshold == self.threshold:
@@ -333,12 +301,7 @@ class Metrics_Multiclass(Metrics):
                 vects['FPR'].append(metrics_raw['FPR'])
                 vects['Precision'].append(metrics_raw['Precision'])
             self.vect_classes[class_j] = vects
-<<<<<<< HEAD:odeon/commons/metric/metrics_multiclass.py
-
-        return cm_micro
-=======
         return cm_macro
->>>>>>> upstream/master:odeon/commons/metrics/metrics_multiclass.py
 
     def get_obs_by_class_from_cm(self, cm):
         """
@@ -494,11 +457,7 @@ class Metrics_Multiclass(Metrics):
             plt.xlabel('Recall')
             plt.legend(loc='lower left')
             plt.grid(True)
-<<<<<<< HEAD:odeon/commons/metric/metrics_multiclass.py
-
-=======
             plt.tight_layout(pad=3)
->>>>>>> upstream/master:odeon/commons/metrics/metrics_multiclass.py
             output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             plt.close()

@@ -6,11 +6,8 @@ This tool handles binary and multi-class cases.
 """
 import os
 import csv
-<<<<<<< HEAD
-=======
 import numpy as np
 import rasterio
->>>>>>> upstream/master
 from datetime import datetime
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
@@ -350,42 +347,4 @@ class CLI_Metrics(BaseTool):
         assert len(np.unique(mask.flatten())) <= nbr_class, \
             "Mask must contain a maximum number of unique values equal to the number of classes"
 
-<<<<<<< HEAD
-if __name__ == '__main__':
-
-    img_path = '/home/SPeillet/OCSGE/data/metrics/img'
-
-    # Cas binaire avec du soft
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/binary_case/pred'
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Binary')
-
-    # Cas binaire avec du hard
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_binaire/pred'
-    # output_path = '/home/SPeillet/OCSGE'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Binary')
-
-    # Cas multiclass avec du soft
-    mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/msk'
-    pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_soft/mcml_case/pred'
-    output_path = '/home/SPeillet/OCSGE/'
-    metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
-
-    # # # Cas multiclass avec du hard
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/pred_hard/subset_mcml/pred'
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, output_type='html', type_classifier='Multiclass')
-
-    # Test dataset intégral (cas multiclass en soft)
-    # mask_path = '/home/SPeillet/OCSGE/data/metrics/msk'
-    # pred_path = '/home/SPeillet/OCSGE/data/metrics/detection_soft/'
-    # output_path = '/home/SPeillet/OCSGE/'
-    # metrics = CLI_Metrics(mask_path, pred_path, output_path, get_normalize=True, type_classifier='Multiclass')
-
-    metrics()
-=======
         return mask.shape[0], mask.shape[1], nbr_class
->>>>>>> upstream/master
