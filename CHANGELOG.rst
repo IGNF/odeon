@@ -81,3 +81,8 @@ Changes
 ------------------
 - fix issue 39: Reports become unreadable when the number of classes is too high and we would like to add the
 possibility to output in a csv file the threshold values corresponding to each point of the ROC/PR curves.
+
+0.2.13 (2021-11-18)
+-------------------
+- Fix issue 40: Metrics: problem with labels in the case of class selection.
+- Fix issue 41: Forgot to change version and do modifcations on CHANGELOG.rst file.
