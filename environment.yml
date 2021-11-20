@@ -17,3 +17,4 @@ dependencies:
   - scikit-image>=0.16.2
   - pandas>=1.0.0
   - geopandas>=0.9.0
+  - albumentations
