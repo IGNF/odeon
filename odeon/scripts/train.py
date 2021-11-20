@@ -155,44 +155,33 @@ class Trainer(BaseTool):
         self.optimizer_name = optimizer
         self.init_lr = lr
         self.class_imbalance = class_imbalance
-
-        # transformations
-        if data_augmentation is None:
-            data_augmentation = ['rotation90']
-        transformation_dict = {
-            "rotation90": Rotation90(),
-            "rotation": Rotation(),
-            "radiometry": Radiometry()
-        }
-        transformation_conf = data_augmentation
-        transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
-
-        self.transformation_functions = list({
-            value for key, value in transformation_dict.items() if key in transformation_keys
-        })
-        self.transformation_functions.append(ToDoubleTensor())
+        import random
+        import albumentations as A
+        self.train_tfm = A.Compose([A.VerticalFlip(p=0.5),
+                                    A.RandomRotate90(p=0.5)])
+        self.val_tfm = None
+        random.seed(7)
 
         assert self.batch_size <= len(self.train_image_files), "batch_size must be lower than the length of training \
                                                                 dataset"
         train_dataset = PatchDataset(self.train_image_files,
                                      self.train_mask_files,
-                                     transform=Compose(self.transformation_functions),
+                                     transform=self.train_tfm,
                                      image_bands=image_bands,
                                      mask_bands=mask_bands)
         self.train_dataloader = DataLoader(train_dataset,
                                            self.batch_size,
                                            shuffle=True,
-                                           num_workers=8,
                                            drop_last=True)
+
         val_dataset = PatchDataset(self.val_image_files,
                                    self.val_mask_files,
-                                   transform=Compose(self.transformation_functions),
+                                   transform=self.val_tfm,
                                    image_bands=image_bands,
                                    mask_bands=mask_bands)
         self.val_dataloader = DataLoader(val_dataset,
                                          self.batch_size,
-                                         shuffle=True,
-                                         num_workers=8)
+                                         shuffle=True)
 
         if image_bands is not None:
             self.n_channels = len(image_bands)
