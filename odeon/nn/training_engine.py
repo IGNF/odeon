@@ -1,12 +1,9 @@
 import os
 from collections import OrderedDict
 from tqdm import tqdm
-
 import torch
-
 from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix_torch, get_iou_metrics_torch
-
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 
@@ -27,7 +24,7 @@ class TrainingEngine:
     output_folder : str
         path to output folder
     output_filename : str
-        output file name for pth file
+tr        output file name for pth file
     epochs : int, optional
         number of epochs, by default 300
     batch_size : int, optional
@@ -157,7 +154,7 @@ class TrainingEngine:
         else:
             confusion_matrix = torch.zeros((self.net.n_classes, self.net.n_classes), dtype=torch.long)
         if use_cuda:
-            confusion_matrix = confusion_matrix.cuda()
+            confusion_matrix = confusion_matrix.cuda(self.device)
 
         with tqdm(total=len(loader),
                   desc=f"Epochs {self.epoch_counter + 1}/{self.epochs}",
@@ -201,7 +198,7 @@ class TrainingEngine:
                     with torch.no_grad():
                         confusion_matrix = confusion_matrix + get_confusion_matrix_torch(
                             preds, masks, multilabel=self.multilabel, cuda=use_cuda)
-                        miou = get_iou_metrics_torch(confusion_matrix, micro=self.micro_iou, cuda=use_cuda)
+                        miou = get_iou_metrics_torch(confusion_matrix, micro=self.micro_iou, cuda=use_cuda, device=self.device)
                     pbar_odict.update({'mean_iou': f'{miou:1.5f}'})
 
                 pbar.set_postfix(pbar_odict)
@@ -219,7 +216,7 @@ class TrainingEngine:
         else:
             confusion_matrix = torch.zeros((self.net.n_classes, self.net.n_classes), dtype=torch.long)
         if use_cuda:
-            confusion_matrix = confusion_matrix.cuda()
+            confusion_matrix = confusion_matrix.cuda(self.device)
 
         with tqdm(total=len(loader), desc="Validating", leave=False) as pbar:
 
@@ -246,7 +243,7 @@ class TrainingEngine:
 
                 #    IOU
                 confusion_matrix = confusion_matrix + get_confusion_matrix_torch(
-                    preds, masks, multilabel=self.multilabel, cuda=use_cuda)
+                    preds, masks, multilabel=self.multilabel, cuda=use_cuda, device=self.device)
 
                 pbar.update(1)
 
