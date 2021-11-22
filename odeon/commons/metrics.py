@@ -129,7 +129,7 @@ def get_confusion_matrix(predictions, target, multilabel=False):
     return cms
 
 
-def get_confusion_matrix_torch(predictions, target, multilabel=False, cuda=False, threshold=0.5):
+def get_confusion_matrix_torch(predictions, target, multilabel=False, cuda=False, threshold=0.5, device=None):
     """Return the confusion matrix
 
     The confusion matrix is :
@@ -201,7 +201,7 @@ def get_confusion_matrix_torch(predictions, target, multilabel=False, cuda=False
         if len(y) < num_class * num_class:
             y_comp = torch.zeros(num_class * num_class - len(y), dtype=torch.long)
             if cuda:
-                y_comp = y_comp.cuda()
+                y_comp = y_comp.cuda(device)
             y = torch.cat([y, y_comp])
         # finally we reshape 1D array to 2D confusion matrix
         y = y.reshape(num_class, num_class)
@@ -224,7 +224,7 @@ def get_confusion_matrix_torch(predictions, target, multilabel=False, cuda=False
         # reshape result as num_class, 2, 2 tensor
         y = torch.stack([tp, fp, fn, tn], dim=1).reshape(-1, 2, 2)
         if cuda:
-            y.cuda()
+            y.cuda(device)
 
     return y
 
@@ -355,5 +355,6 @@ def get_iou_metrics_torch(cm, micro=True, cuda=False):
         raise OdeonError(
             message=f"confusion matrix of from size {cm.size()}, should be of type N*N or N*2*2",
             error_code=ErrorCodes.ERR_TRAINING_ERROR)
-
+    print('m', m)
+    print(type(m))
     return m.astype(float)
