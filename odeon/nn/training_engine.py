@@ -1,9 +1,12 @@
 import os
 from collections import OrderedDict
 from tqdm import tqdm
+
 import torch
+
 from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix_torch, get_iou_metrics_torch
+
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 
@@ -49,13 +52,14 @@ tr        output file name for pth file
     """
 
     def __init__(self, model, loss, optimizer, lr_scheduler, output_folder, output_filename,
-                 epochs=300, batch_size=16, patience=20, save_history=False, continue_training=False,
-                 device=None, reproducible=False, verbose=False):
+                 epochs=300, train_batch_size=16, val_batch_size=16, patience=20, save_history=False,
+                 continue_training=False, device=None, reproducible=False, verbose=False):
 
         self.device = device if device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
         self.net = model.cuda(self.device) if self.device.startswith('cuda') else model
         self.epochs = epochs
-        self.batch_size = batch_size
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
         self.patience = patience
         self.save_history = save_history
         self.continue_training = continue_training
@@ -73,7 +77,8 @@ tr        output file name for pth file
 
         LOGGER.info(f'''Training:
             Model: {type(self.net).__name__}
-            Batch size: {self.batch_size}
+            Batch size train: {self.train_batch_size}
+            Batch size val: {self.val_batch_size}
             Loss function: {type(self.loss).__name__}
             Optimizer: {type(self.optimizer).__name__}
             Learning rate: {type(self.lr_scheduler).__name__} starting at {self.optimizer.param_groups[0]['lr']}
@@ -189,7 +194,7 @@ tr        output file name for pth file
 
                 # update statistics
                 #    loss
-                losses.update(loss.item(), self.batch_size)
+                losses.update(loss.item(), self.train_batch_size)
 
                 #    metrics
                 pbar_odict = OrderedDict(loss=f'{loss.item():1.5f}')
@@ -198,7 +203,10 @@ tr        output file name for pth file
                     with torch.no_grad():
                         confusion_matrix = confusion_matrix + get_confusion_matrix_torch(
                             preds, masks, multilabel=self.multilabel, cuda=use_cuda)
-                        miou = get_iou_metrics_torch(confusion_matrix, micro=self.micro_iou, cuda=use_cuda, device=self.device)
+                        miou = get_iou_metrics_torch(confusion_matrix,
+                                                     micro=self.micro_iou,
+                                                     cuda=use_cuda,
+                                                     device=self.device)
                     pbar_odict.update({'mean_iou': f'{miou:1.5f}'})
 
                 pbar.set_postfix(pbar_odict)
@@ -239,7 +247,7 @@ tr        output file name for pth file
 
                 # update statistics
                 #    loss
-                losses.update(loss.item(), self.batch_size)
+                losses.update(loss.item(), self.val_batch_size)
 
                 #    IOU
                 confusion_matrix = confusion_matrix + get_confusion_matrix_torch(

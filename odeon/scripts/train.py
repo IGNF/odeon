@@ -155,9 +155,13 @@ class Trainer(BaseTool):
         self.optimizer_name = optimizer
         self.init_lr = lr
         self.class_imbalance = class_imbalance
-        self.train_tfm = A.Compose([A.Normalize(mean=(96.075, 102.387, 86.67), std=(48.709, 39.713, 37.979))])
+
+        self.train_tfm = A.Compose([A.Normalize(mean=(96.075, 102.387, 86.67), std=(48.709, 39.713, 37.979)),
+                                    A.RandomCrop(256, 256)])
         self.val_tfm = A.Compose([A.Normalize(mean=(97.476, 104.694, 88.097), std=(46.721, 37.744, 35.477))])
         random.seed(7)
+        self.train_batch_size = 20
+        self.val_batch_size = 5
 
         assert self.batch_size <= len(self.train_image_files), "batch_size must be lower than the length of training \
                                                                 dataset"
@@ -173,16 +177,16 @@ class Trainer(BaseTool):
                                    image_bands=image_bands,
                                    mask_bands=mask_bands)
 
-        # train_dataset  = torch.utils.data.Subset(train_dataset, range(0, 20))
-        # val_dataset  = torch.utils.data.Subset(val_dataset, range(0, 20))
+#         train_dataset  = torch.utils.data.Subset(train_dataset, range(0, 20))
+#         val_dataset  = torch.utils.data.Subset(val_dataset, range(0, 20))
 
         self.train_dataloader = DataLoader(train_dataset,
-                                           self.batch_size,
+                                           self.train_batch_size,
                                            shuffle=True,
                                            drop_last=True)
 
         self.val_dataloader = DataLoader(val_dataset,
-                                         self.batch_size,
+                                         self.val_batch_size,
                                          shuffle=True)
 
         if image_bands is not None:
@@ -247,7 +251,8 @@ val: {len(val_dataset)})""")
                                       self.output_folder,
                                       self.model_filename,
                                       epochs=self.epochs,
-                                      batch_size=self.batch_size,
+                                      train_batch_size=self.batch_size,
+                                      val_batch_size=self.val_batch_size,
                                       patience=self.patience,
                                       save_history=self.save_history,
                                       continue_training=self.continue_training,
