@@ -355,6 +355,4 @@ def get_iou_metrics_torch(cm, micro=True, cuda=False):
         raise OdeonError(
             message=f"confusion matrix of from size {cm.size()}, should be of type N*N or N*2*2",
             error_code=ErrorCodes.ERR_TRAINING_ERROR)
-    print('m', m)
-    print(type(m))
     return m.astype(float)
