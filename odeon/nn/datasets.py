@@ -2,11 +2,10 @@ import os
 from torch.utils.data import Dataset
 from skimage.util import img_as_float
 import rasterio
-import torch
 # from rasterio.plot import reshape_as_raster
 import numpy as np
 from odeon.commons.image import raster_to_ndarray, CollectionDatasetReader
-from odeon.nn.transforms import ToPatchTensor, ToWindowTensor
+from odeon.nn.transforms import ToDoubleTensor, ToPatchTensor, ToWindowTensor
 from odeon import LOGGER
 from odeon.commons.rasterio import affine_to_ndarray
 from odeon.commons.folder_manager import create_folder
@@ -89,7 +88,7 @@ class PatchDataset(Dataset):
         self.mask_bands = mask_bands
         self.width = width
         self.height = height
-        self.transform = transform
+        self.transform_function = transform
         pass
 
     def __len__(self):
@@ -108,6 +107,9 @@ class PatchDataset(Dataset):
                                     band_indices=self.image_bands
                                     )
 
+        # pixels are normalized to [0, 1]
+        img = img_as_float(img)
+
         # load mask file
         mask_file = self.mask_files[index]
         msk, _ = raster_to_ndarray(
@@ -118,14 +120,13 @@ class PatchDataset(Dataset):
                                     band_indices=self.mask_bands
                                     )
 
-        if self.transform is None:
-            image = img.swapaxes(0, 2).swapaxes(1, 2)
-            mask = msk.swapaxes(0, 2).swapaxes(1, 2)
-        else:
-            augmented = self.transform(image=img.astype(np.float32), mask=msk.astype(np.float32))
-            image = augmented['image'].swapaxes(0, 2).swapaxes(1, 2)
-            mask = augmented['mask'].swapaxes(0, 2).swapaxes(1, 2)
-        sample = {"image": torch.from_numpy(image).float(), "mask": torch.from_numpy(mask).float()}
+        sample = {"image": img, "mask": msk}
+
+        # apply transforms
+        if self.transform_function is None:
+            self.transform_function = ToDoubleTensor()
+        sample = self.transform_function(**sample)
+
         return sample
 
 
@@ -168,7 +169,6 @@ class PatchDetectionDataset(Dataset):
         # pixels are normalized to [0, 1]
         img = img_as_float(img)
         to_tensor = ToPatchTensor()
-
         affine = meta["transform"]
         LOGGER.debug(affine)
         sample = {"image": img, "index": np.asarray([index]), "affine": affine_to_ndarray(affine)}

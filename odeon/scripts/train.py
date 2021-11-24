@@ -23,8 +23,7 @@ Notes
 import os
 import csv
 from sklearn.model_selection import train_test_split
-import random
-import albumentations as A
+
 import torch
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -34,6 +33,7 @@ from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import files_exist, dirs_exist
+from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
 from odeon.nn.models import build_model, model_list
@@ -155,35 +155,44 @@ class Trainer(BaseTool):
         self.optimizer_name = optimizer
         self.init_lr = lr
         self.class_imbalance = class_imbalance
-        self.train_tfm = A.Compose([A.Normalize(mean=(96.075, 102.387, 86.67), std=(48.709, 39.713, 37.979))])
-        self.val_tfm = A.Compose([A.Normalize(mean=(97.476, 104.694, 88.097), std=(46.721, 37.744, 35.477))])
-        random.seed(7)
+
+        # transformations
+        if data_augmentation is None:
+            data_augmentation = ['rotation90']
+        transformation_dict = {
+            "rotation90": Rotation90(),
+            "rotation": Rotation(),
+            "radiometry": Radiometry()
+        }
+        transformation_conf = data_augmentation
+        transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
+
+        self.transformation_functions = list({
+            value for key, value in transformation_dict.items() if key in transformation_keys
+        })
+        self.transformation_functions.append(ToDoubleTensor())
 
         assert self.batch_size <= len(self.train_image_files), "batch_size must be lower than the length of training \
                                                                 dataset"
         train_dataset = PatchDataset(self.train_image_files,
                                      self.train_mask_files,
-                                     transform=self.train_tfm,
+                                     transform=Compose(self.transformation_functions),
                                      image_bands=image_bands,
                                      mask_bands=mask_bands)
-
-        val_dataset = PatchDataset(self.val_image_files,
-                                   self.val_mask_files,
-                                   transform=self.val_tfm,
-                                   image_bands=image_bands,
-                                   mask_bands=mask_bands)
-
-        # train_dataset  = torch.utils.data.Subset(train_dataset, range(0, 20))
-        # val_dataset  = torch.utils.data.Subset(val_dataset, range(0, 20))
-
         self.train_dataloader = DataLoader(train_dataset,
                                            self.batch_size,
                                            shuffle=True,
+                                           num_workers=8,
                                            drop_last=True)
-
+        val_dataset = PatchDataset(self.val_image_files,
+                                   self.val_mask_files,
+                                   transform=Compose(self.transformation_functions),
+                                   image_bands=image_bands,
+                                   mask_bands=mask_bands)
         self.val_dataloader = DataLoader(val_dataset,
                                          self.batch_size,
-                                         shuffle=True)
+                                         shuffle=True,
+                                         num_workers=8)
 
         if image_bands is not None:
             self.n_channels = len(image_bands)
@@ -326,7 +335,7 @@ val: {len(val_dataset)})""")
         elif optimizer_name == 'SGD':
             return optim.SGD(model.parameters(), lr=lr)
 
-    def get_loss(self, loss_name, class_weight=None, use_cuda=False, device=None):
+    def get_loss(self, loss_name, class_weight=None, use_cuda=False):
         """Initialize loss class instance
         Loss function applied directly on models raw prediction (logits)
 
@@ -350,7 +359,7 @@ val: {len(val_dataset)})""")
                 STD_OUT_LOGGER.info(f"Weights used: {class_weight}")
                 weight = torch.FloatTensor(class_weight)
                 if use_cuda:
-                    weight = weight.cuda(device)
+                    weight = weight.cuda()
                 return CrossEntropyWithLogitsLoss(weight=weight)
 
             else:
