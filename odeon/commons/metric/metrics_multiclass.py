@@ -120,12 +120,14 @@ class Metrics_Multiclass(Metrics):
                          get_hists_per_metrics=get_hists_per_metrics)
 
         if self.mask_bands is not None and self.pred_bands is not None:
-            if self.nbr_class != len(self.mask_bands):
+            if self.nbr_class > len(self.pred_bands) + 1:
                 # Add 1 because we create a class other for all the bands not selected.
                 self.nbr_class = len(self.mask_bands) + 1
-                self.class_labels = [label for i, label in enumerate(self.class_labels) if i in self.mask_bands]
+                self.class_labels = [self.class_labels[i] for i in self.mask_bands]
                 self.class_labels.append('Other')
             # else maybe all bands are selected with swaps or not
+            else:
+                self.nbr_class = len(self.mask_bands)
 
         self.df_report_classes, self.df_report_micro, self.df_report_macro = self.create_data_for_metrics()
 
@@ -149,7 +151,6 @@ class Metrics_Multiclass(Metrics):
         # Get metrics for each strategy and cms macro from the micro cm.
         self.metrics_by_class, self.metrics_micro, self.cms_classes, self.cm_micro = \
             self.get_metrics_from_cm(self.cm_macro)
-
         # Put the calculated metrics in dataframes for reports and also computed mean metrics.
         self.metrics_to_df_reports()
 
@@ -209,8 +210,11 @@ class Metrics_Multiclass(Metrics):
 
         for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
             mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
-            for i, class_i in enumerate(self.class_labels):
+            if self.mask_bands is not None and self.pred_bands is not None:
+                mask = self.select_bands(mask, select_bands=self.mask_bands)
+                pred = self.select_bands(pred, select_bands=self.pred_bands)
 
+            for i, class_i in enumerate(self.class_labels):
                 for threshold in self.threshold_range:
                     class_mask = mask[:, :, i]
                     class_pred = pred[:, :, i]
@@ -228,9 +232,7 @@ class Metrics_Multiclass(Metrics):
                         # Here binarization with an argmax.
                         mask_macro, pred_macro = self.binarize(type_classifier=self.type_classifier,
                                                                prediction=pred,
-                                                               mask=mask,
-                                                               pred_bands=self.pred_bands,
-                                                               mask_bands=self.mask_bands)
+                                                               mask=mask)
                         cm = self.get_confusion_matrix(mask_macro.flatten(), pred_macro.flatten(), revert_order=False)
                         cm_macro += cm
 

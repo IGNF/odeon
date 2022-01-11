@@ -172,10 +172,6 @@ class Metrics(ABC):
             LOGGER.warning('WARNING: the parameter weigths can only be used for multiclass classifier.')
             self.weights = weights
             self.weighted = False
-        elif len(weights) != self.nbr_class:
-            LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter weigths is incorrect.")
         else:
             self.weights = weights
             self.weighted = True
@@ -289,7 +285,7 @@ class Metrics(ABC):
 
         return bands_selected
 
-    def binarize(self, type_classifier, prediction, mask=None, threshold=None, pred_bands=None, mask_bands=None):
+    def binarize(self, type_classifier, prediction, mask=None, threshold=None):
         """
         Allows the binarisation of predictions according to the type of classifier. If the classification is binary,
         the function will take in input only one prediction and will assign to each of these values either 0 or 1
@@ -320,14 +316,9 @@ class Metrics(ABC):
         pred = prediction.copy()
         if not self.in_prob_range:
             pred = self.to_prob_range(pred)
-        if type_classifier == 'multiclass' and mask_bands is None and pred_bands is None:
+        if type_classifier == 'multiclass':
             assert mask is not None
             return np.argmax(mask, axis=2), np.argmax(pred, axis=2)
-        elif type_classifier == 'multiclass' and mask_bands is not None and pred_bands is not None:
-            mask_bands_selected = self.select_bands(mask, select_bands=mask_bands)
-            pred_bands_selected = self.select_bands(pred, select_bands=pred_bands)
-            return np.argmax(mask_bands_selected, axis=2), np.argmax(pred_bands_selected, axis=2)
-
         elif type_classifier == 'binary':
             assert threshold is not None
             pred[pred < threshold] = 0
