@@ -9,15 +9,17 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import auc
-from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
 from cycler import cycler
 from tqdm import tqdm
+from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
 
 FIGSIZE = (8, 6)
 
 
-class Metrics_Binary(Metrics):
-
+class MetricsBinary(Metrics):
+    """
+    Class to compute metrics for the binary case.
+    """
     def __init__(self,
                  dataset,
                  output_path,
@@ -40,63 +42,8 @@ class Metrics_Binary(Metrics):
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
-        Init function.
-        Initialize the class attributes and create the dataframes to store the metrics.
-
-        Parameters
-        ----------
-        dataset : MetricsDataset
-            Dataset from odeon.nn.datasets which contains the masks and the predictions.
-        output_path : str
-            Path where the report/output data will be created.
-        type_classifier : str
-            String allowing to know if the classifier is of type binary or multiclass.
-            Here the classfier type should be 'binary'.
-        in_prob_range : boolean,
-            Boolean to be set to true if the values in the predictions passed as inputs are between 0 and 1.
-            If not, set the parameter to false so that the tool modifies the values to be normalized between 0 and 1.
-        output_type : str, optional
-            Desired format for the output file. Could be json, md or html.
-            A report will be created if the output type is html or md.
-            If the output type is json, all the data will be exported in a dict in order
-            to be easily reusable, by default html.
-        class_labels : list of str, optional
-            Label for each class in the dataset, by default None.
-        mask_bands: list of int
-            List of the selected bands in the dataset masks bands. (Selection of the classes)
-        pred_bands: list of int
-            List of the selected bands in the dataset preds bands. (Selection of the classes)
-        weights : list of number, optional
-            List of weights to balance the metrics.
-            In the binary case the weights are not used in the metrics computation, by default None.
-        threshold : float, optional
-            Value between 0 and 1 that will be used as threshold to binarize data if they are soft.
-            Use for macro, micro cms and metrics for all strategies, by default 0.5.
-        n_thresholds : int, optional
-            Number of thresholds used in the computation of ROC and PR, by default 10.
-        bit_depth : str, optional
-            The number of bits used to represent each pixel in a mask/prediction, by default '8 bits'
-        bins: list of float, optional
-            List of bins used for the creation of histograms.
-        n_bins : int, optional
-            Number of bins used in the construction of calibration curves, by default 10.
-        get_normalize : bool, optional
-            Boolean to know if the user wants to generate confusion matrices with normalized values, by default True
-        get_metrics_per_patch : bool, optional
-            Boolean to know if the user wants to compute metrics per patch and export them in a csv file.
-            Metrics will be also computed if the parameter get_hists_per_metrics is True but a csv file
-            won't be created, by default True
-        get_ROC_PR_curves : bool, optional
-            Boolean to know if the user wants to generate ROC and PR curves, by default True
-        get_ROC_PR_values: bool, optional
-            Boolean to know if the user wants a csv file with values used to generate ROC/PR curves, by default False
-        get_calibration_curves : bool, optional
-            Boolean to know if the user wants to generate calibration curves, by default True
-        get_hists_per_metrics : bool, optional
-            Boolean to know if the user wants to generate histogram for each metric.
-            Histograms created using the parameter threshold, by default True.
+        Init function of MetricsBinary class.
         """
-
         super().__init__(dataset,
                          output_path=output_path,
                          type_classifier=type_classifier,
@@ -124,6 +71,7 @@ class Metrics_Binary(Metrics):
             self.df_dataset = pd.DataFrame(index=range(len(self.dataset)),
                                            columns=(['name_file'] + self.metrics_names[:-1]))
         if self.get_calibration_curves:
+            self.prob_true, self.prob_pred = None, None
             self.hist_counts = np.zeros(len(self.bins) - 1)
 
     def run(self):
@@ -135,11 +83,10 @@ class Metrics_Binary(Metrics):
         markdown or html. Optionally the tool can output metrics per patch and return the result as a csv file.
         """
         self.get_metrics_by_threshold()
-        self.cm = self.cms[self.threshold]
         if self.get_metrics_per_patch:
             self.export_metrics_per_patch_csv()
         if self.get_ROC_PR_values:
-            self.export_ROC_PR_values()
+            self.export_roc_pr_values()
 
     def create_data_for_metrics(self):
         """
@@ -173,12 +120,12 @@ class Metrics_Binary(Metrics):
 
             for threshold in self.threshold_range:
                 pred_cm = self.binarize(self.type_classifier, pred, threshold=threshold)
-                cm = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten(), revert_order=True)
-                self.cms[threshold] += cm
+                conf_mat = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten(), revert_order=True)
+                self.cms[threshold] += conf_mat
 
                 # Compute metrics per patch and return an histogram of the values
                 if (self.get_metrics_per_patch or self.get_hists_per_metrics) and threshold == self.threshold:
-                    sample_metrics = self.get_metrics_from_cm(cm)
+                    sample_metrics = self.get_metrics_from_cm(conf_mat)
                     self.df_dataset.loc[dataset_index, 'name_file'] = name_file
                     for name_column in self.metrics_names[:-1]:
                         self.df_dataset.loc[dataset_index, name_column] = sample_metrics[name_column]
@@ -214,13 +161,13 @@ class Metrics_Binary(Metrics):
         self.df_report_metrics.loc['Values'] = \
             self.df_thresholds.loc[self.df_thresholds['threshold'] == self.threshold, self.metrics_names[:-1]].values
 
-    def get_metrics_from_cm(self, cm):
+    def get_metrics_from_cm(self, conf_mat):
         """
         Extract the metrics from a cm.
 
         Parameters
         ----------
-        cm : np.array[type]
+        conf_mat : np.array[type]
             Confusion matrix in micro strategy.
 
         Returns
@@ -228,10 +175,10 @@ class Metrics_Binary(Metrics):
         dict
             Dict with the metrics.
         """
-        tp, fn, fp, tn = cm.ravel()
-        return self.get_metrics_from_obs(tp, fn, fp, tn)
+        true_pos, false_neg, false_pos, true_neg = conf_mat.ravel()
+        return self.get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg)
 
-    def plot_ROC_PR_curves(self, name_plot='binary_roc_pr_curve.png'):
+    def plot_roc_pr_curves(self, name_plot='binary_roc_pr_curve.png'):
         """
         Plot (html/md output type) or export (json type) data on ROC and PR curves.
         For ROC curve, points (0, 0) and (1, 1) are added to data in order to have a curve
@@ -248,6 +195,7 @@ class Metrics_Binary(Metrics):
         str
             Output path where an image with the plot will be created.
         """
+        output_path = os.path.join(self.output_path, name_plot)
         fpr, tpr = self.df_thresholds['FPR'], self.df_thresholds['Recall']
         recall, precision = self.df_thresholds['Recall'], self.df_thresholds['Precision']
 
@@ -284,7 +232,7 @@ class Metrics_Binary(Metrics):
             plt.figure(figsize=(16, 8))
             plt.subplot(121)
             plt.title('Roc Curve')
-            plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
+            plt.plot(fpr, tpr, label=f'AUC = {round(roc_auc, 3)}')
             plt.plot([0, 1], [0, 1], 'r--')
             plt.ylabel('True Positive Rate')
             plt.xlabel('False Positive Rate')
@@ -293,17 +241,16 @@ class Metrics_Binary(Metrics):
 
             plt.subplot(122)
             plt.title('Precision-Recall Curve')
-            plt.plot(recall, precision, label='AUC = %0.3f' % pr_auc)
+            plt.plot(recall, precision, label=f'AUC = {round(pr_auc, 3)}')
             plt.plot([1, 0], [0, 1], 'r--')
             plt.ylabel('Precision')
             plt.xlabel('Recall')
             plt.legend()
             plt.grid(True)
             plt.tight_layout(pad=3)
-            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             plt.close()
-            return output_path
+        return output_path
 
     def plot_calibration_curve(self, name_plot='binary_calibration_curves.png'):
         """
@@ -320,6 +267,8 @@ class Metrics_Binary(Metrics):
         str
             Output path where an image with the plot will be created.
         """
+        output_path = os.path.join(self.output_path, name_plot)
+
         if self.output_type == 'json':
             self.dict_export['calibration curve'] = {'prob_true': self.prob_true.tolist(),
                                                      'prob_pred': self.prob_pred.tolist(),
@@ -343,10 +292,9 @@ class Metrics_Binary(Metrics):
             plt.xlabel('Mean predicted value')
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.tight_layout(pad=3)
-            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             plt.close()
-            return output_path
+        return output_path
 
     def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png'):
         """
@@ -362,6 +310,7 @@ class Metrics_Binary(Metrics):
         str
             Output path where an image with the plot will be created.
         """
+        output_path = os.path.join(self.output_path, name_plot)
         cmap_colors = [plt.get_cmap('turbo')(1. * i/7) for i in range(7)][1:]
         colors = cycler(color=cmap_colors)
         plt.rc('axes', prop_cycle=colors)
@@ -380,10 +329,10 @@ class Metrics_Binary(Metrics):
         else:
             plt.figure(figsize=(7 * n_cols, 6 * n_rows))
             for i, plot_prop in enumerate(zip(self.metrics_names[:-1], colors)):
-                metric, c = plot_prop[0], plot_prop[1]["color"]
+                metric, color = plot_prop[0], plot_prop[1]["color"]
                 values = hists_metrics[metric]
                 plt.subplot(n_rows, n_cols, i+1)
-                plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=c)
+                plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=color)
                 if self.n_bins <= 20:
                     plt.xticks(range(len(self.bins_xticks)), self.bins_xticks, rotation=-25)
                 plt.title(f'{metric}', fontsize=13)
@@ -391,11 +340,9 @@ class Metrics_Binary(Metrics):
                 plt.grid()
                 plt.ylabel("Samples count")
             plt.tight_layout(pad=3)
-
-            output_path = os.path.join(self.output_path, name_plot)
             plt.savefig(output_path)
             plt.close()
-            return output_path
+        return output_path
 
     def export_metrics_per_patch_csv(self):
         """
@@ -404,14 +351,14 @@ class Metrics_Binary(Metrics):
         path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
         self.df_dataset.to_csv(path_csv, index=False)
 
-    def export_ROC_PR_values(self):
+    def export_roc_pr_values(self):
         """
             Export the values used to create PR and ROC curves in a csv file.
         """
-        path_ROC_ROC_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
-        df_ROC_PR_values = pd.DataFrame(data={"Thresholds": self.threshold_range,
+        path_roc_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
+        df_roc_pr_values = pd.DataFrame(data={"Thresholds": self.threshold_range,
                                               "TPR": self.df_thresholds['Recall'],
                                               "FPR": self.df_thresholds['FPR'],
                                               "Precision": self.df_thresholds['Precision'],
                                               "Recall": self.df_thresholds['Recall']})
-        df_ROC_PR_values.to_csv(path_ROC_ROC_csv, index=False)
+        df_roc_pr_values.to_csv(path_roc_csv, index=False)

@@ -204,13 +204,13 @@ def main():
 
     elif tool == "metrics":
 
-        from odeon.scripts.cli_metrics import CLI_Metrics
+        from odeon.scripts.cli_metrics import CLIMetrics
 
         with Timer("Metrics"):
 
             try:
                 metrics_conf = conf['metrics_setup']
-                metrics = CLI_Metrics(**metrics_conf)
+                metrics = CLIMetrics(**metrics_conf)
                 metrics()
                 return 0
 

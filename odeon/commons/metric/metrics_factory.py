@@ -1,10 +1,10 @@
-from odeon.commons.metric.metrics_binary import Metrics_Binary
-from odeon.commons.metric.metrics_multiclass import Metrics_Multiclass
+from odeon.commons.metric.metrics_binary import MetricsBinary
+from odeon.commons.metric.metrics_multiclass import MetricsMulticlass
 
 
-def Metrics_Factory(type_classifier):
+def MetricsFactory(type_classifier):
 
-    metrics = {"binary": Metrics_Binary,
-               "multiclass": Metrics_Multiclass}
+    metrics = {"binary": MetricsBinary,
+               "multiclass": MetricsMulticlass}
 
     return metrics[type_classifier]

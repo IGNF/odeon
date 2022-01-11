@@ -38,7 +38,7 @@ class Report_Multiclass(Report):
             self.path_calibration_curves = self.input_object.plot_calibration_curve()
 
         if self.input_object.get_ROC_PR_curves:
-            self.ROC_PR_classes = self.input_object.plot_ROC_PR_per_class()
+            self.roc_pr_classes = self.input_object.plot_roc_pr_per_class()
 
         if self.input_object.get_hists_per_metrics:
             self.path_hists = self.input_object.plot_dataset_metrics_histograms()
@@ -91,7 +91,7 @@ class Report_Multiclass(Report):
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
 ## Roc PR Curves
-![Roc PR curves](./{os.path.basename(self.ROC_PR_classes)})
+![Roc PR curves](./{os.path.basename(self.roc_pr_classes)})
 """
             md_elements.append(roc_pr_curves)
 
@@ -185,7 +185,7 @@ class Report_Multiclass(Report):
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
             <h3>* ROC and PR Curves</h3>
-            <p><img alt="ROC and PR Curves" src=./{os.path.basename(self.ROC_PR_classes)} /></p>
+            <p><img alt="ROC and PR Curves" src=./{os.path.basename(self.roc_pr_classes)} /></p>
             """
             html_elements.append(roc_pr_curves)
 
