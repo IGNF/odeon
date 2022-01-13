@@ -40,7 +40,8 @@ class MetricsBinary(Metrics):
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
-                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
+                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics'],
+                 decimals=DEFAULTS_VARS['decimals']):
         """
         Init function of MetricsBinary class.
         """
@@ -63,7 +64,8 @@ class MetricsBinary(Metrics):
                          get_ROC_PR_curves=get_ROC_PR_curves,
                          get_ROC_PR_values=get_ROC_PR_values,
                          get_calibration_curves=get_calibration_curves,
-                         get_hists_per_metrics=get_hists_per_metrics)
+                         get_hists_per_metrics=get_hists_per_metrics,
+                         decimals=decimals)
 
         self.df_thresholds, self.cms, self.df_report_metrics = self.create_data_for_metrics()
 
@@ -232,7 +234,7 @@ class MetricsBinary(Metrics):
             plt.figure(figsize=(16, 8))
             plt.subplot(121)
             plt.title('Roc Curve')
-            plt.plot(fpr, tpr, label=f'AUC = {round(roc_auc, 3)}')
+            plt.plot(fpr, tpr, label=f'AUC = {round(roc_auc * 100, self.decimals - 2) }')
             plt.plot([0, 1], [0, 1], 'r--')
             plt.ylabel('True Positive Rate')
             plt.xlabel('False Positive Rate')
@@ -241,7 +243,7 @@ class MetricsBinary(Metrics):
 
             plt.subplot(122)
             plt.title('Precision-Recall Curve')
-            plt.plot(recall, precision, label=f'AUC = {round(pr_auc, 3)}')
+            plt.plot(recall, precision, label=f'AUC = {round(pr_auc * 100, self.decimals - 2)  }')
             plt.plot([1, 0], [0, 1], 'r--')
             plt.ylabel('Precision')
             plt.xlabel('Recall')

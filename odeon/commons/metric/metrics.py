@@ -59,7 +59,8 @@ DEFAULTS_VARS = {'output_type': 'html',
                  'get_ROC_PR_curves': True,
                  'get_ROC_PR_values': False,
                  'get_calibration_curves': True,
-                 'get_hists_per_metrics': True}
+                 'get_hists_per_metrics': True,
+                 'decimals': 2}
 
 
 class Metrics(ABC):
@@ -86,7 +87,8 @@ class Metrics(ABC):
                  get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
                  get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
-                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
+                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics'],
+                 decimals=DEFAULTS_VARS['decimals']):
         """
         Init function.
         Initialize the class attributes and create the dataframes to store the metrics.
@@ -144,6 +146,8 @@ class Metrics(ABC):
         get_hists_per_metrics : bool, optional
             Boolean to know if the user wants to generate histogram for each metric.
             Histograms created using the parameter threshold, by default True.
+        decimals: int, optional
+            Number of digits after the decimal point (use for computation and display).
         """
         if os.path.exists(output_path):
             self.output_path = output_path
@@ -189,6 +193,7 @@ class Metrics(ABC):
         self.get_ROC_PR_values = get_ROC_PR_values
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
+        self.decimals = 2 + decimals  # Here +2 because we wants metrics as percent between 0 and 100.
         self.metrics_names = METRICS_NAMES
         self.nbr_metrics_micro = NBR_METRICS_MICR0
         self.nbr_metrics_macro = NBR_METRICS_MACR0

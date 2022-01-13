@@ -344,11 +344,12 @@ class MetricsMulticlass(Metrics):
                 if self.weighted:
                     user_weighted_avg += self.df_report_classes.loc[class_i, metric] * self.weights[i]
 
-            self.df_report_macro.loc['Weighted avg', metric] = np.round(weighted_avg / total_positive_obs, decimals=2)
+            self.df_report_macro.loc['Weighted avg', metric] = \
+                np.round(weighted_avg / total_positive_obs, decimals=self.decimals)
 
             if self.weighted:
                 self.df_report_macro.loc['User weighted avg', metric] = np.round(user_weighted_avg / self.nbr_class,
-                                                                                 decimals=2)
+                                                                                 decimals=self.decimals)
 
         # In micro : micro-F1 = micro-precision = micro-recall = accuracy
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
@@ -386,7 +387,8 @@ class MetricsMulticlass(Metrics):
                 fpr, tpr = np.insert(fpr, 0, 0), np.insert(tpr, 0, 0)
                 fpr, tpr = np.append(fpr, 1), np.append(tpr, 1)
                 roc_auc = auc(fpr, tpr)
-                plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc, 3)}', color=color['color'])
+                plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc * 100, self.decimals - 2)}',
+                         color=color['color'])
             plt.plot([0, 1], [0, 1], 'r--')
             plt.ylabel('True Positive Rate')
             plt.xlabel('False Positive Rate')
@@ -404,7 +406,8 @@ class MetricsMulticlass(Metrics):
                 recall, precision = np.insert(recall, 0, 0), np.insert(precision, 0, 1)
                 recall, precision = np.append(recall, 1), np.append(precision, 0)
                 pr_auc = auc(recall, precision)
-                plt.plot(recall, precision, label=f'{class_i} AUC = {round(pr_auc, 3)}', color=color['color'])
+                plt.plot(recall, precision,
+                         label=f'{class_i} AUC = {round(pr_auc * 100, self.decimals - 2)}', color=color['color'])
             plt.plot([1, 0], [0, 1], 'r--')
             plt.title('Precision-Recall Curve')
             plt.ylabel('Precision')

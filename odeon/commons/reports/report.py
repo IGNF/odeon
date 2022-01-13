@@ -10,7 +10,6 @@ from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 
 HTML_FILE = 'jupyter_layout.html'
 PADDING = 1
-ROUND_DECIMALS = 3
 
 
 class Report(object):
@@ -27,7 +26,7 @@ class Report(object):
         self.input_object = input_object
         self.html_file = HTML_FILE
         self.padding = PADDING
-        self.round_decimals = ROUND_DECIMALS
+        self.round_decimals = self.input_object.decimals
 
         if self.input_object.output_type == 'html':
             dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -71,7 +70,7 @@ class Report(object):
         """
         if round_decimals is None:
             round_decimals = self.round_decimals
-        return df.apply(lambda x: pd.to_numeric(x, downcast="float").round(decimals=round_decimals))
+        return df.apply(lambda x: pd.to_numeric(x * 100, downcast="float").round(decimals=round_decimals - 2))
 
     def longest(self, input_list):
         """Return the longest element in a list.

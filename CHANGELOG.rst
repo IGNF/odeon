@@ -87,12 +87,7 @@ possibility to output in a csv file the threshold values corresponding to each p
 - Fix issue 40: Metrics: problem with labels in the case of class selection.
 - Fix issue 41: Forgot to change version and do modifcations on CHANGELOG.rst file.
 
-<<<<<<< HEAD
 0.2.14 (2021-01-11)
 -------------------
 - Fix issue 44: Deployment script changes in relation to pylint developments.
-=======
-0.2.14 (2022-01-11)
--------------------
-- Fix issue 43: Metrics: use the tool with predictions and masks of differents shapes.
->>>>>>> e08e965... Fix issues 43:Metrics: use the tool with predictions and masks of differents shapes.
+- Fix issues 43: Metrics: use the tool with predictions and masks of differents shapes.
