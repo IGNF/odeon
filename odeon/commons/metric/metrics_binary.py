@@ -43,7 +43,7 @@ class MetricsBinary(Metrics):
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics'],
                  decimals=DEFAULTS_VARS['decimals']):
         """
-        Init function of MetricsBinary class.
+        This method does the same as Metrics init function :func:`~odeon.commons.metrics.Metrics.__init__()`
         """
         super().__init__(dataset,
                          output_path=output_path,

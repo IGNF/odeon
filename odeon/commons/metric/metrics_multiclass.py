@@ -39,7 +39,7 @@ class MetricsMulticlass(Metrics):
                  get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
                  get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
         """
-        Init function for MetricsMulticlass.
+        This method does the same as Metrics init function :func:`~odeon.commons.metrics.Metrics.__init__()`
         """
         super().__init__(dataset=dataset,
                          output_path=output_path,
@@ -62,15 +62,6 @@ class MetricsMulticlass(Metrics):
                          get_calibration_curves=get_calibration_curves,
                          get_hists_per_metrics=get_hists_per_metrics)
 
-        if self.mask_bands is not None and self.pred_bands is not None:
-            if self.nbr_class > len(self.pred_bands) + 1:
-                # Add 1 because we create a class other for all the bands not selected.
-                self.nbr_class = len(self.mask_bands) + 1
-                self.class_labels = [self.class_labels[i] for i in self.mask_bands]
-                self.class_labels.append('Other')
-            # else maybe all bands are selected with swaps or not
-            else:
-                self.nbr_class = len(self.mask_bands)
         self.cm_macro, self.cms_classes, self.cm_micro = None, None, None
         self.metrics_by_class, self.metrics_micro, self.cms_one_class = None, None, None
         self.vect_classes = {}

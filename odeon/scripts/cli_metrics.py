@@ -126,73 +126,74 @@ class CLIMetrics(BaseTool):
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
         self.mask_files, self.pred_files = self.get_files_from_input_paths()
-        self.height, self.width, self.nbr_class = self.get_samples_shapes(mask_bands)
+        self.height, self.width, mask_class, pred_class = self.get_samples_shapes()
+
+        # Check mask_bands/pred_bands parameters
+        if mask_bands is not None and pred_bands is not None:
+            # Standardization of band indices with rasterio/gdal, so the user will input the index 1 for the band 0.
+            mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
+            # Checks if the bands entered in the configuration file have values corresponding to the bands of the
+            # images present in the dataset entered
+            self.check_raster_bands(np.arange(mask_class), mask_bands)
+            self.check_raster_bands(np.arange(pred_class), pred_bands)
+
+            if len(mask_bands) == len(pred_bands):
+                self.mask_bands = mask_bands
+                self.pred_bands = pred_bands
+                self.nbr_class = len(mask_bands)
+            else:
+                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                      "The input parameters mask_bands and pred_bands are incorrect.")
+        else:
+            self.mask_bands = self.pred_bands = None
+            if self.type_classifier == 'binary':
+                self.nbr_class = 2
+            else:
+                self.nbr_class = min(mask_class, pred_class)
 
         if self.nbr_class > 2 and self.type_classifier == 'binary':
             LOGGER.error("ERROR: If you have more than 2 classes, please use the classifier type 'multiclass'.")
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "The input parameter type classifier is incorrect.")
 
-        if self.nbr_class == 2 and class_labels is not None and len(class_labels) == 1:
-            if isinstance(class_labels, list):
+        # Check labels parameter
+        if class_labels is not None:
+            if self.nbr_class == 2 and len(class_labels) == 1:
                 self.class_labels = [class_labels[0], 'no_' + class_labels[0]]
+            elif len(class_labels) == self.nbr_class:
+                self.class_labels = class_labels
             else:
-                self.class_labels = ['Positive', 'Negative']
-        elif mask_bands is None and class_labels is not None and len(class_labels) != self.nbr_class:
-            LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter labels is incorrect.")
-        elif mask_bands is not None and class_labels is not None and len(class_labels) != len(mask_bands):
-            LOGGER.error('ERROR: parameter labels should have a number of input values equal to the number of\
-                         selected bands.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, "The input parameter labels is incorrect.")
+                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                 "The input parameter labels is incorrect.")
         else:
-            self.class_labels = class_labels
-
-        if not ((mask_bands is None or pred_bands is None) or (mask_bands is not None and pred_bands is not None)):
-            LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                  "The input parameters mask_bands and pred_bands are incorrect.")
-        elif mask_bands is not None and pred_bands is not None:
-            if len(mask_bands) != len(pred_bands) or len(mask_bands) > self.nbr_class:
-                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                      "The input parameters mask_bands and pred_bands are incorrect.")
-            elif self.type_classifier != 'multiclass':
-                LOGGER.error('ERROR: in the fact that even if we are only interested in one band the input set\
-                            containing several bands is considered as a multiclass case.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                      "The input parameters mask_bands and  or type_classifier should be changed.")
+            if self.nbr_class == 2:
+                self.class_labels = ['Positive', 'Negative']
             else:
-                # Standardization of band indices with rasterio/gdal, so the user will input the index 1 for the band 0.
-                mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
+                self.class_labels = [f'class {i + 1}' for i in range(self.nbr_class)]
 
-                # Checks if the bands entered in the configuration file have values corresponding to the bands of the
-                # images present in the dataset entered
-                self.check_raster_bands(list(range(self.nbr_class)), mask_bands)
-                self.check_raster_bands(list(range(self.nbr_class)), pred_bands)
-
-        self.mask_bands = mask_bands
-        self.pred_bands = pred_bands
-
+        # Check weights parameter
         if weights is not None:
-            if self.mask_bands is None and len(weights) != self.nbr_class:
+            if (len(weights) == self.nbr_class) or \
+               (len(self.mask_bands) + 1 < min(mask_class, pred_class) and len(weights) == self.nbr_class + 1):
+                # Gives user the possibility to fix the weight for the 'Other' class when this one is created.
+                self.weights = np.array(weights)
+            else:
                 LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                                  "The input parameter weigths is incorrect.")
-            if self.mask_bands is not None:
-                if self.nbr_class > len(self.mask_bands) + 1 and len(weights) != len(self.mask_bands) + 1:
-                    LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of\
-                         classes selected.')
-                    raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                     "The input parameter weigths is incorrect.")
-                elif self.nbr_class <= len(self.mask_bands) + 1 and len(weights) != len(self.mask_bands):
-                    LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of\
-                         classes selected.')
-                    raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                     "The input parameter weigths is incorrect.")
+        else:
+            self.weights = np.ones(self.nbr_class)
 
-        self.weights = weights
+        # For class selection, if selected bands + 1 < min(mask_bands, pred_bands) then 'Other' class is created
+        if self.mask_bands is not None and len(self.mask_bands) + 1 < min(mask_class, pred_class):
+            # Add 1 because we create a class other for all the bands not selected.
+            self.nbr_class += 1
+            self.class_labels.append('Other')
+            # If the user doesn't define a weight for the Other class, this one will have a weight of 0.
+            if len(self.weights) != self.nbr_class:
+                self.weights = np.append(self.weights, 0.0)
 
         metrics_dataset = MetricsDataset(self.mask_files,
                                          self.pred_files,
@@ -298,7 +299,7 @@ class CLIMetrics(BaseTool):
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                   "The input parameters mask_bands and pred_bands are incorrect.")
 
-    def get_samples_shapes(self, mask_bands):
+    def get_samples_shapes(self):
         """Get the shape of the input masks and predictions.
 
         Parameters
@@ -334,20 +335,13 @@ class CLIMetrics(BaseTool):
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
                              f"File ${pred_file} does not exist.")
 
-        if mask.shape != pred.shape and mask_bands is None:
-            LOGGER.error('ERROR: check the dimensions of the inputs masks and detections. \
-                Those input data should have the same dimensions.')
-            LOGGER.info('INFO: The parameters mask_bands and pred_bands could be used to \
-            do band selection in order to use apply the tool to data with different channel numbers.')
+        if mask.shape[0:-1] != pred.shape[0:-1]:
+            LOGGER.error('ERROR: check the width/height of the inputs masks and detections. \
+                Those input data should have the same width/height.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "Detections and masks have different dimensions.")
+                             "Detections and masks have different width/height.")
 
-        if mask.shape[-1] == 1:
-            nbr_class = 2
-        else:
-            nbr_class = min(mask.shape[-1], pred.shape[-1])
-
-        assert len(np.unique(mask.flatten())) <= nbr_class, \
+        assert len(np.unique(mask.flatten())) <= mask.shape[-1], \
             "Mask must contain a maximum number of unique values equal to the number of classes"
 
-        return mask.shape[0], mask.shape[1], nbr_class
+        return mask.shape[0], mask.shape[1], mask.shape[-1], pred.shape[-1]

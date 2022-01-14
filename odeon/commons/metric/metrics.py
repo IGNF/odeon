@@ -117,7 +117,7 @@ class Metrics(ABC):
             List of the selected bands in the dataset masks bands. (Selection of the classes)
         pred_bands: list of int
             List of the selected bands in the dataset preds bands. (Selection of the classes)
-        weights : list of number, optional
+        weights : np.array, optional
             List of weights to balance the metrics.
             In the binary case the weights are not used in the metrics computation, by default None.
         threshold : float, optional
@@ -165,22 +165,17 @@ class Metrics(ABC):
         self.type_classifier = type_classifier.lower()
         self.dataset = dataset
         self.nbr_class = self.dataset.nbr_class
-
-        if class_labels is not None and all(class_labels):
-            self.class_labels = class_labels
-        else:
-            self.class_labels = [f'class {i + 1}' for i in range(self.nbr_class)]
+        self.class_labels = class_labels
 
         if weights is None:
-            self.weights = np.ones(self.nbr_class)
-            self.weighted = False
-        elif weights is not None and self.type_classifier == 'binary':
-            LOGGER.warning('WARNING: the parameter weigths can only be used for multiclass classifier.')
-            self.weights = weights
             self.weighted = False
         else:
+            if self.type_classifier == 'binary':
+                LOGGER.warning('WARNING: the parameter weigths can only be used for multiclass classifier.')
+                self.weighted = False
+            else:
+                self.weighted = True
             self.weights = weights
-            self.weighted = True
 
         self.threshold = threshold
         self.n_thresholds = n_thresholds
