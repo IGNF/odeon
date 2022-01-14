@@ -188,7 +188,7 @@ class Metrics(ABC):
         self.get_ROC_PR_values = get_ROC_PR_values
         self.get_calibration_curves = get_calibration_curves
         self.get_hists_per_metrics = get_hists_per_metrics
-        self.decimals = 2 + decimals  # Here +2 because we wants metrics as percent between 0 and 100.
+        self.decimals = 2 + decimals  # Here + 2 because we wants metrics as percent between 0 and 100.
         self.metrics_names = METRICS_NAMES
         self.nbr_metrics_micro = NBR_METRICS_MICR0
         self.nbr_metrics_macro = NBR_METRICS_MACR0
@@ -262,31 +262,7 @@ class Metrics(ABC):
             self.bins_xticks = [np.round(bin_i, decimals=decimals) for bin_i in np.linspace(0.0, 1.0, 11)]
 
     @staticmethod
-    def select_bands(array, select_bands):
-        """
-        Function allowing to select bands in a mask/prediction array thanks to a list containing the indices of the
-        bands you want to extract. The other unselected bands will be grouped into a single one, which will contain
-        the largest value among them for a given pixel.
-
-        Parameters
-        ----------
-        array : np.array
-            Arrays on which we want to extract the bands.
-        select_bands : list of int
-            List containing the indices of the bands to extract.
-        """
-        bands_selected = [array[:, :, i] for i in select_bands]
-        bands_unselected = [array[:, :, i] for i in list(set(np.arange(array.shape[-1])) - set(select_bands))]
-        bands_selected = np.stack(bands_selected, axis=-1)
-
-        if bands_unselected:
-            bands_unselected = np.stack(bands_unselected, axis=-1)
-            bands_unselected = np.amax(bands_unselected, axis=-1).reshape(array.shape[0], array.shape[1], 1)
-            bands_selected = np.concatenate([bands_selected, bands_unselected], axis=-1)
-
-        return bands_selected
-
-    def binarize(self, type_classifier, prediction, mask=None, threshold=None):
+    def binarize(type_classifier, prediction, mask=None, threshold=None):
         """
         Allows the binarisation of predictions according to the type of classifier. If the classification is binary,
         the function will take in input only one prediction and will assign to each of these values either 0 or 1
@@ -316,8 +292,6 @@ class Metrics(ABC):
         """
         pred = prediction.copy()
         output = None
-        if not self.in_prob_range:
-            pred = self.to_prob_range(pred)
         if type_classifier == 'multiclass':
             assert mask is not None
             output = (np.argmax(mask, axis=2), np.argmax(pred, axis=2))
@@ -332,7 +306,8 @@ class Metrics(ABC):
                              "The input parameter 'type_classifier' is incorrect.")
         return output
 
-    def get_confusion_matrix(self, truth, pred, nbr_class=None, revert_order=True):
+    @staticmethod
+    def get_confusion_matrix(truth, pred, nbr_class, revert_order=True):
         """
         Return a confusion matrix whose i-th row and j-th column entry indicates the number of samples
         with true label being i-th class and predicted label being j-th class. (example in  binary case)
@@ -354,6 +329,8 @@ class Metrics(ABC):
             Prediction values.
         nbr_class: int
             Number of classes present in the input data, default None.
+        revert_order: bool
+            Bool to flip or not the confusion matrix.
 
         Returns
         -------
@@ -361,10 +338,7 @@ class Metrics(ABC):
             Computed confusion matrix.
         """
         assert isinstance(truth, (np.ndarray, np.generic)) and isinstance(pred, (np.ndarray, np.generic))
-        if nbr_class is None:
-            nbr_class = self.nbr_class
         class_ids = list(range(nbr_class))
-
         conf_mat = np.zeros([nbr_class, nbr_class], dtype=np.float64)
         for i, class_i in enumerate(class_ids):
             for j, class_j in enumerate(class_ids):
@@ -426,6 +400,13 @@ class Metrics(ABC):
             Transformed data with a value between 0 and 1.
         """
         return value / self.depth_dict[self.bit_depth]
+
+    def export_metrics_per_patch_csv(self):
+        """
+            Export the metrics per patch in a csv file.
+        """
+        path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
+        self.df_dataset.to_csv(path_csv, index=False)
 
     @staticmethod
     def heatmap(data, row_labels, col_labels, axes=None,

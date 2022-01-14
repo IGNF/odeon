@@ -120,35 +120,40 @@ class MetricsBinary(Metrics):
         for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
             mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
+            if not self.in_prob_range:
+                pred = self.to_prob_range(pred)
+
+            # Compute metrics per patch and return an histogram of the values
+            if self.get_metrics_per_patch or self.get_hists_per_metrics:
+                pred_cm = self.binarize(self.type_classifier, pred, threshold=self.threshold)
+                conf_mat = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten(),
+                                                     self.nbr_class, revert_order=True)
+
+                sample_metrics = self.get_metrics_from_cm(conf_mat)
+                self.df_dataset.loc[dataset_index, 'name_file'] = name_file
+                for name_column in self.metrics_names[:-1]:
+                    self.df_dataset.loc[dataset_index, name_column] = sample_metrics[name_column]
+
+            # To calcultate info for calibrations curves only once.
+            if self.get_calibration_curves:
+                # bincounts for histogram of prediction
+                self.hist_counts += np.histogram(pred.flatten(), bins=self.bins)[0]
+                # Indices of the bins where the predictions will be in there.
+                binids = np.digitize(pred.flatten(), self.bins) - 1
+                # Bins counts of indices times the values of the predictions.
+                bin_sums += np.bincount(binids, weights=pred.flatten(), minlength=len(self.bins))
+                # Bins counts of indices times the values of the masks.
+                bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(self.bins))
+                # Total number observation per bins.
+                bin_total += np.bincount(binids, minlength=len(self.bins))
+
             for threshold in self.threshold_range:
                 pred_cm = self.binarize(self.type_classifier, pred, threshold=threshold)
-                conf_mat = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten(), revert_order=True)
+                conf_mat = self.get_confusion_matrix(mask.flatten(), pred_cm.flatten(),
+                                                     self.nbr_class, revert_order=True)
                 self.cms[threshold] += conf_mat
 
-                # Compute metrics per patch and return an histogram of the values
-                if (self.get_metrics_per_patch or self.get_hists_per_metrics) and threshold == self.threshold:
-                    sample_metrics = self.get_metrics_from_cm(conf_mat)
-                    self.df_dataset.loc[dataset_index, 'name_file'] = name_file
-                    for name_column in self.metrics_names[:-1]:
-                        self.df_dataset.loc[dataset_index, name_column] = sample_metrics[name_column]
-
-                # To calcultate info for calibrations curves only once.
-                if self.get_calibration_curves and threshold == self.threshold_range[0]:
-                    pred_hist = pred.copy()
-                    if not self.in_prob_range:
-                        pred_hist = self.to_prob_range(pred_hist)
-                    # bincounts for histogram of prediction
-                    self.hist_counts += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
-                    # Indices of the bins where the predictions will be in there.
-                    binids = np.digitize(pred_hist.flatten(), self.bins) - 1
-                    # Bins counts of indices times the values of the predictions.
-                    bin_sums += np.bincount(binids, weights=pred_hist.flatten(), minlength=len(self.bins))
-                    # Bins counts of indices times the values of the masks.
-                    bin_true += np.bincount(binids, weights=mask.flatten(), minlength=len(self.bins))
-                    # Total number observation per bins.
-                    bin_total += np.bincount(binids, minlength=len(self.bins))
-
-        # Compute metrics at every threshold value
+        # Compute metrics at every threshold value once the whole dataset has been covered.
         for threshold in self.threshold_range:
             cr_metrics = self.get_metrics_from_cm(self.cms[threshold])
             for metric, metric_value in cr_metrics.items():
@@ -345,13 +350,6 @@ class MetricsBinary(Metrics):
             plt.savefig(output_path)
             plt.close()
         return output_path
-
-    def export_metrics_per_patch_csv(self):
-        """
-            Export the metrics per patch in a csv file.
-        """
-        path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
-        self.df_dataset.to_csv(path_csv, index=False)
 
     def export_roc_pr_values(self):
         """

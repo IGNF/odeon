@@ -96,7 +96,7 @@ class MetricsMulticlass(Metrics):
         Run the methods to compute metrics.
         """
         # Computed confusion matrix for each sample and sum the total in one micro cm.
-        self.cm_macro = self.scan_dataset()
+        self.scan_dataset()
 
         # Get metrics for each strategy and cms macro from the micro cm.
         self.metrics_by_class, self.metrics_micro, self.cms_classes, self.cm_micro = \
@@ -144,108 +144,85 @@ class MetricsMulticlass(Metrics):
         np.array
             Confusion matrix for micro strategy.
         """
-        cm_macro = np.zeros([self.nbr_class, self.nbr_class])
+        self.cm_macro = np.zeros([self.nbr_class, self.nbr_class])
         # Dict and dataframe to store data for ROC and PR curves.
         self.cms_one_class = pd.DataFrame(index=self.threshold_range, columns=self.class_labels, dtype=object)
         self.cms_one_class = self.cms_one_class.applymap(lambda x: np.zeros([2, 2]))
 
         for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
             mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
-            if self.mask_bands is not None and self.pred_bands is not None:
-                mask = self.select_bands(mask, select_bands=self.mask_bands)
-                pred = self.select_bands(pred, select_bands=self.pred_bands)
+
+            if not self.in_prob_range:
+                pred = self.to_prob_range(pred)
+
+            # Compute cm micro for every sample and stack the results to a total micro cm.
+            # Here binarization with an argmax.
+            mask_macro, pred_macro = self.binarize(type_classifier=self.type_classifier,
+                                                   prediction=pred,
+                                                   mask=mask)
+            # Get a cm for every sample
+            conf_mat = self.get_confusion_matrix(mask_macro.flatten(),
+                                                 pred_macro.flatten(),
+                                                 nbr_class=self.nbr_class,
+                                                 revert_order=False)
+            self.cm_macro += conf_mat
+
+            # Compute metrics per patch
+            if self.get_metrics_per_patch or self.get_hists_per_metrics:
+                self.compute_metrics_per_patch(conf_mat, dataset_index, name_file)
 
             for i, class_i in enumerate(self.class_labels):
-                for threshold in self.threshold_range:
-                    class_mask = mask[:, :, i]
-                    class_pred = pred[:, :, i]
+                class_mask = mask[:, :, i]
+                class_pred = pred[:, :, i]
 
-                    self.counts_sample_per_class[class_i] += np.count_nonzero(class_mask)
-                    bin_pred = self.binarize('binary', class_pred, threshold=threshold)
-                    cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(),
-                                                      nbr_class=2, revert_order=True)
-                    self.cms_one_class.loc[threshold, class_i] += cr_cm
+                # Stats to compute global average metrics (metrics per number of pixels).
+                self.counts_sample_per_class[class_i] += np.count_nonzero(class_mask)
 
-                    # To compute only once data for cm micro.
-                    if threshold == self.threshold and i == 0:
-                        # Compute cm micro for every sample and stack the results to a total micro cm.
-                        # Here binarization with an argmax.
-                        mask_macro, pred_macro = self.binarize(type_classifier=self.type_classifier,
-                                                               prediction=pred,
-                                                               mask=mask)
-                        conf_mat = self.get_confusion_matrix(mask_macro.flatten(),
-                                                             pred_macro.flatten(),
-                                                             revert_order=False)
-                        cm_macro += conf_mat
+                if self.get_ROC_PR_curves or self.get_ROC_PR_values:
+                    for threshold in self.threshold_range:
+                        bin_pred = self.binarize('binary', class_pred, threshold=threshold)
+                        cr_cm = self.get_confusion_matrix(class_mask.flatten(), bin_pred.flatten(),
+                                                          nbr_class=2, revert_order=True)
+                        self.cms_one_class.loc[threshold, class_i] += cr_cm
 
-                        # Compute metrics per patch
-                        if self.get_metrics_per_patch:
-                            # Get a cm for every sample
-                            metrics_by_class, metrics_micro,  _, _ = self.get_metrics_from_cm(conf_mat)
-                            self.df_dataset.loc[dataset_index, 'name_file'] = name_file
-                            # in micro, recall = precision = f1-score = oa
-                            self.df_dataset.loc[dataset_index, 'OA'] = metrics_micro['Precision']
-                            self.df_dataset.loc[dataset_index, 'micro_IoU'] = metrics_micro['IoU']
-
-                            # Per classes patch metrics
-                            for label in self.class_labels:
-                                for name_column in self.metrics_names[:-1]:
-                                    self.df_dataset.loc[dataset_index, '_'.join(label.split(' ')) + '_' + name_column] \
-                                        = metrics_by_class[label][name_column]
-
-                            # Mean metrics per sample
-                            for metric in self.metrics_names[:-1]:
-                                mean_metric = 0
-                                for class_name, weight in zip(self.class_labels, self.weights):
-                                    mean_metric += \
-                                        weight * self.df_dataset.loc[dataset_index, '_'.join(class_name.split(' ')) +
-                                                                                    '_' + metric]
-                                self.df_dataset.loc[dataset_index, 'mean_' + metric] = mean_metric / self.nbr_class
-                                if metric in ['Precision', 'Recall', 'F1-Score', 'IoU']:
-                                    self.df_dataset.loc[dataset_index, 'macro_' + metric] = mean_metric / self.nbr_class
-
+                if self.get_calibration_curves:
                     # To compute only once per class calibration curves.
-                    if threshold == self.threshold:
-                        pred_hist = pred[:, :, i]
-                        mask_hist = mask[:, :, i]
+                    # Bincounts for histogram of prediction
+                    self.dict_hist_counts[class_i] += np.histogram(class_pred.flatten(), bins=self.bins)[0]
+                    # Indices of the bins where the predictions will be in there.
+                    binids = np.digitize(class_pred.flatten(), self.bins) - 1
+                    # Bins counts of indices times the values of the predictions.
+                    self.dict_bin_sums[class_i] += np.bincount(binids, weights=class_pred.flatten(),
+                                                               minlength=len(self.bins))
+                    # Bins counts of indices times the values of the masks.
+                    self.dict_bin_true[class_i] += np.bincount(binids, weights=class_mask.flatten(),
+                                                               minlength=len(self.bins))
+                    # Total number observation per bins.
+                    self.dict_bin_total[class_i] += np.bincount(binids, minlength=len(self.bins))
 
-                        if not self.in_prob_range:
-                            pred_hist = self.to_prob_range(pred_hist)
+        if self.get_calibration_curves:
+            for class_j in self.class_labels:
+                nonzero = self.dict_bin_total[class_j] != 0  # Avoid to display null bins.
+                # The proportion of samples whose class is the positive class, in each bin (fraction of positives).
+                prob_true = self.dict_bin_true[class_j][nonzero] / self.dict_bin_total[class_j][nonzero]
+                # The mean predicted probability in each bin.
+                prob_pred = self.dict_bin_sums[class_j][nonzero] / self.dict_bin_total[class_j][nonzero]
+                self.dict_prob_true[class_j] = prob_true
+                self.dict_prob_pred[class_j] = prob_pred
 
-                        # Bincounts for histogram of prediction
-                        self.dict_hist_counts[class_i] += np.histogram(pred_hist.flatten(), bins=self.bins)[0]
-                        # Indices of the bins where the predictions will be in there.
-                        binids = np.digitize(pred_hist.flatten(), self.bins) - 1
-                        # Bins counts of indices times the values of the predictions.
-                        self.dict_bin_sums[class_i] += np.bincount(binids, weights=pred_hist.flatten(),
-                                                                   minlength=len(self.bins))
-                        # Bins counts of indices times the values of the masks.
-                        self.dict_bin_true[class_i] += np.bincount(binids, weights=mask_hist.flatten(),
-                                                                   minlength=len(self.bins))
-                        # Total number observation per bins.
-                        self.dict_bin_total[class_i] += np.bincount(binids, minlength=len(self.bins))
-
-        self.cms_one_class = \
-            self.cms_one_class.applymap(lambda cm_one_class: self.get_metrics_from_obs(cm_one_class[0][0],
-                                                                                       cm_one_class[0][1],
-                                                                                       cm_one_class[1][0],
-                                                                                       cm_one_class[1][1]))
-        for class_j in self.class_labels:
-            nonzero = self.dict_bin_total[class_j] != 0  # Avoid to display null bins.
-            # The proportion of samples whose class is the positive class, in each bin (fraction of positives).
-            prob_true = self.dict_bin_true[class_j][nonzero] / self.dict_bin_total[class_j][nonzero]
-            # The mean predicted probability in each bin.
-            prob_pred = self.dict_bin_sums[class_j][nonzero] / self.dict_bin_total[class_j][nonzero]
-            self.dict_prob_true[class_j] = prob_true
-            self.dict_prob_pred[class_j] = prob_pred
-
-            vects = {'Recall': [], 'FPR': [], 'Precision': []}
-            for metrics_raw in self.cms_one_class.loc[:, class_j]:
-                vects['Recall'].append(metrics_raw['Recall'])
-                vects['FPR'].append(metrics_raw['FPR'])
-                vects['Precision'].append(metrics_raw['Precision'])
-            self.vect_classes[class_j] = vects
-        return cm_macro
+        if self.get_ROC_PR_curves or self.get_ROC_PR_values:
+            self.cms_one_class = \
+                self.cms_one_class.applymap(lambda cm_one_class: self.get_metrics_from_obs(cm_one_class[0][0],
+                                                                                           cm_one_class[0][1],
+                                                                                           cm_one_class[1][0],
+                                                                                           cm_one_class[1][1]))
+            for class_j in self.class_labels:
+                vects = {'Recall': [], 'FPR': [], 'Precision': []}
+                for metrics_raw in self.cms_one_class.loc[:, class_j]:
+                    vects['Recall'].append(metrics_raw['Recall'])
+                    vects['FPR'].append(metrics_raw['FPR'])
+                    vects['Precision'].append(metrics_raw['Precision'])
+                self.vect_classes[class_j] = vects
 
     def get_obs_by_class_from_cm(self, conf_mat):
         """
@@ -311,6 +288,38 @@ class MetricsMulticlass(Metrics):
                                                   cm_micro[1][1])
 
         return metrics_by_class, metrics_micro, cms_classes, cm_micro
+
+    def compute_metrics_per_patch(self, conf_mat_patch, index_patch, name_patch):
+        """Compute metrics for a patch thanks to the confusion matrix calculated for this patch.
+
+        Parameters
+        ----------
+        conf_mat_patch : np.array
+            Confusion matrix of the patch.
+        index_patch : int
+            Index of the patch in the dataset.
+        name_patch : str
+            Path to the patch.
+        """
+        metrics_by_class, metrics_micro,  _, _ = self.get_metrics_from_cm(conf_mat_patch)
+        self.df_dataset.loc[index_patch, 'name_file'] = name_patch
+        # in micro, recall = precision = f1-score = oa
+        self.df_dataset.loc[index_patch, 'OA'] = metrics_micro['Precision']
+        self.df_dataset.loc[index_patch, 'micro_IoU'] = metrics_micro['IoU']
+        # Per classes patch metrics
+        for label in self.class_labels:
+            for name_column in self.metrics_names[:-1]:
+                self.df_dataset.loc[index_patch, '_'.join(label.split(' ')) + '_' + name_column] \
+                    = metrics_by_class[label][name_column]
+        # Mean metrics per sample
+        for metric in self.metrics_names[:-1]:
+            mean_metric = 0
+            for class_name, weight in zip(self.class_labels, self.weights):
+                mean_metric += \
+                    weight * self.df_dataset.loc[index_patch, '_'.join(class_name.split(' ')) + '_' + metric]
+            self.df_dataset.loc[index_patch, 'mean_' + metric] = mean_metric / self.nbr_class
+            if metric in ['Precision', 'Recall', 'F1-Score', 'IoU']:
+                self.df_dataset.loc[index_patch, 'macro_' + metric] = mean_metric / self.nbr_class
 
     def metrics_to_df_reports(self):
         """
@@ -559,13 +568,6 @@ class MetricsMulticlass(Metrics):
                                                         name_plot='hists_'+'_'.join(class_i.split(' '))+'.png')
                 header_index = header_next_index
         return output_paths
-
-    def export_metrics_per_patch_csv(self):
-        """
-            Export the metrics per patch in a csv file.
-        """
-        path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
-        self.df_dataset.to_csv(path_csv, index=False)
 
     def export_roc_pr_values(self):
         """

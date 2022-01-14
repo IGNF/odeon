@@ -129,7 +129,9 @@ class CLIMetrics(BaseTool):
         self.height, self.width, mask_class, pred_class = self.get_samples_shapes()
 
         # Check mask_bands/pred_bands parameters
-        if mask_bands is not None and pred_bands is not None:
+        if mask_bands is not None:
+            if pred_bands is None:
+                pred_bands = mask_bands
             # Standardization of band indices with rasterio/gdal, so the user will input the index 1 for the band 0.
             mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
             # Checks if the bands entered in the configuration file have values corresponding to the bands of the
@@ -138,11 +140,16 @@ class CLIMetrics(BaseTool):
             self.check_raster_bands(np.arange(pred_class), pred_bands)
 
             if len(mask_bands) == len(pred_bands):
+                if self.type_classifier == 'binary' and len(mask_bands) > 1:
+                    LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
+                    raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                     "The input parameters mask_bands and pred_bands are incorrect.")
                 self.mask_bands = mask_bands
                 self.pred_bands = pred_bands
-                self.nbr_class = len(mask_bands)
+                self.nbr_class = len(mask_bands) if self.type_classifier == 'multiclass' else 2
             else:
-                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values.')
+                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values if\
+                             pred_bands is defined.')
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                       "The input parameters mask_bands and pred_bands are incorrect.")
         else:
@@ -184,10 +191,11 @@ class CLIMetrics(BaseTool):
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                                  "The input parameter weigths is incorrect.")
         else:
-            self.weights = np.ones(self.nbr_class)
+            self.weights = np.ones(self.nbr_class) if self.type_classifier == 'multiclass' else None
 
         # For class selection, if selected bands + 1 < min(mask_bands, pred_bands) then 'Other' class is created
-        if self.mask_bands is not None and len(self.mask_bands) + 1 < min(mask_class, pred_class):
+        if self.mask_bands is not None and len(self.mask_bands) + 1 < min(mask_class, pred_class) \
+           and self.type_classifier == 'multiclass':
             # Add 1 because we create a class other for all the bands not selected.
             self.nbr_class += 1
             self.class_labels.append('Other')
