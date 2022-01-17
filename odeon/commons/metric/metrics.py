@@ -27,8 +27,6 @@ The metrics computed are in each case :
 import os
 from abc import ABC, abstractmethod
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from odeon import LOGGER
 from odeon.commons.reports.report_factory import Report_Factory
 from odeon.commons.exception import OdeonError, ErrorCodes
@@ -169,13 +167,15 @@ class Metrics(ABC):
 
         if weights is None:
             self.weighted = False
+            self.weights = None
         else:
             if self.type_classifier == 'binary':
                 LOGGER.warning('WARNING: the parameter weigths can only be used for multiclass classifier.')
                 self.weighted = False
+                self.weights = None
             else:
                 self.weighted = True
-            self.weights = weights
+                self.weights = weights
 
         self.threshold = threshold
         self.n_thresholds = n_thresholds
@@ -195,6 +195,7 @@ class Metrics(ABC):
         self.nbr_metrics_per_class = NBR_METRICS_PER_CLASS
         self.mask_bands = mask_bands
         self.pred_bands = pred_bands
+        self.dict_export = {}
 
         self.depth_dict = {'keep':  1,
                            '8 bits': 255,
@@ -211,13 +212,13 @@ class Metrics(ABC):
             self.threshold_range = np.sort(np.append(self.threshold_range, self.threshold))
 
         if self.output_type == 'json':
-            self.dict_export = {}
             self.dict_export['params'] = {'class_labels': self.class_labels,
                                           'threshold': self.threshold,
                                           'threshold_range': self.threshold_range.tolist(),
                                           'bins': self.bins.tolist(),
-                                          'weights': self.weights if isinstance(self.weights, list)
-                                          else self.weights.tolist()}
+                                          'weights': self.weights.tolist() if isinstance(self.weights, np.ndarray)
+                                          else self.weights}
+
         self.report = Report_Factory(self)
 
     def __call__(self):
@@ -407,303 +408,3 @@ class Metrics(ABC):
         """
         path_csv = os.path.join(self.output_path, 'metrics_per_patch.csv')
         self.df_dataset.to_csv(path_csv, index=False)
-
-    @staticmethod
-    def heatmap(data, row_labels, col_labels, axes=None,
-                cbar_kw=None, cbarlabel="", **kwargs):
-        """
-        Create a heatmap from a numpy array and two lists of labels.
-        Code from : https://matplotlib.org/stable/gallery/images_contours_and_fields/image_annotated_heatmap.html
-
-        Parameters
-        ----------
-        data
-            A 2D numpy array of shape (N, M).
-        row_labels
-            A list or array of length N with the labels for the rows.
-        col_labels
-            A list or array of length M with the labels for the columns.
-        axes
-            A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
-            not provided, use current axes or create a new one.  Optional.
-        cbar_kw
-            A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
-        cbarlabel
-            The label for the colorbar.  Optional.
-        **kwargs
-            All other arguments are forwarded to `imshow`.
-        """
-        if cbar_kw is None:
-            cbar_kw = {}
-
-        if not axes:
-            axes = plt.gca()
-
-        # Plot the heatmap
-        image = axes.imshow(data, **kwargs)
-
-        # Create colorbar
-        cbar = axes.figure.colorbar(image, ax=axes, **cbar_kw)
-        cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
-
-        # We want to show all ticks...
-        axes.set_xticks(np.arange(data.shape[1]))
-        axes.set_yticks(np.arange(data.shape[0]))
-        # ... and label them with the respective list entries.
-        axes.set_xticklabels(col_labels)
-        axes.set_yticklabels(row_labels)
-        axes.set_ylabel('Actual Class')
-        axes.set_xlabel('Predicted Class')
-        axes.xaxis.set_label_position('top')
-
-        # Let the horizontal axes labeling appear on top.
-        axes.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
-
-        # Rotate the tick labels and set their alignment.
-        plt.setp(axes.get_xticklabels(), rotation=-30, ha="right", rotation_mode="anchor")
-
-        # Turn spines off and create white grid.
-        for _, spine in axes.spines.items():
-            spine.set_visible(False)
-
-        axes.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-        axes.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
-        axes.grid(which="minor", color="w", linestyle='-', linewidth=3)
-        axes.tick_params(which="minor", bottom=False, left=False)
-
-        return image, cbar
-
-    @staticmethod
-    def annotate_heatmap(image, data=None, valfmt="{x:.3f}",
-                         textcolors=("black", "white"), threshold=None, **textkw):
-        """
-        A function to annotate a heatmap.
-
-        Parameters
-        ----------
-        image
-            The AxesImage to be labeled.
-        data
-            Data used to annotate.  If None, the image's data is used.  Optional.
-        valfmt
-            The format of the annotations inside the heatmap.  This should either
-            use the string format method, e.g. "$ {x:.2f}", or be a
-            `matplotlib.ticker.Formatter`.  Optional.
-        textcolors
-            A pair of colors.  The first is used for values below a threshold,
-            the second for those above.  Optional.
-        threshold
-            Value in data units according to which the colors from textcolors are
-            applied.  If None (the default) uses the middle of the colormap as
-            separation.  Optional.
-        **kwargs
-            All other arguments are forwarded to each call to `text` used to create
-            the text labels.
-        """
-
-        if not isinstance(data, (list, np.ndarray)):
-            data = image.get_array()
-
-        # Normalize the threshold to the images color range.
-        if threshold is not None:
-            threshold = image.norm(threshold)
-        else:
-            threshold = image.norm(data.max())/2.
-
-        # Set default alignment to center, but allow it to be
-        # overwritten by textkw.
-        kwargs = dict(horizontalalignment="center", verticalalignment="center")
-        kwargs.update(textkw)
-
-        # # Get the formatter in case a string is supplied
-        if isinstance(valfmt, str):
-            valfmt = matplotlib.ticker.StrMethodFormatter(valfmt)
-
-        # Loop over the data and create a `Text` for each "pixel".
-        # Change the text's color depending on the data.
-        texts = []
-        if isinstance(valfmt, (np.ndarray, np.generic)):
-            for i in range(data.shape[0]):
-                for j in range(data.shape[1]):
-                    kwargs.update(color=textcolors[int(image.norm(data[i, j]) > threshold)])
-                    if valfmt[i, j] == 'nodata':
-                        text = image.axes.text(j, i, valfmt[i, j], **kwargs)
-                    else:
-                        decimals = 1 if data[i, j] >= 1 else 3
-                        text = image.axes.text(j, i,
-                                               str(np.round(data[i, j] / valfmt[i, j][0] if data[i, j] != 0 else 0,
-                                                            decimals))
-                                               + valfmt[i, j][1],
-                                               **kwargs)
-                    texts.append(text)
-        else:
-            for i in range(data.shape[0]):
-                for j in range(data.shape[1]):
-                    kwargs.update(color=textcolors[int(image.norm(data[i, j]) > threshold)])
-                    text = image.axes.text(j, i, valfmt(data[i, j], None), **kwargs)
-                    texts.append(text)
-        return texts
-
-    @staticmethod
-    def get_cm_val_fmt(conf_mat, mark_no_data=False):
-        """
-        Function allowing to obtain a matrix containing the elements necessary to format each cell of a confusion matrix
-        so that the number of observations can be entered in a cell. Each element of the matrix consist of tuple with a
-        number to divide the value of the cm case and character to show the unit.
-        ex: cm value = 3000 -> fmt (1000, 'k') -> '3k'.
-
-        Parameters
-        ----------
-        cm : np.array
-            Confusion matrix with float values to format.
-
-        Returns
-        -------
-        np.array
-            Matrix with elements to format the cm.
-        """
-
-        def find_val_fmt(value):
-            """Return format element for one value.
-
-            Parameters
-            ----------
-            value : float
-                value to transform.
-
-            Returns
-            -------
-            Tuple(int, str)
-                Value to divide the input value, character to know in which unit is the input value.
-            """
-            length_dict = {0: (10**0, ''),
-                           3: (10**3, 'k'),
-                           6: (10**6, 'm'),
-                           9: (10**9, 'g'),
-                           12: (10**12, 't'),
-                           15: (10**15, 'p')}
-            divider, unit_char = None, None
-            for i, length in enumerate(length_dict):
-                number = str(value).split('.')[0]
-                if len(number) < length + 1:
-                    divider = length_dict[list(length_dict)[i - 1]][0]
-                    unit_char = length_dict[list(length_dict)[i - 1]][1]
-                    break
-                elif len(number) == length + 1:
-                    divider = length_dict[length][0]
-                    unit_char = length_dict[length][1]
-                    break
-                elif i == len(length_dict) - 1:
-                    divider = length_dict[list(length_dict)[i]][0]
-                    unit_char = length_dict[list(length_dict)[i]][1]
-            return (divider, unit_char)
-
-        cm_val_fmt = np.zeros_like(conf_mat, dtype=object)
-        for i in range(conf_mat.shape[0]):
-            if mark_no_data and all(np.equal(conf_mat[i], 0)):
-                cm_val_fmt[i] = ['nodata' for _ in range(conf_mat.shape[1])]
-            else:
-                for j in range(conf_mat.shape[1]):
-                    cm_val_fmt[i, j] = find_val_fmt(conf_mat[i, j])
-        return cm_val_fmt
-
-    def plot_confusion_matrix(self, conf_mat, labels, name_plot='confusion_matrix.png', cmap="YlGn"):
-        """ Plot a confusion matrix with the number of observation in the whole input dataset.
-
-        Parameters
-        ----------
-        conf_mat : np.array
-            Confusion matrix.
-        labels : list of str
-            Labels for each class.
-        name_plot : str, optional
-            Name of the output file, by default 'confusion_matrix.png'
-        cmap : str, optional
-            colors to use in the plot, by default "YlGn"
-
-        Returns
-        -------
-        str
-            Ouput path of the image containing the plot.
-        """
-        if conf_mat.shape[0] < 10:
-            figsize = (10, 7)
-        elif conf_mat.shape[0] >= 10 and conf_mat.shape[0] <= 16:
-            figsize = (12, 9)
-        else:
-            figsize = (16, 11)
-
-        fig, axes = plt.subplots(figsize=figsize)
-        cbarlabel = 'Coefficients values'
-
-        image, _ = self.heatmap(conf_mat, labels, labels, axes=axes, cmap=cmap, cbarlabel=cbarlabel)
-        # Rewrite cm with strings in order to fit the values into the figure.
-
-        cm_val_fmt = self.get_cm_val_fmt(conf_mat)
-        _ = self.annotate_heatmap(image, valfmt=cm_val_fmt)
-
-        fig.tight_layout(pad=3)
-        output_path = os.path.join(self.output_path, name_plot)
-        plt.savefig(output_path)
-        plt.close()
-        return output_path
-
-    def plot_norm_and_value_cms(self, conf_mat, labels, name_plot='norm_and_values_cms.png',
-                                per_class_norm=True, cmap="YlGn"):
-        """Plot a confusion matrix with the number of observation and also another one with values
-        normalized (per class or by the whole cm).
-
-        Parameters
-        ----------
-        conf_mat : np.array
-            Confusion matrix.
-        labels : list of str
-            Labels for each class.
-        name_plot : str, optional
-            Name of the output file, by default 'confusion_matrix.png'
-        per_class_norm : bool, optional
-            normalize per class or by the whole values in the cm, by default True
-        cmap : str, optional
-            colors to use in the plot, by default "YlGn"
-
-        Returns
-        -------
-        str
-            Ouput path of the image containing the plot.
-        """
-        if conf_mat.shape[0] < 10:
-            figsize = (20, 7)
-        elif conf_mat.shape[0] >= 10 and conf_mat.shape[0] <= 16:
-            figsize = (23, 9)
-        else:
-            figsize = (26, 11)
-
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=figsize)
-        cbarlabel = 'Coefficients values'
-        fontsize = 12
-        # On ax0, normalize cm
-        dividend = conf_mat.astype('float')
-        if not per_class_norm:
-            divisor = np.sum(conf_mat.flatten())
-        else:
-            divisor = conf_mat.sum(axis=1)[:, np.newaxis]
-        cm_norm = np.divide(dividend, divisor, out=np.zeros_like(dividend), where=divisor != 0)
-
-        im0, _ = self.heatmap(cm_norm, labels, labels, axes=axs[1], cmap=cmap, cbarlabel=cbarlabel)
-        cm_val_fmt_norm = self.get_cm_val_fmt(cm_norm, mark_no_data=True)
-        _ = self.annotate_heatmap(im0, data=np.round(cm_norm, decimals=3), valfmt=cm_val_fmt_norm)
-        if not per_class_norm:
-            axs[1].set_title('Normalized values', y=-0.1, pad=-14, fontsize=fontsize)
-        else:
-            axs[1].set_title('Normalized per actual class values', y=-0.1, pad=-14, fontsize=fontsize)
-
-        im1, _ = self.heatmap(conf_mat, labels, labels, axes=axs[0], cmap=cmap, cbarlabel=cbarlabel)
-        cm_val_fmt = self.get_cm_val_fmt(conf_mat)
-        _ = self.annotate_heatmap(im1, valfmt=cm_val_fmt)
-        axs[0].set_title('Number of observations', y=-0.1, pad=-14, fontsize=fontsize)
-
-        fig.tight_layout(pad=2)
-        output_path = os.path.join(self.output_path, name_plot)
-        plt.savefig(output_path)
-        plt.close()
-        return output_path

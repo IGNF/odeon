@@ -154,15 +154,15 @@ class CLIMetrics(BaseTool):
                       "The input parameters mask_bands and pred_bands are incorrect.")
         else:
             self.mask_bands = self.pred_bands = None
-            if self.type_classifier == 'binary':
+            if min(mask_class, pred_class) > 2 and self.type_classifier == 'binary':
+                LOGGER.error("ERROR: If you have more than 2 classes, please use the classifier type 'multiclass' or\
+                             select a band with the parameters mask_bands/pred_bands")
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                 "The input parameter type classifier is incorrect.")
+            elif self.type_classifier == 'binary':
                 self.nbr_class = 2
             else:
                 self.nbr_class = min(mask_class, pred_class)
-
-        if self.nbr_class > 2 and self.type_classifier == 'binary':
-            LOGGER.error("ERROR: If you have more than 2 classes, please use the classifier type 'multiclass'.")
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter type classifier is incorrect.")
 
         # Check labels parameter
         if class_labels is not None:
@@ -203,14 +203,16 @@ class CLIMetrics(BaseTool):
             if len(self.weights) != self.nbr_class:
                 self.weights = np.append(self.weights, 0.0)
 
-        metrics_dataset = MetricsDataset(self.mask_files,
-                                         self.pred_files,
-                                         nbr_class=self.nbr_class,
-                                         width=self.width,
-                                         height=self.height,
-                                         type_classifier=self.type_classifier)
+        self.metrics_dataset = MetricsDataset(self.mask_files,
+                                              self.pred_files,
+                                              nbr_class=self.nbr_class,
+                                              type_classifier=self.type_classifier,
+                                              mask_bands=self.mask_bands,
+                                              pred_bands=self.pred_bands,
+                                              width=self.width,
+                                              height=self.height)
 
-        self.metrics = MetricsFactory(self.type_classifier)(dataset=metrics_dataset,
+        self.metrics = MetricsFactory(self.type_classifier)(dataset=self.metrics_dataset,
                                                             output_path=self.output_path,
                                                             type_classifier=self.type_classifier,
                                                             in_prob_range=self.in_prob_range,
@@ -224,12 +226,12 @@ class CLIMetrics(BaseTool):
                                                             bit_depth=self.bit_depth,
                                                             bins=self.bins,
                                                             n_bins=self.n_bins,
-                                                            get_normalize=get_normalize,
+                                                            get_normalize=self.get_normalize,
                                                             get_metrics_per_patch=self.get_metrics_per_patch,
                                                             get_ROC_PR_curves=self.get_ROC_PR_curves,
-                                                            get_ROC_PR_values=get_ROC_PR_values,
-                                                            get_calibration_curves=get_calibration_curves,
-                                                            get_hists_per_metrics=get_hists_per_metrics)
+                                                            get_ROC_PR_values=self.get_ROC_PR_values,
+                                                            get_calibration_curves=self.get_calibration_curves,
+                                                            get_hists_per_metrics=self.get_hists_per_metrics)
 
     def __call__(self):
         """

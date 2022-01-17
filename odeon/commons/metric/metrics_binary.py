@@ -7,9 +7,6 @@ ROC/PR curves, calibration curve and metrics histograms.
 import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.metrics import auc
-from cycler import cycler
 from tqdm import tqdm
 from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
 
@@ -68,8 +65,9 @@ class MetricsBinary(Metrics):
                          decimals=decimals)
 
         self.df_thresholds, self.cms, self.df_report_metrics = self.create_data_for_metrics()
-
+        self.vect_curves = {}
         if self.get_metrics_per_patch or self.get_hists_per_metrics:
+            self.hists_metrics = {}
             self.df_dataset = pd.DataFrame(index=range(len(self.dataset)),
                                            columns=(['name_file'] + self.metrics_names[:-1]))
         if self.get_calibration_curves:
@@ -85,10 +83,7 @@ class MetricsBinary(Metrics):
         markdown or html. Optionally the tool can output metrics per patch and return the result as a csv file.
         """
         self.get_metrics_by_threshold()
-        if self.get_metrics_per_patch:
-            self.export_metrics_per_patch_csv()
-        if self.get_ROC_PR_values:
-            self.export_roc_pr_values()
+        self.export_values()
 
     def create_data_for_metrics(self):
         """
@@ -104,7 +99,6 @@ class MetricsBinary(Metrics):
         df_thresholds['threshold'] = self.threshold_range
         cms = {threshold: np.zeros([self.nbr_class, self.nbr_class]) for threshold in self.threshold_range}
         df_report_metrics = pd.DataFrame(index=['Values'], columns=self.metrics_names[:-1])
-
         return df_thresholds, cms, df_report_metrics
 
     def get_metrics_by_threshold(self):
@@ -164,6 +158,17 @@ class MetricsBinary(Metrics):
             self.prob_true = bin_true[nonzero] / bin_total[nonzero]
             self.prob_pred = bin_sums[nonzero] / bin_total[nonzero]
 
+        if self.get_hists_per_metrics:
+            for metric in self.metrics_names[:-1]:
+                self.hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]),
+                                                          bins=self.bins)[0].tolist()
+
+        if self.get_ROC_PR_curves or self.get_ROC_PR_values:
+            self.vect_curves = {"TPR": self.df_thresholds['Recall'].tolist(),
+                                "FPR": self.df_thresholds['FPR'].tolist(),
+                                "Precision": self.df_thresholds['Precision'].tolist(),
+                                "Recall": self.df_thresholds['Recall'].tolist()}
+
         # Put in the df for the report the computed metrics for the threshold pass as input in the configuration file.
         self.df_report_metrics.loc['Values'] = \
             self.df_thresholds.loc[self.df_thresholds['threshold'] == self.threshold, self.metrics_names[:-1]].values
@@ -185,180 +190,31 @@ class MetricsBinary(Metrics):
         true_pos, false_neg, false_pos, true_neg = conf_mat.ravel()
         return self.get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg)
 
-    def plot_roc_pr_curves(self, name_plot='binary_roc_pr_curve.png'):
+    def export_values(self):
         """
-        Plot (html/md output type) or export (json type) data on ROC and PR curves.
-        For ROC curve, points (0, 0) and (1, 1) are added to data in order to have a curve
-        which begin at the origin and finish in the top right of the image.
-        Same thing for PR curve but with the points (0, 1) and (1, 0).
-
-        Parameters
-        ----------
-        name_plot : str, optional
-            Desired name to give to the output image, by default 'multiclass_roc_pr_curves.png'
-
-        Returns
-        -------
-        str
-            Output path where an image with the plot will be created.
+            Export the values used to create a report.
         """
-        output_path = os.path.join(self.output_path, name_plot)
-        fpr, tpr = self.df_thresholds['FPR'], self.df_thresholds['Recall']
-        recall, precision = self.df_thresholds['Recall'], self.df_thresholds['Precision']
+        if self.get_metrics_per_patch:
+            self.export_metrics_per_patch_csv()
 
-        # Sorted fpr in increasing order to plot it as the abscisses values of the curve.
-        fpr, tpr = np.insert(fpr.to_numpy(), 0, 1), np.insert(tpr.to_numpy(), 0, 1)
-        fpr, tpr = np.append(fpr, 0), np.append(tpr, 0)
-        fpr, tpr = fpr[::-1], tpr[::-1]
-        roc_auc = auc(fpr, tpr)
-
-        precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
-        idx = np.argsort(recall)
-        recall, precision = recall[idx], precision[idx]
-        recall = np.insert(recall.to_numpy(), 0, 0)
-        recall = np.append(recall, 1)
-        precision = np.insert(precision, 0, 1)
-        precision = np.append(precision, 0)
-        pr_auc = auc(recall, precision)
+        if self.get_ROC_PR_values:
+            path_roc_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
+            df_roc_pr_values = pd.DataFrame(data={"Thresholds": self.threshold_range,
+                                                  "TPR": self.df_thresholds['Recall'],
+                                                  "FPR": self.df_thresholds['FPR'],
+                                                  "Precision": self.df_thresholds['Precision'],
+                                                  "Recall": self.df_thresholds['Recall']})
+            df_roc_pr_values.to_csv(path_roc_csv, index=False)
 
         if self.output_type == 'json':
-            # Export ROC curve informations
-            roc_dict = {}
-            roc_dict['fpr'] = fpr.tolist()
-            roc_dict['tpr'] = tpr.tolist()
-            roc_dict['auc'] = roc_auc
-            self.dict_export['ROC curve'] = roc_dict
-            # Export PR curve informations
-            pr_dict = {}
-            pr_dict['precision'] = precision.tolist()
-            pr_dict['recall'] = recall.tolist()
-            pr_dict['auc'] = pr_auc
-            self.dict_export['PR curve'] = pr_dict
+            if self.get_calibration_curves:
+                self.dict_export['calibration curve'] = {'prob_true': self.prob_true.tolist(),
+                                                         'prob_pred': self.prob_pred.tolist(),
+                                                         'hist_counts': self.hist_counts.tolist()}
 
-        else:
-            plt.figure(figsize=(16, 8))
-            plt.subplot(121)
-            plt.title('Roc Curve')
-            plt.plot(fpr, tpr, label=f'AUC = {round(roc_auc * 100, self.decimals - 2) }')
-            plt.plot([0, 1], [0, 1], 'r--')
-            plt.ylabel('True Positive Rate')
-            plt.xlabel('False Positive Rate')
-            plt.legend()
-            plt.grid(True)
+            if self.get_ROC_PR_curves or self.get_ROC_PR_values:
+                self.dict_export['roc_curve'] = self.vect_curves
 
-            plt.subplot(122)
-            plt.title('Precision-Recall Curve')
-            plt.plot(recall, precision, label=f'AUC = {round(pr_auc * 100, self.decimals - 2)  }')
-            plt.plot([1, 0], [0, 1], 'r--')
-            plt.ylabel('Precision')
-            plt.xlabel('Recall')
-            plt.legend()
-            plt.grid(True)
-            plt.tight_layout(pad=3)
-            plt.savefig(output_path)
-            plt.close()
-        return output_path
-
-    def plot_calibration_curve(self, name_plot='binary_calibration_curves.png'):
-        """
-        Plot or export data on calibration curves.
-        Plot for output type html and md, export the data in a dict for json.
-
-        Parameters
-        ----------
-        name_plot : str, optional
-            Name to give to the output plot, by default 'multiclass_calibration_curves.png'
-
-        Returns
-        -------
-        str
-            Output path where an image with the plot will be created.
-        """
-        output_path = os.path.join(self.output_path, name_plot)
-
-        if self.output_type == 'json':
-            self.dict_export['calibration curve'] = {'prob_true': self.prob_true.tolist(),
-                                                     'prob_pred': self.prob_pred.tolist(),
-                                                     'hist_counts': self.hist_counts.tolist()}
-        else:
-            plt.figure(figsize=(16, 8))
-            plt.subplot(211)
-            # Plot 1: calibration curves
-            plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-            plt.plot(self.prob_true, self.prob_pred, "s-", label="Class 1")
-            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            plt.title('Calibration plots  (reliability curve)')
-            plt.ylabel('Fraction of positives')
-            plt.xlabel('Probalities')
-
-            plt.subplot(212)
-            # Plot 2: Hist of predictions distributions
-            plt.hist(self.bins[:-1], weights=self.hist_counts, histtype="step", bins=self.bins, label="Class 1", lw=2)
-            plt.xticks(self.bins_xticks, self.bins_xticks)
-            plt.ylabel('Count')
-            plt.xlabel('Mean predicted value')
-            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            plt.tight_layout(pad=3)
-            plt.savefig(output_path)
-            plt.close()
-        return output_path
-
-    def plot_dataset_metrics_histograms(self, name_plot='hists_metrics.png'):
-        """
-        Plot (html/md output type) or export (json type) data on the metrics histograms.
-
-        Parameters
-        ----------
-        name_plot : str, optional
-            Name to give to the output plot, by default 'multiclass_hists_metrics.png'
-
-        Returns
-        -------
-        str
-            Output path where an image with the plot will be created.
-        """
-        output_path = os.path.join(self.output_path, name_plot)
-        cmap_colors = [plt.get_cmap('turbo')(1. * i/7) for i in range(7)][1:]
-        colors = cycler(color=cmap_colors)
-        plt.rc('axes', prop_cycle=colors)
-
-        n_plot = len(self.metrics_names[:-1])
-        n_cols = 3
-        n_rows = ((n_plot - 1) // n_cols) + 1
-
-        hists_metrics = {}
-        for metric in self.metrics_names[:-1]:
-            hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=self.bins)[0].tolist()
-
-        if self.output_type == 'json':
-            self.dict_export['df_dataset'] = self.df_dataset.to_dict()
-            self.dict_export['hists metrics'] = hists_metrics
-        else:
-            plt.figure(figsize=(7 * n_cols, 6 * n_rows))
-            for i, plot_prop in enumerate(zip(self.metrics_names[:-1], colors)):
-                metric, color = plot_prop[0], plot_prop[1]["color"]
-                values = hists_metrics[metric]
-                plt.subplot(n_rows, n_cols, i+1)
-                plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=color)
-                if self.n_bins <= 20:
-                    plt.xticks(range(len(self.bins_xticks)), self.bins_xticks, rotation=-25)
-                plt.title(f'{metric}', fontsize=13)
-                plt.xlabel("Values bins")
-                plt.grid()
-                plt.ylabel("Samples count")
-            plt.tight_layout(pad=3)
-            plt.savefig(output_path)
-            plt.close()
-        return output_path
-
-    def export_roc_pr_values(self):
-        """
-            Export the values used to create PR and ROC curves in a csv file.
-        """
-        path_roc_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
-        df_roc_pr_values = pd.DataFrame(data={"Thresholds": self.threshold_range,
-                                              "TPR": self.df_thresholds['Recall'],
-                                              "FPR": self.df_thresholds['FPR'],
-                                              "Precision": self.df_thresholds['Precision'],
-                                              "Recall": self.df_thresholds['Recall']})
-        df_roc_pr_values.to_csv(path_roc_csv, index=False)
+            if self.get_hists_per_metrics:
+                self.dict_export['df_dataset'] = self.df_dataset.to_dict()
+                self.dict_export['hists metrics'] = self.hists_metrics

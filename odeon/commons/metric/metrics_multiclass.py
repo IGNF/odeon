@@ -3,14 +3,12 @@ Class to manage metrics in the multiclass case.
 Will generate the micro, macro and class strategies and calculate for each of them the associated metrics.
 """
 
-import os
+import os.path as osp
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.metrics import auc
 from tqdm import tqdm
-from cycler import cycler
 from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metric.plots import plot_hists
 
 
 class MetricsMulticlass(Metrics):
@@ -104,12 +102,8 @@ class MetricsMulticlass(Metrics):
         # Put the calculated metrics in dataframes for reports and also computed mean metrics.
         self.metrics_to_df_reports()
 
-        # Create a csv to export the computed metrics per patch.
-        if self.get_metrics_per_patch:
-            self.export_metrics_per_patch_csv()
-
-        if self.get_ROC_PR_values:
-            self.export_roc_pr_values()
+        # Export values if the report is of type JSON or if roc/pr values are requested.
+        self.export_values()
 
     def create_data_for_metrics(self):
         """
@@ -149,7 +143,7 @@ class MetricsMulticlass(Metrics):
         self.cms_one_class = pd.DataFrame(index=self.threshold_range, columns=self.class_labels, dtype=object)
         self.cms_one_class = self.cms_one_class.applymap(lambda x: np.zeros([2, 2]))
 
-        for dataset_index, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
+        for index_sample, sample in enumerate(tqdm(self.dataset, desc='Metrics processing time', leave=True)):
             mask, pred, name_file = sample['mask'], sample['pred'], sample['name_file']
 
             if not self.in_prob_range:
@@ -160,6 +154,7 @@ class MetricsMulticlass(Metrics):
             mask_macro, pred_macro = self.binarize(type_classifier=self.type_classifier,
                                                    prediction=pred,
                                                    mask=mask)
+
             # Get a cm for every sample
             conf_mat = self.get_confusion_matrix(mask_macro.flatten(),
                                                  pred_macro.flatten(),
@@ -169,7 +164,7 @@ class MetricsMulticlass(Metrics):
 
             # Compute metrics per patch
             if self.get_metrics_per_patch or self.get_hists_per_metrics:
-                self.compute_metrics_per_patch(conf_mat, dataset_index, name_file)
+                self.compute_metrics_per_patch(conf_mat, index_sample, name_file)
 
             for i, class_i in enumerate(self.class_labels):
                 class_mask = mask[:, :, i]
@@ -210,6 +205,10 @@ class MetricsMulticlass(Metrics):
                 self.dict_prob_true[class_j] = prob_true
                 self.dict_prob_pred[class_j] = prob_pred
 
+            # Normalize dict_hist_counts to put the values between 0 and 1:
+            total_pixel = np.sum(self.dict_hist_counts[self.class_labels[0]])
+            self.dict_hist_counts = {key: value / total_pixel for key, value in self.dict_hist_counts.items()}
+
         if self.get_ROC_PR_curves or self.get_ROC_PR_values:
             self.cms_one_class = \
                 self.cms_one_class.applymap(lambda cm_one_class: self.get_metrics_from_obs(cm_one_class[0][0],
@@ -223,6 +222,11 @@ class MetricsMulticlass(Metrics):
                     vects['FPR'].append(metrics_raw['FPR'])
                     vects['Precision'].append(metrics_raw['Precision'])
                 self.vect_classes[class_j] = vects
+
+        if self.get_hists_per_metrics:
+            for metric in self.header[1:]:
+                self.hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]),
+                                                          bins=self.bins)[0].tolist()
 
     def get_obs_by_class_from_cm(self, conf_mat):
         """
@@ -355,174 +359,6 @@ class MetricsMulticlass(Metrics):
         self.df_report_micro.loc['Values'] = [self.metrics_micro['Precision'],
                                               self.metrics_micro['IoU']]
 
-    def plot_roc_pr_per_class(self, name_plot='multiclass_roc_pr_curves.png'):
-        """
-        Plot (html/md output type) or export (json type) data on ROC and PR curves.
-        For ROC curve, points (0, 0) and (1, 1) are added to data in order to have a curve
-        which begin at the origin and finish in the top right of the image.
-        Same thing for PR curve but with the points (0, 1) and (1, 0).
-
-        Parameters
-        ----------
-        name_plot : str, optional
-            Desired name to give to the output image, by default 'multiclass_roc_pr_curves.png'
-
-        Returns
-        -------
-        str
-            Output path where an image with the plot will be created.
-        """
-        cmap_colors = [plt.get_cmap('rainbow')(1. * i/self.nbr_class) for i in range(self.nbr_class)]
-        colors = cycler(color=cmap_colors)
-        output_path = os.path.join(self.output_path, name_plot)
-        if self.output_type == 'json':
-            self.dict_export['PR ROC info'] = self.vect_classes
-        else:
-            plt.figure(figsize=(16, 8))
-            plt.subplot(121)
-            for class_i, color in zip(self.class_labels, colors):
-                fpr = np.array(self.vect_classes[class_i]['FPR'])
-                tpr = np.array(self.vect_classes[class_i]['Recall'])
-                fpr, tpr = fpr[::-1], tpr[::-1]
-                fpr, tpr = np.insert(fpr, 0, 0), np.insert(tpr, 0, 0)
-                fpr, tpr = np.append(fpr, 1), np.append(tpr, 1)
-                roc_auc = auc(fpr, tpr)
-                plt.plot(fpr, tpr, label=f'{class_i} AUC = {round(roc_auc * 100, self.decimals - 2)}',
-                         color=color['color'])
-            plt.plot([0, 1], [0, 1], 'r--')
-            plt.ylabel('True Positive Rate')
-            plt.xlabel('False Positive Rate')
-            plt.title('Roc Curves')
-            plt.legend(loc='lower right')
-            plt.grid(True)
-
-            plt.subplot(122)
-            for class_i, color in zip(self.class_labels, colors):
-                precision = np.array(self.vect_classes[class_i]['Precision'])
-                recall = np.array(self.vect_classes[class_i]['Recall'])
-                precision = np.array([1 if p == 0 and r == 0 else p for p, r in zip(precision, recall)])
-                idx = np.argsort(recall)
-                recall, precision = recall[idx], precision[idx]
-                recall, precision = np.insert(recall, 0, 0), np.insert(precision, 0, 1)
-                recall, precision = np.append(recall, 1), np.append(precision, 0)
-                pr_auc = auc(recall, precision)
-                plt.plot(recall, precision,
-                         label=f'{class_i} AUC = {round(pr_auc * 100, self.decimals - 2)}', color=color['color'])
-            plt.plot([1, 0], [0, 1], 'r--')
-            plt.title('Precision-Recall Curve')
-            plt.ylabel('Precision')
-            plt.xlabel('Recall')
-            plt.legend(loc='lower left')
-            plt.grid(True)
-            plt.tight_layout(pad=3)
-            plt.savefig(output_path)
-            plt.close()
-        return output_path
-
-    def plot_calibration_curve(self, name_plot='multiclass_calibration_curves.png'):
-        """
-        Plot or export data on calibration curves.
-        Plot for output type html and md, export the data in a dict for json.
-
-        Parameters
-        ----------
-        name_plot : str, optional
-            Name to give to the output plot, by default 'multiclass_calibration_curves.png'
-
-        Returns
-        -------
-        str
-            Output path where an image with the plot will be created.
-        """
-        cmap_colors = [plt.get_cmap('rainbow')(1. * i/self.nbr_class) for i in range(self.nbr_class)]
-        colors = cycler(color=cmap_colors)
-        output_path = os.path.join(self.output_path, name_plot)
-        # Normalize dict_hist_counts to put the values between 0 and 1:
-        total_pixel = np.sum(self.dict_hist_counts[self.class_labels[0]])
-        self.dict_hist_counts = {key: value / total_pixel for key, value in self.dict_hist_counts.items()}
-
-        if self.output_type == 'json':
-            dict_prob_true, dict_prob_pred, dict_hist_counts = {}, {}, {}
-            for class_i in self.class_labels:
-                dict_prob_true[class_i] = self.dict_prob_true[class_i].tolist()
-                dict_prob_pred[class_i] = self.dict_prob_pred[class_i].tolist()
-                dict_hist_counts[class_i] = self.dict_hist_counts[class_i].tolist()
-            self.dict_export['calibration curve'] = {'prob_true': dict_prob_true,
-                                                     'prob_pred': dict_prob_pred,
-                                                     'hist_counts': dict_hist_counts}
-        else:
-            plt.figure(figsize=(16, 8))
-            # Plot 1: calibration curves
-            plt.subplot(211)
-            plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-            for class_i, color in zip(self.class_labels, colors):
-                plt.plot(self.dict_prob_true[class_i], self.dict_prob_pred[class_i], "s-",
-                         label=class_i, color=color["color"])
-            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            plt.title('Calibration plots (reliability curve)')
-            plt.ylabel('Fraction of positives')
-            plt.xlabel('Probalities')
-
-            # Plot 2: Hist of predictions distributions
-            plt.subplot(212)
-            for class_i, color in zip(self.class_labels, colors):
-                plt.hist(self.bins[:-1], weights=self.dict_hist_counts[class_i],
-                         bins=self.bins, histtype="step", label=class_i, lw=2, color=color['color'])
-            plt.xticks(self.bins_xticks, self.bins_xticks)
-            plt.ylabel('Count')
-            plt.xlabel('Mean predicted value')
-            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-            plt.tight_layout(pad=3)
-            plt.savefig(output_path)
-            plt.close()
-        return output_path
-
-    def plot_hists(self, list_metrics, n_cols=3, size_col=5, size_row=4, name_plot=None):
-        """
-        Plot metrics histograms.
-
-        Parameters
-        ----------
-        list_metrics : list
-            Name of the metrics to plot.
-        n_cols : int, optional
-            number of columns in the figure, by default 3
-        size_col : int, optional
-            size of a column in the figure, by default 5
-        size_row : int, optional
-            size of a row in the figure, by default 4
-        name_plot : str, optional
-            Name to give to the output plot, by default 'multiclass_hists_metrics.png'
-
-        Returns
-        -------
-        str
-            Output path where an image with the plot will be created.
-        """
-        # Here 7 corresponds to the average number of metrics.
-        cmap_colors = [plt.get_cmap('turbo')(1. * i/7) for i in range(7)][1:]
-        colors = cycler(color=cmap_colors)
-
-        n_plot = len(list_metrics)
-        n_rows = ((n_plot - 1) // n_cols) + 1
-        plt.figure(figsize=(size_col * n_cols, size_row * n_rows))
-        for i, plot_prop in enumerate(zip(list_metrics, colors)):
-            metric, color = plot_prop[0], plot_prop[1]["color"]
-            values = self.hists_metrics[metric]
-            plt.subplot(n_rows, n_cols, i+1)
-            plt.bar(range(len(values)), values, width=0.8, linewidth=2, capsize=20, color=color)
-            if self.n_bins <= 20:
-                plt.xticks(range(len(self.bins_xticks)), self.bins_xticks, rotation=-35)
-            plt.title(f"{' '.join(metric.split('_'))}", fontsize=13)
-            plt.xlabel("Values bins")
-            plt.grid()
-            plt.ylabel("Samples count")
-        plt.tight_layout(pad=3)
-        output_path = os.path.join(self.output_path, name_plot)
-        plt.savefig(output_path)
-        plt.close()
-        return output_path
-
     def plot_dataset_metrics_histograms(self):
         """
         Plot (html/md output type) or export (json type) data on the metrics histograms.
@@ -538,48 +374,83 @@ class MetricsMulticlass(Metrics):
             Output path where an image with the plot will be created.
         """
         output_paths = {}
-        for metric in self.header[1:]:
-            self.hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]), bins=self.bins)[0].tolist()
 
-        if self.output_type == 'json':
-            self.dict_export['df_dataset'] = self.df_dataset.to_dict()
-            self.dict_export['hists metrics'] = self.hists_metrics
-        else:
-            # 0 is name_file and and there 2 metrics in micro => 1:(1+2)
-            start = 1
-            end = start + self.nbr_metrics_micro
-            output_paths['micro'] = self.plot_hists(self.header[start:end],
-                                                    n_cols=2, size_col=8,
-                                                    size_row=5, name_plot='hists_micro.png')
-            # there 4 metrics in macro => :(2+4)
-            start = end
-            end = start + self.nbr_metrics_macro
-            output_paths['macro'] = self.plot_hists(self.header[start:end], n_cols=4, size_col=7,
-                                                    size_row=6, name_plot='hists_macro.png')
-            # Again there 6 metrics in means 6:(6 + 6)
-            start = end
-            end = start + self.nbr_metrics_per_class
-            output_paths['means'] = self.plot_hists(self.header[start:end], name_plot='hists_means.png')
+        # 0 is name_file and and there 2 metrics in micro => 1:(1+2)
+        start = 1
+        end = start + self.nbr_metrics_micro
+        output_paths['micro'] = plot_hists(hists=self.hists_metrics,
+                                           list_metrics=self.header[start:end],
+                                           output_path=osp.join(self.output_path, 'hists_micro.png'),
+                                           n_bins=self.n_bins, bins_xticks=self.bins_xticks,
+                                           n_cols=2, size_col=8, size_row=5)
+        # there 4 metrics in macro => :(2+4)
+        start = end
+        end = start + self.nbr_metrics_macro
+        output_paths['macro'] = plot_hists(hists=self.hists_metrics,
+                                           list_metrics=self.header[start:end],
+                                           output_path=osp.join(self.output_path, 'hists_macro.png'),
+                                           n_bins=self.n_bins, bins_xticks=self.bins_xticks,
+                                           n_cols=4, size_col=7, size_row=6)
+        # Again there 6 metrics in means 6:(6 + 6)
+        start = end
+        end = start + self.nbr_metrics_per_class
+        output_paths['means'] = plot_hists(hists=self.hists_metrics,
+                                           list_metrics=self.header[start:end],
+                                           output_path=osp.join(self.output_path, 'hists_means.png'),
+                                           n_bins=self.n_bins, bins_xticks=self.bins_xticks)
 
-            header_index = end
-            for class_i in self.class_labels:
-                header_next_index = header_index + self.nbr_metrics_per_class
-                output_paths[class_i] = self.plot_hists(self.header[header_index:header_next_index],
-                                                        name_plot='hists_'+'_'.join(class_i.split(' '))+'.png')
-                header_index = header_next_index
+        header_index = end
+        for class_i in self.class_labels:
+            header_next_index = header_index + self.nbr_metrics_per_class
+            output_paths[class_i] = plot_hists(hists=self.hists_metrics,
+                                               list_metrics=self.header[header_index:header_next_index],
+                                               output_path=osp.join(self.output_path,
+                                                                    'hists_'+'_'.join(class_i.split(' '))+'.png'),
+                                               n_bins=self.n_bins, bins_xticks=self.bins_xticks)
+            header_index = header_next_index
         return output_paths
 
-    def export_roc_pr_values(self):
+    def export_values(self):
         """
-            Export the values used to create PR and ROC curves in a csv file.
+            Export the metrics computed in to a dict which will be converted in JSON file
+            if the report type requested is JSON. This function allow also to export the values
+            computed to create ROC/PR curves in a .csv file.
         """
-        path_roc_csv = os.path.join(self.output_path, 'ROC_PR_values.csv')
-        data = {}
-        data['Thresholds'] = self.threshold_range
-        for class_i in self.class_labels:
-            data[class_i + '_tpr'] = self.vect_classes[class_i]['Recall']
-            data[class_i + '_fpr'] = self.vect_classes[class_i]['FPR']
-            data[class_i + '_precision'] = self.vect_classes[class_i]['Precision']
-            data[class_i + '_recall'] = self.vect_classes[class_i]['Recall']
-        df_roc_pr_values = pd.DataFrame(data=data)
-        df_roc_pr_values.to_csv(path_roc_csv, index=False)
+        if self.nbr_metrics_per_class:
+            self.export_metrics_per_patch_csv()
+
+        if self.get_ROC_PR_values:
+            path_roc_csv = osp.join(self.output_path, 'ROC_PR_values.csv')
+            data = {}
+            data['Thresholds'] = self.threshold_range
+            for class_i in self.class_labels:
+                data[class_i + '_tpr'] = self.vect_classes[class_i]['Recall']
+                data[class_i + '_fpr'] = self.vect_classes[class_i]['FPR']
+                data[class_i + '_precision'] = self.vect_classes[class_i]['Precision']
+                data[class_i + '_recall'] = self.vect_classes[class_i]['Recall']
+            df_roc_pr_values = pd.DataFrame(data=data)
+            df_roc_pr_values.to_csv(path_roc_csv, index=False)
+
+        if self.output_type == 'json':
+            self.dict_export['cm micro'] = self.cm_micro.tolist()
+            self.dict_export['cm macro'] = self.cm_macro.tolist()
+            self.dict_export['report macro'] = self.df_report_macro.T.to_dict()
+            self.dict_export['report micro'] = self.df_report_micro.T.to_dict()
+            self.dict_export['report classes'] = self.df_report_classes.T.to_dict()
+
+            if self.get_ROC_PR_curves or self.get_ROC_PR_values:
+                self.dict_export['PR ROC info'] = self.vect_classes
+
+            if self.get_calibration_curves:
+                dict_prob_true, dict_prob_pred, dict_hist_counts = {}, {}, {}
+                for class_i in self.class_labels:
+                    dict_prob_true[class_i] = self.dict_prob_true[class_i].tolist()
+                    dict_prob_pred[class_i] = self.dict_prob_pred[class_i].tolist()
+                    dict_hist_counts[class_i] = self.dict_hist_counts[class_i].tolist()
+                self.dict_export['calibration curve'] = {'prob_true': dict_prob_true,
+                                                         'prob_pred': dict_prob_pred,
+                                                         'hist_counts': dict_hist_counts}
+
+            if self.get_hists_per_metrics:
+                self.dict_export['df_dataset'] = self.df_dataset.to_dict()
+                self.dict_export['hists metrics'] = self.hists_metrics

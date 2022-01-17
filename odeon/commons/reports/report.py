@@ -27,7 +27,7 @@ class Report(object):
         self.html_file = HTML_FILE
         self.padding = PADDING
         self.round_decimals = self.input_object.decimals
-
+        self.output_path = input_object.output_path
         if self.input_object.output_type == 'html':
             dir_path = os.path.dirname(os.path.realpath(__file__))
             with open(os.path.join(dir_path, self.html_file), "r") as reader:
@@ -55,7 +55,7 @@ class Report(object):
         else:
             self.to_terminal()
 
-    def round_df_values(self, df, round_decimals=None):
+    def round_df_values(self, df, round_decimals=None, to_percent=False):
         """Round the values in a dataframe.
 
         Parameters
@@ -70,7 +70,10 @@ class Report(object):
         """
         if round_decimals is None:
             round_decimals = self.round_decimals
-        return df.apply(lambda x: pd.to_numeric(x * 100, downcast="float").round(decimals=round_decimals - 2))
+        if to_percent:
+            return df.apply(lambda x: pd.to_numeric(x * 100, downcast="float").round(decimals=round_decimals - 2))
+        else:
+            return df.apply(lambda x: pd.to_numeric(x, downcast="float").round(decimals=round_decimals))
 
     def longest(self, input_list):
         """Return the longest element in a list.
