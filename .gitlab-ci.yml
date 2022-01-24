@@ -7,7 +7,7 @@ stages:
 
 before_script:
   - python --version
-  - pip install flake8 pylint
+  - pip install flake8 pylint==2.12.2
 
 flake8:
   stage: Static Analysis
@@ -19,7 +19,7 @@ flake8:
 pylint:
   stage: Static Analysis
   allow_failure: false
-  script: python pylint-fail-under.py odeon/
+  script: pylint --rcfile=.pylintrc odeon/
   only:
   - master
   - merge_requests
