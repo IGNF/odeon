@@ -1,0 +1,10 @@
+{
+    "metrics_setup": {
+        "mask_path": "/home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/fold_5/msk/",
+        "pred_path": "{{pred_path}}",
+        "output_path": "{{output_path}}",
+        "output_type": "json",
+        "type_classifier": "multiclass",
+        "in_prob_range": true
+        }
+}

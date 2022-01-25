@@ -151,7 +151,7 @@ class CLIMetrics(BaseTool):
                 LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values if\
                              pred_bands is defined.')
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                      "The input parameters mask_bands and pred_bands are incorrect.")
+                                 "The input parameters mask_bands and pred_bands are incorrect.")
         else:
             self.mask_bands = self.pred_bands = None
             if min(mask_class, pred_class) > 2 and self.type_classifier == 'binary':
@@ -303,11 +303,11 @@ class CLIMetrics(BaseTool):
                 LOGGER.error('ERROR: the bands in the configuration file do not correspond\
                 to the available bands in the image.')
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                      "The input parameters mask_bands and pred_bands are incorrect.")
+                                 "The input parameters mask_bands and pred_bands are incorrect.")
         else:
             LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                  "The input parameters mask_bands and pred_bands are incorrect.")
+                             "The input parameters mask_bands and pred_bands are incorrect.")
 
     def get_samples_shapes(self):
         """Get the shape of the input masks and predictions.

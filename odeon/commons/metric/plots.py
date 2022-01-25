@@ -12,20 +12,20 @@ def heatmap(data, row_labels, col_labels, axes=None, cbar_kw=None, cbarlabel="",
 
     Parameters
     ----------
-    data
+    data:
         A 2D numpy array of shape (N, M).
-    row_labels
+    row_labels:
         A list or array of length N with the labels for the rows.
-    col_labels
+    col_labels:
         A list or array of length M with the labels for the columns.
-    axes
+    axes:
         A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
-        not provided, use current axes or create a new one.  Optional.
-    cbar_kw
-        A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
-    cbarlabel
+            not provided, use current axes or create a new one. Optional.
+    cbar_kw:
+        A dictionary with arguments to `matplotlib.Figure.colorbar`. Optional.
+    cbarlabel:
         The label for the colorbar.  Optional.
-    **kwargs
+    **kwargs:
         All other arguments are forwarded to `imshow`.
     """
     if cbar_kw is None:
@@ -233,7 +233,7 @@ def plot_confusion_matrix(conf_mat, labels, output_path, cmap="YlGn"):
     # Rewrite cm with strings in order to fit the values into the figure.
 
     cm_val_fmt = get_cm_val_fmt(conf_mat)
-    _ = annotate_heatmap(image, valfmt=cm_val_fmt)
+    annotate_heatmap(image, valfmt=cm_val_fmt)
 
     fig.tight_layout(pad=3)
     plt.savefig(output_path)
@@ -283,7 +283,7 @@ def plot_norm_and_value_cms(conf_mat, labels, output_path, per_class_norm=True, 
 
     im0, _ = heatmap(cm_norm, labels, labels, axes=axs[1], cmap=cmap, cbarlabel=cbarlabel)
     cm_val_fmt_norm = get_cm_val_fmt(cm_norm, mark_no_data=True)
-    _ = annotate_heatmap(im0, data=np.round(cm_norm, decimals=3), valfmt=cm_val_fmt_norm)
+    annotate_heatmap(im0, data=np.round(cm_norm, decimals=3), valfmt=cm_val_fmt_norm)
     if not per_class_norm:
         axs[1].set_title('Normalized values', y=-0.1, pad=-14, fontsize=fontsize)
     else:
@@ -291,7 +291,7 @@ def plot_norm_and_value_cms(conf_mat, labels, output_path, per_class_norm=True, 
 
     im1, _ = heatmap(conf_mat, labels, labels, axes=axs[0], cmap=cmap, cbarlabel=cbarlabel)
     cm_val_fmt = get_cm_val_fmt(conf_mat)
-    _ = annotate_heatmap(im1, valfmt=cm_val_fmt)
+    annotate_heatmap(im1, valfmt=cm_val_fmt)
     axs[0].set_title('Number of observations', y=-0.1, pad=-14, fontsize=fontsize)
 
     fig.tight_layout(pad=2)
