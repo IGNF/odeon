@@ -41,6 +41,7 @@ class DetectionTool(BaseTool):
                  n_classes,
                  batch_size,
                  use_gpu,
+                 idx_gpu,
                  interruption_recovery,
                  mutual_exclusion,
                  output_path,
@@ -121,6 +122,7 @@ class DetectionTool(BaseTool):
         self.use_gpu = use_gpu
         STD_OUT_LOGGER.info(f"""CUDA available? {torch.cuda.is_available()}""")
         self.use_gpu = False if torch.cuda.is_available() is False else self.use_gpu
+        self.idx_gpu = idx_gpu
         self.num_worker = num_worker
         self.num_thread = num_thread
         self.interruption_recovery = interruption_recovery
@@ -252,6 +254,7 @@ tile factor: {self.zone["tile_factor"]}
                                           resolution=self.resolution,
                                           batch_size=self.batch_size,
                                           use_gpu=self.use_gpu,
+                                          idx_gpu=self.idx_gpu,
                                           num_worker=self.num_worker,
                                           num_thread=self.num_thread,
                                           mutual_exclusion=self.mutual_exclusion,
@@ -335,6 +338,7 @@ tile factor: {self.zone["tile_factor"]}
                                          resolution=self.resolution,
                                          batch_size=self.batch_size,
                                          use_gpu=self.use_gpu,
+                                         idx_gpu=self.idx_gpu,
                                          num_worker=self.num_worker,
                                          num_thread=self.num_thread,
                                          mutual_exclusion=self.mutual_exclusion,

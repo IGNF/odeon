@@ -37,6 +37,7 @@ class BaseDetector:
                  resolution=[0.2, 0.2],
                  batch_size=16,
                  use_gpu=True,
+                 idx_gpu=None,
                  num_worker=None,
                  num_thread=None,
                  mutual_exlusion=True,
@@ -55,6 +56,7 @@ class BaseDetector:
         self.n_channel = n_channel
         self.batch_size = batch_size
         self.use_gpu = use_gpu
+        self.idx_gpu = idx_gpu
         self.num_worker = num_worker
         self.num_thread = num_thread
         self.mutual_exclusion = mutual_exlusion
@@ -65,52 +67,53 @@ class BaseDetector:
         self.job = job
         self.data_loader = None
         self.dataset = None
+        self.device = self.get_device()
         self.model = BaseDetector.load_model(self.model_name,
                                              self.model_path,
                                              self.n_channel,
                                              self.n_classes,
-                                             self.use_gpu)
+                                             self.device)
 
     def configure(self):
 
         pass
 
+    def get_device(self):
+        use_cuda = torch.cuda.is_available()
+        if use_cuda:
+            if self.idx_gpu is None and self.use_gpu is True:
+                device = "cuda:0"
+            elif self.idx_gpu is not None:
+                list_gpus = list(range(torch.cuda.device_count()))
+                if self.idx_gpu in list_gpus:
+                    device = "cuda:" + str(self.idx_gpu)
+                else:
+                    LOGGER.error(f"ERROR: Input GPU reference doesn't exist in available GPU devices: {list_gpus}")
+                    raise OdeonError(message=f"Input GPU reference cuda:{self.idx_gpu} doesn't exist",
+                                     error_code=ErrorCodes.ERR_DETECTION_ERROR)
+        else:
+            device = 'cpu'
+        LOGGER.info(f"INFO: Job launched on device: {device}")
+        return device
+
     @staticmethod
-    def load_model(model_name, model_path, n_channel, n_classes, use_gpu):
-
+    def load_model(model_name, model_path, n_channel, n_classes, device='cpu'):
         if model_name not in model_list:
-
             raise OdeonError(message=f"the model name {model_name} does not exist",
                              error_code=ErrorCodes.ERR_MODEL_ERROR)
-
         model = build_model(model_name, n_channel, n_classes)
-
-        if use_gpu:
-
-            model.cuda()
-            state_dict = torch.load(model_path)
-
-            model.load_state_dict(state_dict=state_dict)
-
-        else:
-
-            model.cpu()
-            state_dict = torch.load(model_path,
-                                    map_location=torch.device('cpu'))
-            # LOGGER.debug(state_dict.keys())
-            model.load_state_dict(state_dict=state_dict)
-
+        model.to(device)
+        state_dict = torch.load(model_path,
+                                map_location=torch.device(device))
+        model.load_state_dict(state_dict=state_dict)
         model.eval()  # drop dropout and batchnorm for inference mode
         return model
 
     def run(self):
 
         if len(self.job) > 0:
-
             try:
-
                 for samples in tqdm(self.data_loader):
-
                     predictions = self.detect(samples["image"])
                     LOGGER.debug(predictions)
                     indices = samples["index"].cpu().numpy()
@@ -118,20 +121,16 @@ class BaseDetector:
                     self.save(predictions, indices, affines)
 
             except KeyboardInterrupt as error:
-
                 LOGGER.warning("the job has been prematurely interrupted")
                 raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
                                  "something went wrong during detection",
                                  stack_trace=error)
 
             except Exception as error:
-
                 raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
                                  "something went wrong during detection",
                                  stack_trace=error)
-
             finally:
-
                 self.job.save_job()
                 LOGGER.debug("the detection job has been saved")
 
@@ -203,6 +202,7 @@ class PatchDetector(BaseDetector):
                  resolution=[0.2, 0.2],
                  batch_size=16,
                  use_gpu=True,
+                 idx_gpu=None,
                  num_worker=None,
                  num_thread=None,
                  mutual_exclusion=True,
@@ -224,6 +224,7 @@ class PatchDetector(BaseDetector):
              resolution,
              batch_size,
              use_gpu,
+             idx_gpu,
              num_worker,
              num_thread,
              mutual_exclusion,
@@ -321,6 +322,7 @@ class ZoneDetector(PatchDetector):
                  resolution=[0.2, 0.2],
                  batch_size=16,
                  use_gpu=True,
+                 idx_gpu=None,
                  num_worker=None,
                  num_thread=None,
                  mutual_exclusion=True,
@@ -343,6 +345,7 @@ class ZoneDetector(PatchDetector):
             resolution,
             batch_size,
             use_gpu,
+            idx_gpu,
             num_worker,
             num_thread,
             mutual_exclusion,

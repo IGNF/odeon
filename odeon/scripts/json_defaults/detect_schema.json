@@ -66,6 +66,9 @@
            "use_gpu": {
                "type": "boolean",
                "default": true},
+           "idx_gpu": {
+                "type": "integer",
+                "default": 0},
            "num_worker": {
                "type": "integer",
                "minimum": 0
