@@ -1,6 +1,8 @@
-import os
+import os.path as osp
 import json
 from odeon.commons.reports.report import Report
+from odeon.commons.metric.plots import plot_norm_and_value_cms, plot_confusion_matrix,\
+     plot_calibration_curves, plot_roc_pr_curves
 
 
 class Report_Multiclass(Report):
@@ -18,42 +20,49 @@ class Report_Multiclass(Report):
     def create_data(self):
         if self.input_object.output_type != 'json':
             if self.input_object.get_normalize:
-                self.path_cm_macro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_macro,
-                                                                               labels=self.input_object.class_labels,
-                                                                               name_plot='cm_macro.png')
-                self.path_cm_micro = self.input_object.plot_norm_and_value_cms(self.input_object.cm_micro,
-                                                                               labels=['Positive', 'Negative'],
-                                                                               name_plot='cm_micro.png',
-                                                                               per_class_norm=False)
+                self.path_cm_macro = plot_norm_and_value_cms(self.input_object.cm_macro,
+                                                             labels=self.input_object.class_labels,
+                                                             output_path=osp.join(self.output_path, 'cm_macro.png'))
+                self.path_cm_micro = plot_norm_and_value_cms(self.input_object.cm_micro,
+                                                             labels=['Positive', 'Negative'],
+                                                             output_path=osp.join(self.output_path, 'cm_micro.png'),
+                                                             per_class_norm=False)
             else:
-                self.path_cm_macro = self.input_object.plot_confusion_matrix(self.input_object.cm_macro,
-                                                                             labels=self.input_object.class_labels,
-                                                                             name_plot='cm_macro.png')
+                self.path_cm_macro = plot_confusion_matrix(self.input_object.cm_macro,
+                                                           labels=self.input_object.class_labels,
+                                                           output_path=osp.join(self.output_path, 'cm_macro.png'))
 
-                self.path_cm_micro = self.input_object.plot_confusion_matrix(self.input_object.cm_micro,
-                                                                             labels=['Positive', 'Negative'],
-                                                                             name_plot='cm_micro.png')
+                self.path_cm_micro = plot_confusion_matrix(self.input_object.cm_micro,
+                                                           labels=['Positive', 'Negative'],
+                                                           output_path=osp.join(self.output_path, 'cm_micro.png'))
 
-        if self.input_object.get_calibration_curves:
-            self.path_calibration_curves = self.input_object.plot_calibration_curve()
+            if self.input_object.get_calibration_curves:
+                self.path_calibration_curves = plot_calibration_curves(prob_true=self.input_object.dict_prob_true,
+                                                                       prob_pred=self.input_object.dict_prob_pred,
+                                                                       hist_counts=self.input_object.dict_hist_counts,
+                                                                       labels=self.input_object.class_labels,
+                                                                       nbr_class=self.input_object.nbr_class,
+                                                                       output_path=osp.join(self.output_path,
+                                                                                            'calibration_curves.png'),
+                                                                       bins=self.input_object.bins,
+                                                                       bins_xticks=self.input_object.bins_xticks)
 
-        if self.input_object.get_ROC_PR_curves:
-            self.ROC_PR_classes = self.input_object.plot_ROC_PR_per_class()
+            if self.input_object.get_ROC_PR_curves:
+                self.roc_pr_classes = plot_roc_pr_curves(data=self.input_object.vect_classes,
+                                                         labels=self.input_object.class_labels,
+                                                         nbr_class=self.input_object.nbr_class,
+                                                         output_path=osp.join(self.output_path, 'roc_pr_curves.png'),
+                                                         decimals=self.input_object.decimals)
 
-        if self.input_object.get_hists_per_metrics:
-            self.path_hists = self.input_object.plot_dataset_metrics_histograms()
+            if self.input_object.get_hists_per_metrics:
+                self.path_hists = self.input_object.plot_dataset_metrics_histograms()
 
     def to_json(self):
         """Create a report in the json format.
         """
         dict_export = self.input_object.dict_export
-        dict_export['cm micro'] = self.input_object.cm_micro.tolist()
-        dict_export['cm macro'] = self.input_object.cm_macro.tolist()
-        dict_export['report macro'] = self.round_df_values(self.input_object.df_report_macro).T.to_dict()
-        dict_export['report micro'] = self.round_df_values(self.input_object.df_report_micro).T.to_dict()
-        dict_export['report classes'] = self.round_df_values(self.input_object.df_report_classes).T.to_dict()
         json_object = json.dumps(dict_export, indent=4)
-        with open(os.path.join(self.input_object.output_path, 'report_metrics.json'), "w") as output_file:
+        with open(osp.join(self.output_path, 'report_metrics.json'), "w") as output_file:
             output_file.write(json_object)
 
     def to_md(self):
@@ -65,25 +74,25 @@ class Report_Multiclass(Report):
 ## Micro Strategy
 
 ### Metrics
-{self.df_to_md(self.round_df_values(self.input_object.df_report_micro))}
+{self.df_to_md(self.round_df_values(self.input_object.df_report_micro, to_percent=True))}
 
 (*) micro-F1 = micro-precision = micro-recall = accuracy
 
 ### Confusion matrix
-![Confusion matrix micro](./{os.path.basename(self.path_cm_micro)})
+![Confusion matrix micro](./{osp.basename(self.path_cm_micro)})
 
 ## Macro Strategy
 
 ### Metrics
-{self.df_to_md(self.round_df_values(self.input_object.df_report_macro))}
+{self.df_to_md(self.round_df_values(self.input_object.df_report_macro, to_percent=True))}
 
 ### Confusion matrix
-![Confusion matrix macro](./{os.path.basename(self.path_cm_macro)})
+![Confusion matrix macro](./{osp.basename(self.path_cm_macro)})
 
 ## Per Class Strategy
 
 ### Metrics
-{self.df_to_md(self.round_df_values(self.input_object.df_report_classes))}
+{self.df_to_md(self.round_df_values(self.input_object.df_report_classes, to_percent=True))}
 
 """
         md_elements = [md_main]
@@ -91,14 +100,14 @@ class Report_Multiclass(Report):
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
 ## Roc PR Curves
-![Roc PR curves](./{os.path.basename(self.ROC_PR_classes)})
+![Roc PR curves](./{osp.basename(self.roc_pr_classes)})
 """
             md_elements.append(roc_pr_curves)
 
         if self.input_object.get_calibration_curves:
             calibration_curves = f"""
 ## Calibration Curves
-![Calibration curves](./{os.path.basename(self.path_calibration_curves)})
+![Calibration curves](./{osp.basename(self.path_calibration_curves)})
 """
             md_elements.append(calibration_curves)
 
@@ -107,13 +116,13 @@ class Report_Multiclass(Report):
 ## Metrics Histograms
 
 ### Micro strategy
-![Histograms micro](./{os.path.basename(self.path_hists['micro'])})
+![Histograms micro](./{osp.basename(self.path_hists['micro'])})
 
 ### Macro strategy
-![Histograms macro](./{os.path.basename(self.path_hists['macro'])})
+![Histograms macro](./{osp.basename(self.path_hists['macro'])})
 
 ### Mean metrics
-![Histograms means](./{os.path.basename(self.path_hists['means'])})
+![Histograms means](./{osp.basename(self.path_hists['means'])})
 
 ### Per class strategy
 """
@@ -121,12 +130,12 @@ class Report_Multiclass(Report):
         for class_name in self.input_object.class_labels:
             class_html = f"""
 #### {class_name.capitalize()}:
-![Histograms {class_name}](./{os.path.basename(self.path_hists[class_name])})"""
+![Histograms {class_name}](./{osp.basename(self.path_hists[class_name])})"""
             class_histograms.append(class_html)
 
         md_elements.append(metrics_histograms + "\n".join(class_histograms))
 
-        with open(os.path.join(self.input_object.output_path, 'multiclass_metrics.md'), "w") as output_file:
+        with open(osp.join(self.output_path, 'multiclass_metrics.md'), "w") as output_file:
             for md_element in md_elements:
                 output_file.write(md_element)
 
@@ -154,11 +163,11 @@ class Report_Multiclass(Report):
         micro_html = f"""
             <h2>Micro Strategy</h2>
             <h3>* Metrics</h3>
-            {self.df_to_html(self.round_df_values(self.input_object.df_report_micro))}
+            {self.df_to_html(self.round_df_values(self.input_object.df_report_micro, to_percent=True))}
             (*) micro-F1 = micro-precision = micro-recall = accuracy
 
             <h3>* Confusion Matrix</h3>
-            <p><img alt="Micro Confusion Matrix" src=./{os.path.basename(self.path_cm_micro)} /></p>
+            <p><img alt="Micro Confusion Matrix" src=./{osp.basename(self.path_cm_micro)} /></p>
             """
         html_elements.append(micro_html)
 
@@ -169,30 +178,30 @@ class Report_Multiclass(Report):
         macro_html = f"""
             <h2>Macro Strategy</h2>
             <h3>* Metrics</h3>
-            {self.df_to_html(self.round_df_values(self.input_object.df_report_macro))}
+            {self.df_to_html(self.round_df_values(self.input_object.df_report_macro, to_percent=True))}
             <h3>* Confusion Matrix</h3>
-            <p><img alt="Macro Confusion Matrix" src=./{os.path.basename(self.path_cm_macro)} /></p>
+            <p><img alt="Macro Confusion Matrix" src=./{osp.basename(self.path_cm_macro)} /></p>
             """
         html_elements.append(macro_html)
 
         classes_html = f"""
             <h2>Per class Strategy</h2>
             <h3>* Metrics</h3>
-            {self.df_to_html(self.round_df_values(self.input_object.df_report_classes))}
+            {self.df_to_html(self.round_df_values(self.input_object.df_report_classes, to_percent=True))}
             """
         html_elements.append(classes_html)
 
         if self.input_object.get_ROC_PR_curves:
             roc_pr_curves = f"""
             <h3>* ROC and PR Curves</h3>
-            <p><img alt="ROC and PR Curves" src=./{os.path.basename(self.ROC_PR_classes)} /></p>
+            <p><img alt="ROC and PR Curves" src=./{osp.basename(self.roc_pr_classes)} /></p>
             """
             html_elements.append(roc_pr_curves)
 
         if self.input_object.get_calibration_curves:
             calibration_curves = f"""
             <h3>* Calibration Curves</h3>
-            <p><img alt="Calibration Curve" src=./{os.path.basename(self.path_calibration_curves)} /></p>
+            <p><img alt="Calibration Curve" src=./{osp.basename(self.path_calibration_curves)} /></p>
             """
             html_elements.append(calibration_curves)
 
@@ -201,7 +210,7 @@ class Report_Multiclass(Report):
             for class_name in self.input_object.class_labels:
                 class_html = f"""
                 <h4>{class_name.capitalize()} :</h4>
-                <p><img alt="Histograms {class_name}" src=./{os.path.basename(self.path_hists[class_name])} /></p>
+                <p><img alt="Histograms {class_name}" src=./{osp.basename(self.path_hists[class_name])} /></p>
                 """
                 hists_class_html.append(class_html)
 
@@ -209,13 +218,13 @@ class Report_Multiclass(Report):
             <h2>Metrics Histograms</h2>
 
             <h3>Micro strategy</h3>
-            <p><img alt="Histograms Micro" src=./{os.path.basename(self.path_hists['micro'])} /></p>
+            <p><img alt="Histograms Micro" src=./{osp.basename(self.path_hists['micro'])} /></p>
 
             <h3>Macro strategy</h3>
-            <p><img alt="Histograms Macro" src=./{os.path.basename(self.path_hists['macro'])} /></p>
+            <p><img alt="Histograms Macro" src=./{osp.basename(self.path_hists['macro'])} /></p>
 
             <h3>Mean metrics</h3>
-            <p><img alt="Histograms Means" src=./{os.path.basename(self.path_hists['means'])} /></p>
+            <p><img alt="Histograms Means" src=./{osp.basename(self.path_hists['means'])} /></p>
 
             <h3>Per class strategy</h3>
 
@@ -226,6 +235,6 @@ class Report_Multiclass(Report):
 
         html_elements.append(end_html)
 
-        with open(os.path.join(self.input_object.output_path, 'metrics_multiclass.html'), "w") as output_file:
+        with open(osp.join(self.output_path, 'metrics_multiclass.html'), "w") as output_file:
             for html_part in html_elements:
                 output_file.write(html_part)

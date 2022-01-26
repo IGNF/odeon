@@ -47,6 +47,7 @@ BIT_DEPTH = '8 bits'
 GET_SKEWNESS_KURTOSIS = False
 GET_RADIO_STATS = False
 MOVING_AVERAGE = 3
+DECIMALS = 3
 
 
 class Statistics():
@@ -118,7 +119,7 @@ class Statistics():
         else:
             LOGGER.error('ERROR: the output file can only be in md, json, html')
             self.output_type = 'html'
-
+        self.decimals = DECIMALS
         self.nbr_bands = len(self.dataset.image_bands)
         self.nbr_classes = len(self.dataset.mask_bands)
         self.nbr_pixels_per_patch = self.dataset.height * self.dataset.width
@@ -231,8 +232,13 @@ class Statistics():
         if bins is None and self.nbr_bins is not None:
             bins = [round((i/self.nbr_bins) * max_pixel_value, 3) for i in range(self.nbr_bins)]
             bins.append(max_pixel_value)
+
         elif bins is None and self.nbr_bins is None:
             bins = np.arange(start=0, stop=self.depth_dict[self.bit_depth] + 1, step=MOVING_AVERAGE)
+
+        if isinstance(bins, list):
+            bins = np.array(bins)
+
         return bins
 
     def create_data_for_stats(self):
@@ -477,8 +483,8 @@ class Statistics():
                 band_label, c = ax_prop[0], ax_prop[1]
                 bincount = bincounts[i]
                 if display_stats:
-                    mean = np.round(self.df_bands_stats.loc[band_label, "mean"], 2)
-                    std = np.round(self.df_bands_stats.loc[band_label, "std"], 2)
+                    mean = np.round(self.df_bands_stats.loc[band_label, "mean"], self.decimals)
+                    std = np.round(self.df_bands_stats.loc[band_label, "std"], self.decimals)
                     axes[i].axvline(mean, label=f"Mean: {str(mean)}", linestyle='--', alpha=0.5)
                     axes[i].axvspan(mean - std, mean + std, label=f"Std: {str(std)}",
                                     linestyle='--', alpha=0.5, color="lightblue")
@@ -506,7 +512,7 @@ class Statistics():
             for i, plot_prop in enumerate(zip(self.bands_labels, default_cycler)):
                 band_label, color = plot_prop[0], plot_prop[1]['color']
                 # if display_stats:
-                #     mean = np.around(self.df_bands_stats.loc[band_label, "mean"], decimals=2)
+                #     mean = np.around(self.df_bands_stats.loc[band_label, "mean"], decimals=self.decimals)
                 #     plt.axvline(mean, label=f"Mean {band_label}: {str(mean)}",
                 #                 linestyle='--', alpha=0.5, color=color)
                 plt.hist(self.bins[:-1], weights=bincounts[i], bins=self.bins,

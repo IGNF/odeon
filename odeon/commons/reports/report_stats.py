@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 from odeon.commons.reports.report import Report
 
 
@@ -31,13 +32,18 @@ class Report_Stats(Report):
         data_to_dict = {'bands': self.input_object.df_bands_stats.T.to_dict(),
                         'classes': self.input_object.df_classes_stats.T.to_dict(),
                         'globals': self.input_object.df_global_stats.T.to_dict(),
-                        'hists': {'bins': self.input_object.bins,
+                        'hists': {'bins': self.input_object.bins.tolist(),
                                   'bins_counts':
-                                  {f'band {i+1}': [int(x) for x in hist]
+                                  {f'band {i+1}': hist.astype(int).tolist()
                                    for i, hist in enumerate(self.input_object.bands_hists)}}}
 
         if self.input_object.get_radio_stats:
-            data_to_dict['radiometry'] = self.input_object.self.df_radio.T.to_dict()
+            df = self.input_object.df_radio
+            for class_i in self.input_object.class_labels:
+                for band_i in self.input_object.bands_labels:
+                    if isinstance(df.loc[class_i, band_i], np.ndarray):
+                        df.loc[class_i, band_i] = df.loc[class_i, band_i].tolist()
+            data_to_dict['radiometry'] = df.T.to_dict()
 
         with open(os.path.join(self.input_object.output_path, 'stats_report.json'), "w") as output_file:
             json.dump(data_to_dict, output_file, indent=4)

@@ -17,8 +17,6 @@ def Report_Factory(input_object):
         An object making the report.
     """
     reports = {"Statistics": Report_Stats,
-               "Metrics_Binary": Report_Binary,
-               "Test_Binary": Report_Binary,
-               "Metrics_Multiclass": Report_Multiclass,
-               "Test_Multiclass": Report_Multiclass}
+               "MetricsBinary": Report_Binary,
+               "MetricsMulticlass": Report_Multiclass}
     return reports[input_object.__class__.__name__](input_object)
