@@ -90,7 +90,6 @@ def raster_to_ndarray_from_dataset(src,
         img = resize(img, (width, height))
 
     meta = src.meta.copy()
-    LOGGER.debug(meta)
 
     " compute the new affine transform "
     if scaled_width != width or scaled_height != height:
@@ -141,8 +140,6 @@ def raster_to_ndarray(image_file,
         a numpy array representing the image, and the metadata in rasterio format.
 
     """
-    LOGGER.debug(image_file)
-
     with rasterio.open(image_file) as src:
 
         if resolution is None:
