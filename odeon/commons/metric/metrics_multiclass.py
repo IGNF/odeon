@@ -7,8 +7,76 @@ import os.path as osp
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metric.metrics import Metrics, get_metrics_from_obs, DEFAULTS_VARS
 from odeon.commons.metric.plots import plot_hists
+
+
+def get_metrics_from_cm(cm_macro, nbr_class, class_labels, weighted, weights):
+    """
+    Function to get metrics from a confusion matrix.
+
+    Parameters
+    ----------
+    cm_macro : np.array
+        Confusion matrix in macro strategy.
+    Returns
+    -------
+    (dict, dict, dict, np.array, np.array)
+        Metrics (per class, micro, macro) and cms (per class, micro).
+    """
+
+    def get_obs_by_class_from_cm(conf_mat, class_labels):
+        """
+        Function to get the metrics for each class from a confusion matrix.
+
+        Parameters
+        ----------
+        cm : np.array
+            Input confusion matrix.
+
+        Returns
+        -------
+        dict
+            Dict with metrics for each class.
+            The keys of th dict will be the labels of the classes.
+        """
+        obs_by_class = {}
+        for i, class_i in enumerate(class_labels):
+            obs_by_class[class_i] = {'tp': conf_mat[i, i],
+                                     'fn': np.sum(conf_mat[i, :]) - conf_mat[i, i],
+                                     'fp': np.sum(conf_mat[:, i]) - conf_mat[i, i],
+                                     'tn': np.sum(conf_mat) - np.sum(conf_mat[i, :])
+                                     - np.sum(conf_mat[:, i]) + conf_mat[i, i]}
+        return obs_by_class
+
+    obs_by_class = get_obs_by_class_from_cm(conf_mat=cm_macro,
+                                            class_labels=class_labels)
+    cms_classes = np.zeros([nbr_class, 2, 2])
+
+    metrics_by_class = {}
+    for i, class_i in enumerate(class_labels):
+        cms_classes[i] = np.array([[obs_by_class[class_i]['tp'], obs_by_class[class_i]['fn']],
+                                  [obs_by_class[class_i]['fp'], obs_by_class[class_i]['tn']]])
+        metrics_by_class[class_i] = get_metrics_from_obs(obs_by_class[class_i]['tp'],
+                                                         obs_by_class[class_i]['fn'],
+                                                         obs_by_class[class_i]['fp'],
+                                                         obs_by_class[class_i]['tn'])
+
+    # If weights are used, the sum of the confusion matrices of each class weighted by the input weights.
+    # If not, the confusions matrices of classes will directly added together.
+    if weighted:
+        cm_micro = np.zeros([2, 2])
+        for k, weight in zip(range(nbr_class), weights):
+            cm_micro += cms_classes[k] * weight
+    else:
+        cm_micro = np.sum(cms_classes, axis=0)
+
+    metrics_micro = get_metrics_from_obs(cm_micro[0][0],
+                                         cm_micro[0][1],
+                                         cm_micro[1][0],
+                                         cm_micro[1][1])
+
+    return metrics_by_class, metrics_micro, cms_classes, cm_micro
 
 
 class MetricsMulticlass(Metrics):
@@ -98,11 +166,11 @@ class MetricsMulticlass(Metrics):
 
         # Get metrics for each strategy and cms macro from the micro cm.
         self.metrics_by_class, self.metrics_micro, self.cms_classes, self.cm_micro = \
-            self.get_metrics_from_cm(self.cm_macro,
-                                     nbr_class=self.nbr_class,
-                                     class_labels=self.class_labels,
-                                     weighted=self.weighted,
-                                     weights=self.weights)
+            get_metrics_from_cm(self.cm_macro,
+                                nbr_class=self.nbr_class,
+                                class_labels=self.class_labels,
+                                weighted=self.weighted,
+                                weights=self.weights)
         # Put the calculated metrics in dataframes for reports and also computed mean metrics.
         self.metrics_to_df_reports()
 
@@ -215,10 +283,10 @@ class MetricsMulticlass(Metrics):
 
         if self.get_ROC_PR_curves or self.get_ROC_PR_values:
             self.cms_one_class = \
-                self.cms_one_class.applymap(lambda cm_one_class: self.get_metrics_from_obs(cm_one_class[0][0],
-                                                                                           cm_one_class[0][1],
-                                                                                           cm_one_class[1][0],
-                                                                                           cm_one_class[1][1]))
+                self.cms_one_class.applymap(lambda cm_one_class: get_metrics_from_obs(cm_one_class[0][0],
+                                                                                      cm_one_class[0][1],
+                                                                                      cm_one_class[1][0],
+                                                                                      cm_one_class[1][1]))
             for class_j in self.class_labels:
                 vects = {'Recall': [], 'FPR': [], 'Precision': []}
                 for metrics_raw in self.cms_one_class.loc[:, class_j]:
@@ -231,74 +299,6 @@ class MetricsMulticlass(Metrics):
             for metric in self.header[1:]:
                 self.hists_metrics[metric] = np.histogram(list(self.df_dataset.loc[:, metric]),
                                                           bins=self.bins)[0].tolist()
-
-    @staticmethod
-    def get_metrics_from_cm(cm_macro, nbr_class, class_labels, weighted, weights):
-        """
-        Function to get metrics from a confusion matrix.
-
-        Parameters
-        ----------
-        cm_macro : np.array
-            Confusion matrix in macro strategy.
-        Returns
-        -------
-        (dict, dict, dict, np.array, np.array)
-            Metrics (per class, micro, macro) and cms (per class, micro).
-        """
-        
-        def get_obs_by_class_from_cm(conf_mat, class_labels):
-            """
-            Function to get the metrics for each class from a confusion matrix.
-
-            Parameters
-            ----------
-            cm : np.array
-                Input confusion matrix.
-
-            Returns
-            -------
-            dict
-                Dict with metrics for each class.
-                The keys of th dict will be the labels of the classes.
-            """
-            obs_by_class = {}
-            for i, class_i in enumerate(class_labels):
-                obs_by_class[class_i] = {'tp': conf_mat[i, i],
-                                        'fn': np.sum(conf_mat[i, :]) - conf_mat[i, i],
-                                        'fp': np.sum(conf_mat[:, i]) - conf_mat[i, i],
-                                        'tn': np.sum(conf_mat) - np.sum(conf_mat[i, :])
-                                        - np.sum(conf_mat[:, i]) + conf_mat[i, i]}
-            return obs_by_class
-
-        obs_by_class = get_obs_by_class_from_cm(conf_mat=cm_macro,
-                                                class_labels=class_labels)
-        cms_classes = np.zeros([nbr_class, 2, 2])
-
-        metrics_by_class = {}
-        for i, class_i in enumerate(class_labels):
-            cms_classes[i] = np.array([[obs_by_class[class_i]['tp'], obs_by_class[class_i]['fn']],
-                                       [obs_by_class[class_i]['fp'], obs_by_class[class_i]['tn']]])
-            metrics_by_class[class_i] = super().get_metrics_from_obs(obs_by_class[class_i]['tp'],
-                                                             obs_by_class[class_i]['fn'],
-                                                             obs_by_class[class_i]['fp'],
-                                                             obs_by_class[class_i]['tn'])
-
-        # If weights are used, the sum of the confusion matrices of each class weighted by the input weights.
-        # If not, the confusions matrices of classes will directly added together.
-        if weighted:
-            cm_micro = np.zeros([2, 2])
-            for k, weight in zip(range(nbr_class), weights):
-                cm_micro += cms_classes[k] * weight
-        else:
-            cm_micro = np.sum(cms_classes, axis=0)
-
-        metrics_micro = super().get_metrics_from_obs(cm_micro[0][0],
-                                                     cm_micro[0][1],
-                                                     cm_micro[1][0],
-                                                     cm_micro[1][1])
-
-        return metrics_by_class, metrics_micro, cms_classes, cm_micro
 
     def compute_metrics_per_patch(self, conf_mat_patch, index_patch, name_patch):
         """Compute metrics for a patch thanks to the confusion matrix calculated for this patch.
@@ -313,11 +313,11 @@ class MetricsMulticlass(Metrics):
             Path to the patch.
         """
         metrics_by_class, metrics_micro,  _, _ = \
-            self.get_metrics_from_cm(conf_mat_patch,
-                                     nbr_class=self.nbr_class,
-                                     class_labels=self.class_labels,
-                                     weighted=self.weighted,
-                                     weights=self.weights)
+            get_metrics_from_cm(conf_mat_patch,
+                                nbr_class=self.nbr_class,
+                                class_labels=self.class_labels,
+                                weighted=self.weighted,
+                                weights=self.weights)
 
         self.df_dataset.loc[index_patch, 'name_file'] = name_patch
         # in micro, recall = precision = f1-score = oa

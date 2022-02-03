@@ -8,7 +8,7 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from odeon.commons.metric.metrics import Metrics, DEFAULTS_VARS
+from odeon.commons.metric.metrics import Metrics, get_metrics_from_obs, DEFAULTS_VARS
 
 FIGSIZE = (8, 6)
 
@@ -188,7 +188,7 @@ class MetricsBinary(Metrics):
             Dict with the metrics.
         """
         true_pos, false_neg, false_pos, true_neg = conf_mat.ravel()
-        return self.get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg)
+        return get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg)
 
     def export_values(self):
         """

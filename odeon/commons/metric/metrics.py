@@ -61,6 +61,43 @@ DEFAULTS_VARS = {'output_type': 'html',
                  'decimals': 2}
 
 
+def get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg, smooth=SMOOTH):
+    """
+    Function to calculate the metrics from the observations of the number tp, fn, fp, tn of a confusion matrix.
+
+    Parameters
+    ----------
+    true_pos : int
+        Number of True Positive observations.
+    false_neg : int
+        Number of False Negative observations.
+    false_pos : int
+        Number of False Positive observations.
+    true_neg : int
+        Number of True Negative observations.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the desired metrics.
+    """
+    accuracy = (true_pos + true_neg) / (true_pos + false_pos + true_neg + false_neg + smooth)
+    precision = true_pos / (true_pos + false_pos + smooth)
+    recall = true_pos / (true_pos + false_neg + smooth)
+    specificity = true_neg / (true_neg + false_pos + smooth)
+    fpr = false_pos / (false_pos + true_neg + smooth)
+    f1_score = (2 * true_pos) / (2 * true_pos + false_pos + false_neg + smooth)
+    iou = true_pos / (true_pos + false_pos + false_neg + smooth)
+
+    return {'Accuracy': accuracy,
+            'Precision': precision,
+            'Recall': recall,
+            'Specificity': specificity,
+            'F1-Score': f1_score,
+            'IoU': iou,
+            'FPR': fpr}
+
+
 class Metrics(ABC):
     """
     Abstract class Metrics to derive metrics in binary or multiclass case.
@@ -347,43 +384,6 @@ class Metrics(ABC):
         if revert_order:
             conf_mat = np.flip(conf_mat)
         return conf_mat
-
-    @staticmethod
-    def get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg, smooth=SMOOTH):
-        """
-        Function to calculate the metrics from the observations of the number tp, fn, fp, tn of a confusion matrix.
-
-        Parameters
-        ----------
-        true_pos : int
-            Number of True Positive observations.
-        false_neg : int
-            Number of False Negative observations.
-        false_pos : int
-            Number of False Positive observations.
-        true_neg : int
-            Number of True Negative observations.
-
-        Returns
-        -------
-        dict
-            Dictionary containing the desired metrics.
-        """
-        accuracy = (true_pos + true_neg) / (true_pos + false_pos + true_neg + false_neg + smooth)
-        precision = true_pos / (true_pos + false_pos + smooth)
-        recall = true_pos / (true_pos + false_neg + smooth)
-        specificity = true_neg / (true_neg + false_pos + smooth)
-        fpr = false_pos / (false_pos + true_neg + smooth)
-        f1_score = (2 * true_pos) / (2 * true_pos + false_pos + false_neg + smooth)
-        iou = true_pos / (true_pos + false_pos + false_neg + smooth)
-
-        return {'Accuracy': accuracy,
-                'Precision': precision,
-                'Recall': recall,
-                'Specificity': specificity,
-                'F1-Score': f1_score,
-                'IoU': iou,
-                'FPR': fpr}
 
     def to_prob_range(self, value):
         """
