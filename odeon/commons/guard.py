@@ -238,6 +238,15 @@ def files_exist(list_of_file):
                                      f"the file {sub_element} doesn't exists")
 
 
+def check_files(list_files):
+    try:
+        files_exist(list_files)  
+    except OdeonError as error:
+        raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
+                            "something went wrong during training configuration",
+                            stack_trace=error)
+
+
 def dirs_exist(list_of_dir):
     """
 
@@ -351,3 +360,25 @@ def raster_bands_exist(raster, list_of_band):
 
         raise OdeonError(ErrorCodes.ERR_IO,
                          f"the crs {src.crs} of raster {raster} is empty", stack_trace=rioe)
+
+
+def check_raster_bands(raster_band, proposed_bands):
+    """Check if the bands in the configuration file are correct and correspond to the bands in the raster.
+
+    Parameters
+    ----------
+    raster_band : list
+        Bands found by opening the first sample of the dataset.
+    proposed_bands : list
+        Bands proposed in the configuration file.
+    """
+    if isinstance(proposed_bands, list) and len(proposed_bands) >= 1:
+        if not all((band in raster_band for band in proposed_bands)):
+            LOGGER.error('ERROR: the bands in the configuration file do not correspond\
+            to the available bands in the image.')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                "The input parameters mask_bands and pred_bands are incorrect.")
+    else:
+        LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
+        raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                            "The input parameters mask_bands and pred_bands are incorrect.")

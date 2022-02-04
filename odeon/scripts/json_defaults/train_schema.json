@@ -34,6 +34,7 @@
                 "model_name": {"type": "string"},
                 "load_pretrained_enc": {"type": "boolean", "default": false},
                 "output_folder": {"type": "string"},
+                "output_tensorboard_logs": {"type": "string"},
                 "model_filename": {"type": "string"}
             }
         },
@@ -51,11 +52,15 @@
                 "lr": {"type": "number", "default": 0.001},
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
                 "device": {"type": "string"},
-                "reproducible": {"type": "boolean", "default": false}
+                "reproducible": {"type": "boolean", "default": false},
+                "log_histogram": {"type": "boolean", "default": false},
+                "log_graph": {"type": "boolean", "default": false},
+                "log_images": {"type": "boolean", "default": false},
+                "class_labels": {"type": "array", "items": {"type": "string"}},
+                "ignore_index": {"type": "array", "items": {"type": "number"}},
+                "val_check_interval": {"type": "number"},
+                "strategy": {"type": "string"}
             }
-
+        }
     }
-
-    }
-
 }

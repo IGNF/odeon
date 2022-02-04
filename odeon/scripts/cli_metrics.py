@@ -14,7 +14,7 @@ from odeon import LOGGER
 from odeon.nn.datasets import MetricsDataset
 from odeon.commons.metric.metrics_factory import MetricsFactory
 from odeon.commons.metric.metrics import DEFAULTS_VARS
-
+from odeon.commons.guard import check_raster_bands
 
 class CLIMetrics(BaseTool):
     """
@@ -136,8 +136,8 @@ class CLIMetrics(BaseTool):
             mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
             # Checks if the bands entered in the configuration file have values corresponding to the bands of the
             # images present in the dataset entered
-            self.check_raster_bands(np.arange(mask_class), mask_bands)
-            self.check_raster_bands(np.arange(pred_class), pred_bands)
+            check_raster_bands(np.arange(mask_class), mask_bands)
+            check_raster_bands(np.arange(pred_class), pred_bands)
 
             if len(mask_bands) == len(pred_bands):
                 if self.type_classifier == 'binary' and len(mask_bands) > 1:
@@ -286,28 +286,6 @@ class CLIMetrics(BaseTool):
             else:
                 LOGGER.warning('Problem of matching names between mask/prediction for %s', msk)
         return mask_files, pred_files
-
-    @staticmethod
-    def check_raster_bands(raster_band, proposed_bands):
-        """Check if the bands in the configuration file are correct and correspond to the bands in the raster.
-
-        Parameters
-        ----------
-        raster_band : list
-            Bands found by opening the first sample of the dataset.
-        proposed_bands : list
-            Bands proposed in the configuration file.
-        """
-        if isinstance(proposed_bands, list) and len(proposed_bands) >= 1:
-            if not all((band in raster_band for band in proposed_bands)):
-                LOGGER.error('ERROR: the bands in the configuration file do not correspond\
-                to the available bands in the image.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                 "The input parameters mask_bands and pred_bands are incorrect.")
-        else:
-            LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameters mask_bands and pred_bands are incorrect.")
 
     def get_samples_shapes(self):
         """Get the shape of the input masks and predictions.
