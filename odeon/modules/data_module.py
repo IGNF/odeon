@@ -3,7 +3,7 @@ import csv
 import numpy as np
 import rasterio
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from pytorch_lightning import LightningDataModule
 from odeon import LOGGER
 from odeon.nn.datasets import PatchDataset
@@ -16,7 +16,7 @@ NUM_WORKERS = 4
 PERCENTAGE_VAL = 0.3
 
 
-class TrainDataModule(LightningDataModule):
+class SegDataModule(LightningDataModule):
 
     def __init__(self,
                  train_file,
@@ -30,7 +30,8 @@ class TrainDataModule(LightningDataModule):
                  num_workers=NUM_WORKERS,
                  percentage_val=PERCENTAGE_VAL,
                  pin_memory=True,
-                 deterministic=False):
+                 deterministic=False,
+                 subset=False):
 
         super().__init__()
         self.train_file = train_file
@@ -43,19 +44,19 @@ class TrainDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.percentage_val = percentage_val
         self.pin_memory = pin_memory
-
+        self.subset = subset
         if deterministic:
             self.random_seed = None
             self.shuffle = False
         else:
             self.random_seed = RANDOM_SEED
             self.shuffle = True
-    
-        self.train_image_files, self.train_mask_files, self.val_image_files, self.val_mask_files = \
+        self.train_image_files, self.val_image_files, self.train_mask_files, self.val_mask_files = \
             self.get_split_files()
-        self.dims = self.get_dims()
-        self.image_bands, self.mask_bands, self.num_classes = self.get_bands(image_bands, 
-                                                                             mask_bands)
+        self.sample_dims = self.get_dims()
+        self.image_bands, self.mask_bands = self.get_bands(image_bands, mask_bands)
+        self.num_classes = len(self.mask_bands)
+        self.num_channels = len(self.image_bands)
         self.train_batch_size, self.val_batch_size = self.get_batch_size(batch_size)
         self.train_dataset, self.val_dataset, self.test_dataset = None, None, None
 
@@ -79,6 +80,9 @@ class TrainDataModule(LightningDataModule):
                                              mask_bands=self.mask_bands,
                                              width=self.width,
                                              height=self.height)
+            if self.subset is True:
+                self.train_dataset = Subset(self.train_dataset, range(0, 20))
+                self.val_dataset = Subset(self.val_dataset, range(0, 10))
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_dataset,
@@ -112,6 +116,7 @@ class TrainDataModule(LightningDataModule):
         train_image_files, train_mask_files = self.read_csv_sample_file(self.train_file)
         if self.val_file is not None:
             val_image_files, val_mask_files = self.read_csv_sample_file(self.val_file)
+
         else:
             train_image_files, val_image_files, train_mask_files, val_mask_files = \
                 train_test_split(train_image_files,
@@ -124,13 +129,13 @@ class TrainDataModule(LightningDataModule):
         return train_image_files, val_image_files, train_mask_files, val_mask_files
 
     @staticmethod
-    def get_samples_shapes(image_files, mask_files):
+    def get_samples(image_files, mask_files):
         image_file, mask_file = image_files[0], mask_files[0]
         with rasterio.open(image_file) as image_raster:
             image = image_raster.read().swapaxes(0, 2).swapaxes(0, 1)
         with rasterio.open(mask_file) as mask_raster:
             mask = mask_raster.read().swapaxes(0, 2).swapaxes(0, 1)
-        return {'image': image.shape, 'mask': mask.shape}
+        return {'image': image, 'mask': mask}
 
     @staticmethod
     def check_sample(sample):
@@ -139,11 +144,6 @@ class TrainDataModule(LightningDataModule):
                 Those input data should have the same width/height.')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "Detections and masks have different width/height.")
-
-        if len(np.unique(sample['mask'].flatten())) <= sample['mask'].shape[-1]:
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "Mask must contain a maximum number of unique values equal \
-                                  to the number of classes")
 
     def get_dims(self):
         train_sample  = self.get_samples(self.train_image_files,
@@ -159,17 +159,17 @@ class TrainDataModule(LightningDataModule):
 
     def get_bands(self, image_bands, mask_bands):
         if image_bands is None:
-            image_bands = np.arange(self.dims['image'][-1])
+            image_bands = np.arange(self.sample_dims['image'][-1])
         else:
-            check_raster_bands(raster_band=np.arange(self.dims['image'][-1]),
+            check_raster_bands(raster_band=np.arange(1, self.sample_dims['image'][-1] + 1),
                                proposed_bands=image_bands)
         if mask_bands is None:
-            mask_bands = np.arange(self.dims['mask'][-1])
+            mask_bands = np.arange(self.sample_dims['mask'][-1])
         else:
-            check_raster_bands(raster_band=np.arange(self.dims['mask'][-1]),
+            check_raster_bands(raster_band=np.arange(1, self.sample_dims['mask'][-1] + 1),
                                proposed_bands=mask_bands)
-        num_classes = len(mask_bands)       
-        return image_bands, mask_bands, num_classes
+        
+        return image_bands, mask_bands
 
     def get_batch_size(self, parameter_batch_size):
         if isinstance(parameter_batch_size, int):

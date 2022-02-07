@@ -30,7 +30,6 @@
                 "output_folder"
             ],
             "properties": {
-
                 "model_name": {"type": "string"},
                 "load_pretrained_enc": {"type": "boolean", "default": false},
                 "output_folder": {"type": "string"},
@@ -51,7 +50,7 @@
                 "optimizer": {"type": "string", "default": "adam"},
                 "lr": {"type": "number", "default": 0.001},
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
-                "device": {"type": "string"},
+                "device": {"type": ["string", "array", "integer"]},
                 "reproducible": {"type": "boolean", "default": false},
                 "log_histogram": {"type": "boolean", "default": false},
                 "log_graph": {"type": "boolean", "default": false},

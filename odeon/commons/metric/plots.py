@@ -200,7 +200,7 @@ def get_cm_val_fmt(conf_mat, mark_no_data=False):
     return cm_val_fmt
 
 
-def plot_confusion_matrix(conf_mat, labels, output_path, cmap="YlGn"):
+def plot_confusion_matrix(conf_mat, labels, output_path=None, per_class_norm=False, style=None, cmap="YlGn", figsize=None):
     """ Plot a confusion matrix with the number of observation in the whole input dataset.
 
     Parameters
@@ -219,15 +219,24 @@ def plot_confusion_matrix(conf_mat, labels, output_path, cmap="YlGn"):
     str
         Ouput path of the image containing the plot.
     """
-    if conf_mat.shape[0] < 10:
-        figsize = (10, 7)
-    elif conf_mat.shape[0] >= 10 and conf_mat.shape[0] <= 16:
-        figsize = (12, 9)
-    else:
-        figsize = (16, 11)
+    if style is not None:
+        plt.style.use(style)
+
+    if figsize is None:
+        if conf_mat.shape[0] < 10:
+            figsize = (10, 7)
+        elif conf_mat.shape[0] >= 10 and conf_mat.shape[0] <= 16:
+            figsize = (12, 9)
+        else:
+            figsize = (16, 11)
 
     fig, axes = plt.subplots(figsize=figsize)
     cbarlabel = 'Coefficients values'
+
+    if per_class_norm:
+        dividend = conf_mat.astype('float')
+        divisor = conf_mat.sum(axis=1)[:, np.newaxis]
+        conf_mat = np.divide(dividend, divisor, out=np.zeros_like(dividend), where=divisor != 0)
 
     image, _ = heatmap(conf_mat, labels, labels, axes=axes, cmap=cmap, cbarlabel=cbarlabel)
     # Rewrite cm with strings in order to fit the values into the figure.
@@ -236,12 +245,16 @@ def plot_confusion_matrix(conf_mat, labels, output_path, cmap="YlGn"):
     annotate_heatmap(image, valfmt=cm_val_fmt)
 
     fig.tight_layout(pad=3)
-    plt.savefig(output_path)
-    plt.close()
-    return output_path
+
+    if output_path is None:
+        return fig
+    else:
+        plt.savefig(output_path)
+        plt.close()
+        return output_path
 
 
-def plot_norm_and_value_cms(conf_mat, labels, output_path, per_class_norm=True, cmap="YlGn"):
+def plot_norm_and_value_cms(conf_mat, labels, output_path=None, per_class_norm=True, style=None, cmap="YlGn"):
     """Plot a confusion matrix with the number of observation and also another one with values
     normalized (per class or by the whole cm).
 
@@ -263,6 +276,9 @@ def plot_norm_and_value_cms(conf_mat, labels, output_path, per_class_norm=True, 
     str
         Ouput path of the image containing the plot.
     """
+    if style is not None:
+        plt.style.use(style)
+
     if conf_mat.shape[0] < 10:
         figsize = (20, 7)
     elif conf_mat.shape[0] >= 10 and conf_mat.shape[0] <= 16:
@@ -295,9 +311,13 @@ def plot_norm_and_value_cms(conf_mat, labels, output_path, per_class_norm=True, 
     axs[0].set_title('Number of observations', y=-0.1, pad=-14, fontsize=fontsize)
 
     fig.tight_layout(pad=2)
-    plt.savefig(output_path)
-    plt.close()
-    return output_path
+
+    if output_path is None:
+        return fig
+    else:
+        plt.savefig(output_path)
+        plt.close()
+        return output_path
 
 
 def prepare_data_roc_curve(data):

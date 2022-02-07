@@ -1,6 +1,8 @@
 import os
 from datetime import date
+from random import sample
 from time import gmtime, strftime
+from numpy import integer
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torch
@@ -16,7 +18,7 @@ from pytorch_lightning import (
 )
 from odeon import LOGGER
 from odeon.modules.seg_module import SegmentationTask
-from odeon.modules.data_module import TrainDataModule
+from odeon.modules.data_module import SegDataModule
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
@@ -30,6 +32,7 @@ ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 RANDOM_SEED = 42
 PERCENTAGE_VAL = 0.3
+VAL_CHECK_INTERVAL = 0.5
 BATCH_SIZE = 5
 PATIENCE = 30
 NUM_EPOCHS = 1000
@@ -74,10 +77,10 @@ class CLITrain(BaseTool):
                  output_tensorboard_logs=None,
                  strategy=None,
                  ignore_index=None,
-                 val_check_interval=None,
+                 val_check_interval=VAL_CHECK_INTERVAL,
                  log_histogram=False,
                  log_graph=False,
-                 log_images=False,
+                 log_images=False
                  ):
         self.train_file = train_file
         self.val_file = val_file
@@ -138,23 +141,24 @@ class CLITrain(BaseTool):
             self.transformation_functions.append(ToDoubleTensor())
 
         self.transforms = {'train': Compose(self.transformation_functions),
-                          'val': Compose(self.transformation_functions),
-                          'test':Compose(self.transformation_functions)}
+                           'val': Compose(self.transformation_functions),
+                           'test':Compose(self.transformation_functions)}
 
-        self.device = device if device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = device
 
-        self.data_module = TrainDataModule(train_file=self.train_file,
-                                           val_file=self.val_file,
-                                           image_bands=self.image_bands,
-                                           mask_bands=self.mask_bands,
-                                           transforms=self.transforms,
-                                           width=None,
-                                           height=None,
-                                           batch_size=self.batch_size,
-                                           num_workers=self.num_workers,
-                                           percentage_val=self.percentage_val,
-                                           pin_memory=True,
-                                           deterministic=self.deterministic)
+        self.data_module = SegDataModule(train_file=self.train_file,
+                                         val_file=self.val_file,
+                                         image_bands=self.image_bands,
+                                         mask_bands=self.mask_bands,
+                                         transforms=self.transforms,
+                                         width=None,
+                                         height=None,
+                                         batch_size=self.batch_size,
+                                         num_workers=self.num_workers,
+                                         percentage_val=self.percentage_val,
+                                         pin_memory=True,
+                                         deterministic=self.deterministic,
+                                         subset=True)
 
         if class_labels is not None:
             if len(class_labels) == self.data_module.num_classes:
@@ -171,9 +175,9 @@ device: {self.device}
 model: {self.model_name}
 model file: {self.model_filename}
 number of classes: {self.data_module.num_classes}
-number of samples: {len(self.data_module.val_dataset) + len(self.data_module.train_dataset)} \
-(train: {len(self.data_module.train_dataset)}, val: {len(self.data_module.val_dataset)})
-""")
+number of samples: {len(self.data_module.train_image_files) + len(self.data_module.val_image_files)} \
+(train: {len(self.data_module.train_image_files)}, val: {len(self.data_module.val_image_files)})
+""")    
         self.check()
         self.configure()
 
@@ -189,18 +193,18 @@ number of samples: {len(self.data_module.val_dataset) + len(self.data_module.tra
                              stack_trace=error)
 
     def configure(self):
-        self.model = build_model(self.model_name, self.n_channels, self.n_classes)
+        self.model = build_model(self.model_name,
+                                 self.data_module.num_channels,
+                                 self.data_module.num_classes)
 
-        self.loss_function = self.get_loss(self.loss_name, class_weight=self.class_imbalance)
-        
         self.seg_module = SegmentationTask(model=self.model,
                                            num_classes=self.data_module.num_classes,
                                            class_labels=self.class_labels,
-                                           criterion=self.loss_function,
+                                           criterion=self.loss_name,
                                            optimizer=self.optimizer_name,
                                            learning_rate= self.learning_rate,
                                            patience=self.patience,
-                                           class_weight=self.class_imbalance,
+                                           weights=self.class_imbalance,
                                            ignore_index=self.ignore_index,
                                            val_check_interval=self.val_check_interval,
                                            log_histogram=self.log_histogram,
@@ -244,7 +248,7 @@ number of samples: {len(self.data_module.val_dataset) + len(self.data_module.tra
         loggers = [train_logger, valid_logger]
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
-                               gpus=self.device,
+                               gpus=1,
                                callbacks=[checkpoint_miou_callback, checkpoint_loss_callback],
                                max_epochs=self.epochs,
                                logger=loggers,
@@ -256,9 +260,7 @@ number of samples: {len(self.data_module.val_dataset) + len(self.data_module.tra
             Call the Trainer
         """
         try:
-
             self.trainer.fit(self.seg_module, datamodule=self.data_module)
-
         except OdeonError as error:
             raise error
         except KeyboardInterrupt:

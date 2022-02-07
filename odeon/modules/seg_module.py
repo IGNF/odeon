@@ -10,7 +10,10 @@ from odeon.nn.losses import (
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
 from odeon import LOGGER
+from odeon.commons.metric.plots import plot_confusion_matrix, plot_norm_and_value_cms
 from odeon.modules.metrics_module import OdeonMetrics
+
+PATIENCE = 30
 
 
 class SegmentationTask(pl.LightningModule):
@@ -21,7 +24,8 @@ class SegmentationTask(pl.LightningModule):
                  criterion,
                  optimizer,
                  learning_rate,
-                 patience,
+                 scheduler=None,
+                 patience=PATIENCE,
                  ignore_index=None,
                  val_check_interval=None,
                  log_histogram=False,
@@ -36,6 +40,7 @@ class SegmentationTask(pl.LightningModule):
         self.criterion = criterion
         self.optimizer = optimizer
         self.learning_rate = learning_rate
+        self.scheduler = scheduler
         self.patience = patience
         self.ignore_index = ignore_index # Index of classes to be ignored in the calculation of the metrics
         self.val_check_interval = val_check_interval if val_check_interval is not None\
@@ -43,7 +48,7 @@ class SegmentationTask(pl.LightningModule):
         self.log_histogram = log_histogram
         self.log_graph = log_graph
         self.log_images = log_images
-        self.sample = None
+        self.samples = None
         self.weights = weights
 
         if isinstance(criterion, str):
@@ -72,7 +77,6 @@ class SegmentationTask(pl.LightningModule):
         images, targets = batch["image"], batch["mask"]
         logits = self.forward(images)
         loss = self.criterion(logits, targets)
-
         with torch.no_grad():
             proba = torch.softmax(logits, dim=1)
             preds = torch.argmax(proba, dim=1)
@@ -80,10 +84,6 @@ class SegmentationTask(pl.LightningModule):
             # Change shapes and cast target to integer for metrics computation
             preds = preds.flatten(start_dim=1)
             targets = targets.flatten(start_dim=1).type(torch.int32)
-
-        if self.log_graph and self.sample is None:
-            self.sample = images 
-
         return loss, preds, targets
 
     def training_step(self, batch, batch_idx):
@@ -106,7 +106,7 @@ class SegmentationTask(pl.LightningModule):
             self.custom_histogram_adder(phase='train')
 
         if self.log_graph:
-            self.custom_graph_adder(phase='train')    
+            self.custom_graph_adder(phase='train') 
 
         self.train_loss.reset()
         self.train_metrics.reset()
@@ -115,6 +115,9 @@ class SegmentationTask(pl.LightningModule):
         loss, preds, targets = self.step(batch)
         self.val_loss.update(loss)
         self.val_metrics(preds=preds, target=targets)
+
+        if self.samples is None and (self.log_graph or self.log_images):
+            self.samples = batch
         return loss
 
     def validation_step_end(self, outputs):
@@ -158,9 +161,29 @@ class SegmentationTask(pl.LightningModule):
 
     def configure_optimizers(self):
         if isinstance(self.optimizer, str):
-            return self.get_optimizer(self.optimizer)
+            if self.optimizer == 'adam':
+                optimizer= optim.Adam(self.model.parameters(), lr=self.learning_rate)
+            elif self.optimizer == 'SGD':
+                optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
         else:
-            return self.optimizer(self.model.parameters(), lr=self.learning_rate)     
+            optimizer = self.optimizer(self.model.parameters(), lr=self.learning_rate)    
+
+        if self.scheduler is False:
+            return optimizer
+        elif self.scheduler is None:
+            scheduler = ReduceLROnPlateau(optimizer,
+                                    'min',
+                                    factor=0.5,
+                                    patience=self.patience,
+                                    cooldown=4,
+                                    min_lr=1e-7)
+        else:
+            scheduler = self.scheduler
+
+        config = {"optimizer": optimizer,
+                  "lr_scheduler": scheduler,
+                  "monitor": "val_loss"}
+        return config
 
     def get_logger_index(self, phase):
         dict_logger_index = {'train': 0, 'val' : 1, 'test': 2}
@@ -179,6 +202,30 @@ class SegmentationTask(pl.LightningModule):
                     self.logger.experiment[logger_idx].add_scalar(key_metric,
                                                                   metric_collection[key_metric],
                                                                   global_step=self.current_epoch)
+                elif key_metric == "cm_micro":
+                    fig_cm_micro = plot_confusion_matrix(metric_collection[key_metric],
+                                                         ['Positive', 'Negative'],
+                                                         output_path=None,
+                                                         cmap="YlGn")
+                    self.logger.experiment[logger_idx].add_figure("Confusion Matrix/Micro",
+                                                                  fig_cm_micro,
+                                                                  self.current_epoch)   
+                elif key_metric == "cm_macro":
+                    fig_cm_macro = plot_confusion_matrix(metric_collection[key_metric],
+                                                         self.class_labels,
+                                                         output_path=None,
+                                                         cmap="YlGn")
+                    self.logger.experiment[logger_idx].add_figure("Confusion Matrix/Macro",
+                                                                 fig_cm_macro,
+                                                                 self.current_epoch)
+                    fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric],
+                                                              self.class_labels,
+                                                              output_path=None,
+                                                              per_class_norm=True,
+                                                              cmap="YlGn")
+                    self.logger.experiment[logger_idx].add_figure("Confusion Matrix/Macro Normalized",
+                                                                 fig_cm_macro_norm,
+                                                                 self.current_epoch)
 
     def custom_histogram_adder(self, phase):
         logger_idx = self.get_logger_index(phase)
@@ -187,20 +234,8 @@ class SegmentationTask(pl.LightningModule):
 
     def custom_graph_adder(self, phase):
         logger_idx = self.get_logger_index(phase)
-        self.logger.experiment[logger_idx].add_graph(self.model, self.sample)
-
-    def get_optimizer(self, optimizer_name):
-        if optimizer_name == 'adam':
-             optimizer_function = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        elif optimizer_name == 'SGD':
-             optimizer_function = optim.SGD(self.model.parameters(), lr=self.learning_rate)
-        lr_scheduler = ReduceLROnPlateau(optimizer_function,
-                                         'min',
-                                         factor=0.5,
-                                         patience=self.patience,
-                                         cooldown=4,
-                                         min_lr=1e-7)
-        return lr_scheduler
+        self.logger.experiment[logger_idx].add_graph(self.model, self.samples["image"])
+        self.log_graph = False  # Graph added only once to the tensorboard
 
     def get_loss_function(self, loss_name, class_weight=None):
         if loss_name == "ce":

@@ -147,21 +147,20 @@ def main():
 
     elif tool == "train":
 
-        from odeon.scripts.train import Trainer
+        from odeon.scripts.cli_train import CLITrain
 
         with Timer("Train model"):
-
             try:
-
                 datasource_conf = conf.get('data_source')
                 model_conf = conf.get('model_setup')
                 train_conf = conf.get('train_setup')
-                trainer = Trainer(verbosity, **datasource_conf, **model_conf, **train_conf)
+                trainer = CLITrain(verbosity,
+                                   **datasource_conf,
+                                   **model_conf,
+                                   **train_conf)
                 trainer()
                 return 0
-
             except OdeonError as oe:
-
                 LOGGER.error(oe)
                 return oe.error_code
 
