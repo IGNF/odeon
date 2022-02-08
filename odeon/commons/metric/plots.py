@@ -499,3 +499,8 @@ def plot_hists(hists, list_metrics, output_path, n_bins, bins_xticks, n_cols=3, 
     plt.savefig(output_path)
     plt.close()
     return output_path
+
+
+def makegrid(images, preds, targets):
+    assert len(images) == len(preds) == len(targets)
+    return

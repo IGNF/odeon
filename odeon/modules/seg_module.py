@@ -1,3 +1,5 @@
+from re import S
+from matplotlib import colors, pyplot as plt
 import torch
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -9,8 +11,9 @@ from odeon.nn.losses import (
 )
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
+from torchvision.utils import make_grid
 from odeon import LOGGER
-from odeon.commons.metric.plots import plot_confusion_matrix, plot_norm_and_value_cms
+from odeon.commons.metric.plots import plot_confusion_matrix, makegrid
 from odeon.modules.metrics_module import OdeonMetrics
 
 PATIENCE = 30
@@ -30,7 +33,7 @@ class SegmentationTask(pl.LightningModule):
                  val_check_interval=None,
                  log_histogram=False,
                  log_graph=False,
-                 log_images=False,
+                 log_predictions=False,
                  weights=None):
 
         super().__init__()
@@ -47,7 +50,7 @@ class SegmentationTask(pl.LightningModule):
         and isinstance(val_check_interval, (int, float)) else 1
         self.log_histogram = log_histogram
         self.log_graph = log_graph
-        self.log_images = log_images
+        self.log_predictions = log_predictions
         self.samples = None
         self.weights = weights
 
@@ -98,6 +101,8 @@ class SegmentationTask(pl.LightningModule):
     def training_epoch_end(self, outputs):
         train_epoch_loss = self.train_loss.compute()
         train_epoch_metrics = self.train_metrics.compute()
+        self.train_loss.reset()
+        self.train_metrics.reset()
         self.to_tensorboard(train_epoch_metrics, train_epoch_loss, phase='train')
         self.log("train_loss", train_epoch_loss,
                  on_step=False, on_epoch=True, prog_bar=True, logger=False)
@@ -106,10 +111,10 @@ class SegmentationTask(pl.LightningModule):
             self.custom_histogram_adder(phase='train')
 
         if self.log_graph:
-            self.custom_graph_adder(phase='train') 
+            self.custom_graph_adder(phase='train')
 
-        self.train_loss.reset()
-        self.train_metrics.reset()
+        if self.log_predictions:
+            self.custom_predictions_adder(phase='train')
 
     def validation_step(self, batch, batch_idx):
         loss, preds, targets = self.step(batch)
@@ -126,6 +131,8 @@ class SegmentationTask(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         val_epoch_loss = self.val_loss.compute()
         val_epoch_metrics = self.val_metrics.compute()
+        self.val_loss.reset()
+        self.val_metrics.reset()
         self.to_tensorboard(val_epoch_metrics, val_epoch_loss, phase='val') # Pass metric collection value to the tensorboard
         # self.log: log metrics we want to monitor for model selection in checkpoints creation
         self.log("val_loss", val_epoch_loss,
@@ -133,8 +140,8 @@ class SegmentationTask(pl.LightningModule):
         self.log('val_miou', val_epoch_metrics["Average/IoU"],
                  on_step=False, on_epoch=True, prog_bar=True, logger=False)
 
-        self.val_loss.reset()
-        self.val_metrics.reset()
+        if self.log_predictions:
+            self.custom_predictions_adder(phase='val')
 
     def test_step(self, batch, batch_idx):
         loss, preds, targets = self.step(batch)
@@ -151,6 +158,11 @@ class SegmentationTask(pl.LightningModule):
         self.to_tensorboard(test_epoch_metrics, test_epoch_loss, phase='test')
         self.test_loss.reset()
         self.test_metrics.reset()
+
+        if self.log_predictions:
+            self.custom_predictions_adder(phase='test')
+
+
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         images, targets = batch["image"], batch["mask"]
@@ -236,6 +248,39 @@ class SegmentationTask(pl.LightningModule):
         logger_idx = self.get_logger_index(phase)
         self.logger.experiment[logger_idx].add_graph(self.model, self.samples["image"])
         self.log_graph = False  # Graph added only once to the tensorboard
+
+    def custom_predictions_adder(self, phase):
+        classes_colors =  {'batiment' : 'red', 
+                           'zone_impermeable': 'navy',
+                           'zone_permeable': 'hotpink',
+                           'piscine': 'aqua',
+                           'sol_nu': 'sandybrown',
+                           'surface_eau': 'dodgerblue',
+                           'neige': 'lavender',
+                           'coupe': 'chartreuse',
+                           'peuplement_feuillus': 'forestgreen',
+                           'peuplement_coniferes': 'darkgreen',
+                           'lande_ligneuse': 'palegreen',
+                           'vigne': 'indigo',
+                           'culture': 'lime',
+                           'terre_arable': 'maroon',
+                           'autre': 'black'}
+
+        logger_idx = self.get_logger_index(phase)
+        images, targets = self.samples["image"], self.samples["mask"]
+        with torch.no_grad():
+            logits = self.forward(images)
+            proba = torch.softmax(logits, dim=1)
+            preds = torch.argmax(proba, dim=1)
+            targets = torch.argmax(targets, dim=1).type(torch.int32)
+        cmap = colors.ListedColormap(classes_colors.values())
+        grids = []
+        for image, target, pred in zip(images, targets, preds):
+            pred_rgba = torch.Tensor(cmap(pred.cpu().numpy()).swapaxes(0, 2).swapaxes(1, 2)[:3, :, :])
+            target_rgba = torch.Tensor(cmap(target.cpu().numpy()).swapaxes(0, 2).swapaxes(1, 2)[:3, :, :])
+            grids.append(make_grid([image.cpu(), target_rgba, pred_rgba]))
+        image_grid = torch.cat(grids, 1)
+        self.logger.experiment[logger_idx].add_image("Predictions", image_grid, self.current_epoch)
 
     def get_loss_function(self, loss_name, class_weight=None):
         if loss_name == "ce":

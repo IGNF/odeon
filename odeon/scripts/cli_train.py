@@ -32,7 +32,7 @@ ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 RANDOM_SEED = 42
 PERCENTAGE_VAL = 0.3
-VAL_CHECK_INTERVAL = 0.5
+VAL_CHECK_INTERVAL = 1.0
 BATCH_SIZE = 5
 PATIENCE = 30
 NUM_EPOCHS = 1000
@@ -80,7 +80,7 @@ class CLITrain(BaseTool):
                  val_check_interval=VAL_CHECK_INTERVAL,
                  log_histogram=False,
                  log_graph=False,
-                 log_images=False
+                 log_predictions=False
                  ):
         self.train_file = train_file
         self.val_file = val_file
@@ -112,7 +112,7 @@ class CLITrain(BaseTool):
         self.val_check_interval = val_check_interval
         self.log_histogram = log_histogram
         self.log_graph = log_graph
-        self.log_images = log_images
+        self.log_predictions = log_predictions
 
         if reproducible is True:
             self.random_seed = RANDOM_SEED
@@ -209,7 +209,7 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                            val_check_interval=self.val_check_interval,
                                            log_histogram=self.log_histogram,
                                            log_graph=self.log_graph,
-                                           log_images=self.log_images)
+                                           log_predictions=self.log_predictions)
 
         def check_path_ckpt(path, description=None): 
             path_ckpt = None

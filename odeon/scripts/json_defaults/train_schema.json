@@ -54,7 +54,7 @@
                 "reproducible": {"type": "boolean", "default": false},
                 "log_histogram": {"type": "boolean", "default": false},
                 "log_graph": {"type": "boolean", "default": false},
-                "log_images": {"type": "boolean", "default": false},
+                "log_predictions": {"type": "boolean", "default": false},
                 "class_labels": {"type": "array", "items": {"type": "string"}},
                 "ignore_index": {"type": "array", "items": {"type": "number"}},
                 "val_check_interval": {"type": "number"},
