@@ -58,13 +58,13 @@ class SegDataModule(LightningDataModule):
         self.num_classes = len(self.mask_bands)
         self.num_channels = len(self.image_bands)
         self.train_batch_size, self.val_batch_size = self.get_batch_size(batch_size)
-        self.train_dataset, self.val_dataset, self.test_dataset = None, None, None
+        self.train_dataset, self.val_dataset, self.sample_set = None, None, None
 
     def prepare_data(self):
         pass
 
     def setup(self, stage=None):        
-        if not self.train_dataset and not self.val_dataset and not self.test_dataset:
+        if not self.train_dataset and not self.val_dataset and not self.sample_set:
             self.train_dataset = PatchDataset(image_files=self.train_image_files,
                                               mask_files=self.train_mask_files,
                                               transform=self.transforms['train'],
@@ -80,6 +80,7 @@ class SegDataModule(LightningDataModule):
                                              mask_bands=self.mask_bands,
                                              width=self.width,
                                              height=self.height)
+
             if self.subset is True:
                 self.train_dataset = Subset(self.train_dataset, range(0, 20))
                 self.val_dataset = Subset(self.val_dataset, range(0, 10))
@@ -129,8 +130,8 @@ class SegDataModule(LightningDataModule):
         return train_image_files, val_image_files, train_mask_files, val_mask_files
 
     @staticmethod
-    def get_samples(image_files, mask_files):
-        image_file, mask_file = image_files[0], mask_files[0]
+    def get_samples(image_files, mask_files, index=0):
+        image_file, mask_file = image_files[index], mask_files[index]
         with rasterio.open(image_file) as image_raster:
             image = image_raster.read().swapaxes(0, 2).swapaxes(0, 1)
         with rasterio.open(mask_file) as mask_raster:

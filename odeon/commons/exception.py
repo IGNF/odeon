@@ -120,6 +120,9 @@ class ErrorCodes(Enum):
     """ happens when we try to build a pytorch model"""
     ERR_MODEL_ERROR = auto()
 
+    """ happens when something went wrong in a callback"""
+    ERR_CALLBACK_ERROR = auto()
+
     def __str__(self):
         """
 

@@ -23,6 +23,7 @@ from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist
+from odeon.callbacks.tensorboard_callbacks import GraphAdder, HistogramAdder, PredictionsAdder
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
 from odeon.nn.models import build_model, model_list
 
@@ -160,6 +161,8 @@ class CLITrain(BaseTool):
                                          deterministic=self.deterministic,
                                          subset=True)
 
+        self.callbacks = None
+
         if class_labels is not None:
             if len(class_labels) == self.data_module.num_classes:
                 self.class_labels = class_labels
@@ -247,9 +250,20 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         loggers = [train_logger, valid_logger]
 
+        self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback]
+
+        if self.log_graph:
+            self.callbacks.append(GraphAdder())
+
+        if self.log_histogram:
+            self.callbacks.append(HistogramAdder())
+            
+        if self.log_graph:
+            self.callbacks.append(PredictionsAdder())
+
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
                                gpus=1,
-                               callbacks=[checkpoint_miou_callback, checkpoint_loss_callback],
+                               callbacks=self.callbacks,
                                max_epochs=self.epochs,
                                logger=loggers,
                                deterministic=self.deterministic,
