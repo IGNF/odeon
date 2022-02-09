@@ -23,6 +23,7 @@ from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist
+from odeon.callbacks.utils_callbacks import MyModelCheckpoint
 from odeon.callbacks.tensorboard_callbacks import GraphAdder, HistogramAdder, PredictionsAdder
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
 from odeon.nn.models import build_model, model_list
@@ -214,28 +215,18 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                            log_graph=self.log_graph,
                                            log_predictions=self.log_predictions)
 
-        def check_path_ckpt(path, description=None): 
-            path_ckpt = None
-            if not os.path.exists(path):
-                path_ckpt = path
-            else:
-                description = description if description is not None else ""
-                path_ckpt = os.path.join(path, description + "_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime()))
-                os.makedirs(path_ckpt)
-            return path_ckpt
-
         ckpt_descript = f"test_pl"
-        checkpoint_miou_callback = ModelCheckpoint(monitor="val_miou",
-                                                dirpath=check_path_ckpt("odeon_miou_ckpt", description=ckpt_descript),
-                                                filename="sample-test-{epoch:02d}-{val_miou:.2f}",
-                                                save_top_k=3,
-                                                mode="max")
+        checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
+                                                     dirpath=os.path.join(self.output_folder,"odeon_miou_ckpt"),
+                                                     save_top_k=3,
+                                                     mode="max",
+                                                     description=ckpt_descript)
 
-        checkpoint_loss_callback = ModelCheckpoint(monitor="val_loss",
-                                                dirpath=check_path_ckpt("odeon_loss_ckpt", description=ckpt_descript),
-                                                filename="sample-test-{epoch:02d}-{val_loss:.2f}",
-                                                save_top_k=3,
-                                                mode="min")
+        checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
+                                                     dirpath=os.path.join(self.output_folder,"odeon_loss_ckpt"),
+                                                     save_top_k=3,
+                                                     mode="min",
+                                                     description=ckpt_descript)
 
         name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
         train_logger = TensorBoardLogger(save_dir=self.output_tensorboard_logs,
