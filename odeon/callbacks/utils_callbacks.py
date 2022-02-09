@@ -7,22 +7,19 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 class MyModelCheckpoint(ModelCheckpoint):
 
-    def __init__(self, monitor, dirpath, description, filename=None, **kwargs):
+    def __init__(self, monitor, dirpath, filename=None, **kwargs):
         if filename is None:
-            filename = description + "-{epoch:02d}-{" + monitor + ":.2f}"
-        dirpath = self.check_path_ckpt(dirpath, description=description)
+            filename = "checkpoint-{epoch:02d}-{" + monitor + ":.2f}"
+        dirpath = self.check_path_ckpt(dirpath)
         super().__init__(monitor=monitor, dirpath=dirpath, filename=filename, **kwargs)
-        self.description = description
 
     @staticmethod
-    def check_path_ckpt(path, description=None): 
-        path_ckpt = None
+    def check_path_ckpt(path): 
         if not os.path.exists(path):
             path_ckpt = path
         else:
-            description = description if description is not None else ""
-            path_ckpt = os.path.join(path, description + "_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime()))
-            os.makedirs(path_ckpt)
+            description = "version_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime())
+            path_ckpt = os.path.join(path, description)
         return path_ckpt
 
 

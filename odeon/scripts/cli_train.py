@@ -72,6 +72,7 @@ class CLITrain(BaseTool):
                  output_tensorboard_logs=None,
                  strategy=None,
                  val_check_interval=VAL_CHECK_INTERVAL,
+                 name_exp_log=None,
                  log_histogram=False,
                  log_graph=False,
                  log_predictions=False
@@ -83,7 +84,7 @@ class CLITrain(BaseTool):
         self.model_name = model_name
         self.output_folder = output_folder        
         if output_tensorboard_logs is None:
-            self.output_tensorboard_logs = os.path.join(output_folder, "tensorboard_logs")
+            self.output_tensorboard_logs = output_folder
         else: 
             self.output_tensorboard_logs = output_tensorboard_logs
 
@@ -107,10 +108,15 @@ class CLITrain(BaseTool):
         self.log_graph = log_graph
         self.log_predictions = log_predictions
 
+        if name_exp_log is None:
+            self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
+        else:
+            self.name_exp_log = name_exp_log
+
         if reproducible is True:
             self.random_seed = RANDOM_SEED
             seed_everything(self.random_seed, workers=True)
-            # Devrait être à True mais problème avec le calcul de  cm dans torchmetrics
+            # Devrait être à True mais problème avec le calcul de cm dans torchmetrics
             self.deterministic = False
         else:
             self.random_seed = None
@@ -204,37 +210,33 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                            log_graph=self.log_graph,
                                            log_predictions=self.log_predictions)
         # Loggers definition
-        name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
-        train_logger = TensorBoardLogger(save_dir=self.output_tensorboard_logs,
-                                        name=name_exp_log,
+        train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
+                                        name="tensorboard_logs",
                                         sub_dir='Train',
                                         filename_suffix='_train')
 
-        valid_logger = TensorBoardLogger(save_dir=self.output_tensorboard_logs,
-                                        name=name_exp_log,
+        valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
+                                        name="tensorboard_logs",
                                         sub_dir='Validation',
                                         filename_suffix='_val')
 
         loggers = [train_logger, valid_logger]
 
         if self.save_history:
-            csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder,"logs"),
-                                   name=name_exp_log)
+            csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                   name="logs")
             loggers.append(csv_logger)
-    
+
         # Callbacks definition
-        ckpt_descript = f"test_pl"
         checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
-                                                     dirpath=os.path.join(self.output_folder,"odeon_miou_ckpt"),
+                                                     dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
                                                      save_top_k=3,
-                                                     mode="max",
-                                                     description=ckpt_descript)
+                                                     mode="max")
 
         checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
-                                                     dirpath=os.path.join(self.output_folder,"odeon_loss_ckpt"),
+                                                     dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
                                                      save_top_k=3,
-                                                     mode="min",
-                                                     description=ckpt_descript)
+                                                     mode="min")
 
         self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback]
 
@@ -248,7 +250,7 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
             self.callbacks.append(PredictionsAdder())
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
-                               gpus=1,
+                               gpus=self.device,
                                callbacks=self.callbacks,
                                max_epochs=self.epochs,
                                logger=loggers,

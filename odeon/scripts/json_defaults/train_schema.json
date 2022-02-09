@@ -34,7 +34,8 @@
                 "load_pretrained_enc": {"type": "boolean", "default": false},
                 "output_folder": {"type": "string"},
                 "output_tensorboard_logs": {"type": "string"},
-                "model_filename": {"type": "string"}
+                "model_filename": {"type": "string"},
+                "name_exp_log": {"type": "string"}
             }
         },
         "train_setup": {
