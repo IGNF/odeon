@@ -1,16 +1,9 @@
 import os
 from datetime import date
-from random import sample
-from time import gmtime, strftime
-from numpy import integer
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
 import torch
 from torch.nn import functional as F
-from torchvision import transforms
-from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
-from odeon.scripts.stats import NUM_WORKERS
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning import (
     Trainer,
@@ -66,7 +59,7 @@ class CLITrain(BaseTool):
                  epochs=NUM_EPOCHS,
                  batch_size=BATCH_SIZE,
                  patience=PATIENCE,
-                 save_history=False,
+                 save_history=True,
                  continue_training=False,
                  loss="ce",
                  class_imbalance=None,
@@ -78,7 +71,6 @@ class CLITrain(BaseTool):
                  num_workers=NUM_WORKERS,
                  output_tensorboard_logs=None,
                  strategy=None,
-                 ignore_index=None,
                  val_check_interval=VAL_CHECK_INTERVAL,
                  log_histogram=False,
                  log_graph=False,
@@ -110,7 +102,6 @@ class CLITrain(BaseTool):
         self.class_imbalance = class_imbalance
         self.load_pretrained_enc = load_pretrained_enc
         self.num_workers = num_workers
-        self.ignore_index = ignore_index
         self.val_check_interval = val_check_interval
         self.log_histogram = log_histogram
         self.log_graph = log_graph
@@ -209,25 +200,10 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                            learning_rate= self.learning_rate,
                                            patience=self.patience,
                                            weights=self.class_imbalance,
-                                           ignore_index=self.ignore_index,
-                                           val_check_interval=self.val_check_interval,
                                            log_histogram=self.log_histogram,
                                            log_graph=self.log_graph,
                                            log_predictions=self.log_predictions)
-
-        ckpt_descript = f"test_pl"
-        checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
-                                                     dirpath=os.path.join(self.output_folder,"odeon_miou_ckpt"),
-                                                     save_top_k=3,
-                                                     mode="max",
-                                                     description=ckpt_descript)
-
-        checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
-                                                     dirpath=os.path.join(self.output_folder,"odeon_loss_ckpt"),
-                                                     save_top_k=3,
-                                                     mode="min",
-                                                     description=ckpt_descript)
-
+        # Loggers definition
         name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
         train_logger = TensorBoardLogger(save_dir=self.output_tensorboard_logs,
                                         name=name_exp_log,
@@ -240,6 +216,25 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                         filename_suffix='_val')
 
         loggers = [train_logger, valid_logger]
+
+        if self.save_history:
+            csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder,"logs"),
+                                   name=name_exp_log)
+            loggers.append(csv_logger)
+    
+        # Callbacks definition
+        ckpt_descript = f"test_pl"
+        checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
+                                                     dirpath=os.path.join(self.output_folder,"odeon_miou_ckpt"),
+                                                     save_top_k=3,
+                                                     mode="max",
+                                                     description=ckpt_descript)
+
+        checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
+                                                     dirpath=os.path.join(self.output_folder,"odeon_loss_ckpt"),
+                                                     save_top_k=3,
+                                                     mode="min",
+                                                     description=ckpt_descript)
 
         self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback]
 
