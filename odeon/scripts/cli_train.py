@@ -11,7 +11,7 @@ from pytorch_lightning import (
 )
 from odeon import LOGGER
 from odeon.modules.seg_module import SegmentationTask
-from odeon.modules.data_module import SegDataModule
+from odeon.modules.datamodule import SegDataModule
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
@@ -33,6 +33,7 @@ PATIENCE = 30
 NUM_EPOCHS = 1000
 LEARNING_RATE = 0.001
 NUM_WORKERS = 4
+NUM_CKPT_SAVED = 3
 
 
 class CLITrain(BaseTool):
@@ -147,6 +148,7 @@ class CLITrain(BaseTool):
 
         self.data_module = SegDataModule(train_file=self.train_file,
                                          val_file=self.val_file,
+                                         test_file=None,
                                          image_bands=self.image_bands,
                                          mask_bands=self.mask_bands,
                                          transforms=self.transforms,
@@ -230,12 +232,12 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
         # Callbacks definition
         checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
                                                      dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
-                                                     save_top_k=3,
+                                                     save_top_k=NUM_CKPT_SAVED,
                                                      mode="max")
 
         checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
                                                      dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
-                                                     save_top_k=3,
+                                                     save_top_k=NUM_CKPT_SAVED,
                                                      mode="min")
 
         self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback]
@@ -245,8 +247,8 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         if self.log_histogram:
             self.callbacks.append(HistogramAdder())
-            
-        if self.log_graph:
+
+        if self.log_predictions:
             self.callbacks.append(PredictionsAdder())
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,

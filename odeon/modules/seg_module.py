@@ -69,7 +69,6 @@ class SegmentationTask(pl.LightningModule):
             self.idx_csv_loggers = [idx for idx, logger in enumerate(self.logger.experiment)\
                 if isinstance(logger, pl.loggers.csv_logs.ExperimentWriter)]    
 
-
     def forward(self, images):
         logits = self.model(images)
         return logits

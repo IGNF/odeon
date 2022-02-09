@@ -11,7 +11,8 @@
                 "val_file": {"type": "string"},
                 "percentage_val": {"type": "number"},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
-                "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true}
+                "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
+                "class_labels": {"type": "array", "items": {"type": "string"}}
             },
             "oneOf": [{
                 "required": [
@@ -56,7 +57,6 @@
                 "log_histogram": {"type": "boolean", "default": false},
                 "log_graph": {"type": "boolean", "default": false},
                 "log_predictions": {"type": "boolean", "default": false},
-                "class_labels": {"type": "array", "items": {"type": "string"}},
                 "val_check_interval": {"type": "number"},
                 "strategy": {"type": "string"}
             }

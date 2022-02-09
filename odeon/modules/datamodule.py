@@ -21,6 +21,7 @@ class SegDataModule(LightningDataModule):
     def __init__(self,
                  train_file,
                  val_file=None,
+                 test_file=None,
                  image_bands=None,
                  mask_bands=None,
                  transforms=None,
@@ -36,6 +37,7 @@ class SegDataModule(LightningDataModule):
         super().__init__()
         self.train_file = train_file
         self.val_file = val_file
+        self.test_file = test_file
         self.image_bands = image_bands
         self.mask_bands = mask_bands
         self.transforms = transforms
@@ -51,20 +53,22 @@ class SegDataModule(LightningDataModule):
         else:
             self.random_seed = RANDOM_SEED
             self.shuffle = True
-        self.train_image_files, self.val_image_files, self.train_mask_files, self.val_mask_files = \
-            self.get_split_files()
+        self.train_image_files, self.val_image_files, self.test_image_files = None, None, None
+        self.train_mask_files, self.val_mask_files, self.test_mask_files = None, None, None
+        self.get_split_files()
         self.sample_dims = self.get_dims()
         self.image_bands, self.mask_bands = self.get_bands(image_bands, mask_bands)
         self.num_classes = len(self.mask_bands)
         self.num_channels = len(self.image_bands)
-        self.train_batch_size, self.val_batch_size = self.get_batch_size(batch_size)
-        self.train_dataset, self.val_dataset, self.sample_set = None, None, None
+        self.train_batch_size, self.val_batch_size, self.test_batch_size = None, None, None
+        self.get_batch_size(batch_size)
+        self.train_dataset, self.val_dataset, self.test_dataset = None, None, None
 
     def prepare_data(self):
         pass
 
     def setup(self, stage=None):        
-        if not self.train_dataset and not self.val_dataset and not self.sample_set:
+        if not self.train_dataset and not self.val_dataset:
             self.train_dataset = PatchDataset(image_files=self.train_image_files,
                                               mask_files=self.train_mask_files,
                                               transform=self.transforms['train'],
@@ -80,11 +84,21 @@ class SegDataModule(LightningDataModule):
                                              mask_bands=self.mask_bands,
                                              width=self.width,
                                              height=self.height)
-
             if self.subset is True:
                 self.train_dataset = Subset(self.train_dataset, range(0, 20))
                 self.val_dataset = Subset(self.val_dataset, range(0, 10))
 
+        if not self.test_dataset:
+            self.test_dataset = PatchDataset(image_files=self.test_image_files,
+                                             mask_files=self.test_mask_files,
+                                             transform=self.transforms['test'],
+                                             image_bands=self.image_bands,
+                                             mask_bands=self.mask_bands,
+                                             width=self.width,
+                                             height=self.height)
+            if self.subset is True:
+                self.test_dataset = Subset(self.test_dataset, range(0, 10))
+        
     def train_dataloader(self):
         return DataLoader(dataset=self.train_dataset,
                           batch_size=self.train_batch_size,
@@ -95,6 +109,13 @@ class SegDataModule(LightningDataModule):
     def val_dataloader(self):
         return DataLoader(dataset=self.val_dataset,
                           batch_size=self.val_batch_size,
+                          num_workers=self.num_workers,
+                          pin_memory=self.pin_memory,
+                          shuffle=False)
+
+    def test_dataloader(self):
+        return DataLoader(dataset=self.test_dataset,
+                          batch_size=self.test_batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
                           shuffle=False)
@@ -117,17 +138,22 @@ class SegDataModule(LightningDataModule):
         train_image_files, train_mask_files = self.read_csv_sample_file(self.train_file)
         if self.val_file is not None:
             val_image_files, val_mask_files = self.read_csv_sample_file(self.val_file)
-
         else:
             train_image_files, val_image_files, train_mask_files, val_mask_files = \
                 train_test_split(train_image_files,
                                  train_mask_files,
                                  test_size=self.percentage_val,
                                  random_state=self.random_seed)
-
         for list_files in [train_image_files, val_image_files, train_mask_files, val_mask_files]:
             check_files(list_files)
-        return train_image_files, val_image_files, train_mask_files, val_mask_files
+        self.train_image_files, self.train_mask_files = train_image_files, train_mask_files
+        self.val_image_files, self.val_mask_files = val_image_files, val_mask_files
+
+        if self.test_file is not None:
+            test_image_files, test_mask_files = self.read_csv_sample_file(self.test_file)
+            for list_files in [test_image_files, test_mask_files]:
+                check_files(list_files)
+            self.test_image_files, self.test_mask_files = test_image_files, test_mask_files
 
     @staticmethod
     def get_samples(image_files, mask_files, index=0):
@@ -176,17 +202,27 @@ class SegDataModule(LightningDataModule):
         if isinstance(parameter_batch_size, int):
             train_batch_size = parameter_batch_size
             val_batch_size = parameter_batch_size
+            test_batch_size = parameter_batch_size
         elif isinstance(parameter_batch_size, (tuple, list, np.ndarray)):
             train_batch_size = parameter_batch_size[0]
             val_batch_size = parameter_batch_size[1]
+            test_batch_size = parameter_batch_size[-1]
         else:
             LOGGER.error("ERROR: Parameter batch_size should a list/tuple of length one, two or three.")
             raise ValueError('Parameter batch_size is not correct.')
+
         assert train_batch_size <= len(self.train_image_files),\
             "batch_size must be lower than the number of files in the dataset"
         assert val_batch_size <= len(self.val_image_files),\
-         "batch_size must be lower than the number of files in the dataset"                                          
-        return train_batch_size, val_batch_size
+         "batch_size must be lower than the number of files in the dataset"
+
+        if self.test_file is not None:
+            assert test_batch_size <= len(self.test_image_files),\
+            "batch_size must be lower than the number of files in the dataset"
+
+        self.train_batch_size = train_batch_size
+        self.val_batch_size = val_batch_size
+        self.test_batch_size = test_batch_size
 
     def teardown(self, stage=None):
         # Used to clean-up when the run is finished

@@ -133,8 +133,6 @@ class PatchDataset(Dataset):
                                     band_indices=self.image_bands
                                     )
 
-        # pixels are normalized to [0, 1]
-        img = img_as_float(img)
 
         # load mask file
         mask_file = self.mask_files[index]
