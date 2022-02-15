@@ -32,7 +32,7 @@
             ],
             "properties": {
                 "model_name": {"type": "string"},
-                "load_pretrained_enc": {"type": "boolean", "default": false},
+                "load_pretrained": {"type": "boolean", "default": false},
                 "output_folder": {"type": "string"},
                 "output_tensorboard_logs": {"type": "string"},
                 "model_filename": {"type": "string"},
@@ -43,22 +43,26 @@
             "type": "object",
             "properties": {
                 "epochs": {"type": "integer", "default": 300},
-                "batch_size": {"type": "integer", "default": 16},
-                "patience": {"type": "integer", "default": 20},
-                "save_history": {"type": "boolean", "default": false},
+                "batch_size": {"type": "integer", "default": 5},
+                "patience": {"type": "integer", "default": 30},
+                "save_history": {"type": "boolean", "default": true},
                 "continue_training": {"type": "boolean", "default": false},
                 "loss":  {"type": "string", "default": "ce"},
                 "class imbalance": {"type": "array", "items": {"type": "number"}},
                 "optimizer": {"type": "string", "default": "adam"},
-                "lr": {"type": "number", "default": 0.001},
+                "lr": {"type": "number", "default": 0.01},
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
                 "device": {"type": ["string", "array", "integer"]},
                 "reproducible": {"type": "boolean", "default": false},
                 "log_histogram": {"type": "boolean", "default": false},
                 "log_graph": {"type": "boolean", "default": false},
                 "log_predictions": {"type": "boolean", "default": false},
+                "log_learning_rate": {"type": "boolean", "default": false},
+                "log_hparams": {"type": "boolean", "default": false},
                 "val_check_interval": {"type": "number"},
-                "strategy": {"type": "string"}
+                "strategy": {"type": "string"},
+                "early_stopping": {"type": ["string", "boolean"]},
+                "use_wandb": {"type": "boolean", "default": false}
             }
         }
     }

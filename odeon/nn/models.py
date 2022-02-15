@@ -8,28 +8,7 @@ model_list = [
 ]
 
 
-def build_model(model_name, n_channels, n_classes, load_pretrained=False):
-    """Build a nn model from a model name.
-
-    Parameters
-    ----------
-    model_name : str
-        model name, possible values:
-        'lightunet', 'unet',
-        'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet150',
-        'deeplab'
-    n_channels : int
-        number of channels in the input image
-    n_classes : int
-        number of classes in the output mask
-    load_pretrained : bool, optional
-        load pretrained weights for model, by default False
-
-    Returns
-    -------
-    :class:`nn.Module`
-        pytorch neural network model
-    """
+def build_model(model_name, n_channels, n_classes, continue_training, load_pretrained):
 
     if model_name == 'lightunet':
         net = LightUNet(n_channels=n_channels, n_classes=n_classes)
@@ -40,5 +19,4 @@ def build_model(model_name, n_channels, n_classes, load_pretrained=False):
         net = UNetResNet(depth, n_classes=n_classes, n_channels=n_channels)
     elif model_name == 'deeplab':
         net = DeeplabV3p(n_channels, n_classes, output_stride=16)
-
     return net

@@ -10,7 +10,6 @@ from odeon.nn.losses import (
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
 from odeon import LOGGER
-from odeon.commons.metric.plots import plot_confusion_matrix, makegrid
 from odeon.modules.metrics_module import OdeonMetrics
 
 PATIENCE = 30
@@ -46,14 +45,16 @@ class SegmentationTask(pl.LightningModule):
         self.samples = None
         self.weights = weights
         self.idx_csv_loggers = None
-
         if isinstance(criterion, str):
             self.criterion= self.get_loss_function(criterion, self.weights)
         else:
             self.criterion = criterion
+        self.save_hyperparameters("num_classes", "criterion", "optimizer", "learning_rate", "scheduler", "patience", "weights")
 
     def setup(self, stage):
         if stage == "fit":
+            self.train_epoch_loss, self.val_epoch_loss = None, None
+            self.train_epoch_metrics, self.val_epoch_metrics = None, None
             self.train_metrics = OdeonMetrics(num_classes=self.num_classes,
                                               class_labels=self.class_labels)
             self.val_metrics = OdeonMetrics(num_classes=self.num_classes,
@@ -61,13 +62,10 @@ class SegmentationTask(pl.LightningModule):
             self.train_loss = MeanMetric()
             self.val_loss = MeanMetric()
         if stage == "test":
+            self.test_epoch_loss, self.test_epoch_metrics = None, None
             self.test_metrics = OdeonMetrics(num_classes=self.num_classes,
                                              class_labels=self.class_labels)
             self.test_loss = MeanMetric()
-
-        if self.logger is not None:
-            self.idx_csv_loggers = [idx for idx, logger in enumerate(self.logger.experiment)\
-                if isinstance(logger, pl.loggers.csv_logs.ExperimentWriter)]    
 
     def forward(self, images):
         logits = self.model(images)
@@ -92,13 +90,11 @@ class SegmentationTask(pl.LightningModule):
         self.train_metrics(preds=preds, target=targets)
         return loss
 
-    def training_step_end(self, outputs):
-        pass
-
     def training_epoch_end(self, outputs):
-        train_epoch_loss = self.train_loss.compute()
-        train_epoch_metrics = self.train_metrics.compute()
-        self.logging(train_epoch_metrics, train_epoch_loss, phase='train')
+        self.train_epoch_loss = self.train_loss.compute()
+        self.train_epoch_metrics = self.train_metrics.compute()
+        self.log("train_loss", self.train_epoch_loss,
+                    on_step=False, on_epoch=True, prog_bar=True, logger=False)
         self.train_loss.reset()
         self.train_metrics.reset()
 
@@ -108,13 +104,14 @@ class SegmentationTask(pl.LightningModule):
         self.val_metrics(preds=preds, target=targets)
         return loss
 
-    def validation_step_end(self, outputs):
-        pass
-
     def validation_epoch_end(self, outputs):
-        val_epoch_loss = self.val_loss.compute()
-        val_epoch_metrics = self.val_metrics.compute()
-        self.logging(val_epoch_metrics, val_epoch_loss, phase='val') # Pass metric collection value to the tensorboard
+        self.val_epoch_loss = self.val_loss.compute()
+        self.val_epoch_metrics = self.val_metrics.compute()
+        # self.log: log metrics we want to monitor for model selection in checkpoints creation
+        self.log("val_loss", self.val_epoch_loss,
+                    on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        self.log('val_miou', self.val_epoch_metrics["Average/IoU"],
+                    on_step=False, on_epoch=True, prog_bar=True, logger=False)
         self.val_loss.reset()
         self.val_metrics.reset()
 
@@ -124,13 +121,9 @@ class SegmentationTask(pl.LightningModule):
         self.test_metrics(preds=preds, target=targets)
         return loss
 
-    def test_step_end(self, outputs):
-        pass
-
     def test_epoch_end(self, outputs):
-        test_epoch_loss = self.test_loss.compute()
-        test_epoch_metrics = self.test_metrics.compute()
-        self.logging(test_epoch_metrics, test_epoch_loss, phase='test')
+        self.test_epoch_loss = self.test_loss.compute()
+        self.test_epoch_metrics = self.test_metrics.compute()
         self.test_loss.reset()
         self.test_metrics.reset()
 
@@ -154,11 +147,11 @@ class SegmentationTask(pl.LightningModule):
             return optimizer
         elif self.scheduler is None:
             scheduler = ReduceLROnPlateau(optimizer,
-                                        'min',
-                                        factor=0.5,
-                                        patience=self.patience,
-                                        cooldown=4,
-                                        min_lr=1e-7)
+                                         'min',
+                                         factor=0.5,
+                                         patience=self.patience,
+                                         cooldown=4,
+                                         min_lr=1e-7)
         else:
             scheduler = self.scheduler
 
@@ -166,65 +159,6 @@ class SegmentationTask(pl.LightningModule):
                   "lr_scheduler": scheduler,
                   "monitor": "val_loss"}
         return config
-
-    def get_logger_index(self, phase):
-        dict_logger_index = {'train': 0, 'val' : 1, 'test': 2}
-        return dict_logger_index[phase]
-
-    def logging(self, metric_collection, loss, phase):
-        logger_idx = self.get_logger_index(phase)
-
-        # For tensorboards loggers
-        if self.logger is not None:
-            self.logger.experiment[logger_idx].add_scalar(f"Loss",
-                                                           loss,
-                                                           global_step=self.current_epoch)
-            for key_metric in metric_collection.keys():
-                if key_metric != "cm_macro" and key_metric != "cm_micro":
-                    self.logger.experiment[logger_idx].add_scalar(key_metric,
-                                                                  metric_collection[key_metric],
-                                                                  global_step=self.current_epoch)
-                elif key_metric == "cm_micro":
-                    fig_cm_micro = plot_confusion_matrix(metric_collection[key_metric],
-                                                         ['Positive', 'Negative'],
-                                                         output_path=None,
-                                                         cmap="YlGn")
-                    self.logger.experiment[logger_idx].add_figure("Confusion Matrix/Micro",
-                                                                  fig_cm_micro,
-                                                                  self.current_epoch)   
-                elif key_metric == "cm_macro":
-                    fig_cm_macro = plot_confusion_matrix(metric_collection[key_metric],
-                                                         self.class_labels,
-                                                         output_path=None,
-                                                         cmap="YlGn")
-                    self.logger.experiment[logger_idx].add_figure("Confusion Matrix/Macro",
-                                                                 fig_cm_macro,
-                                                                 self.current_epoch)
-                    fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric],
-                                                              self.class_labels,
-                                                              output_path=None,
-                                                              per_class_norm=True,
-                                                              cmap="YlGn")
-                    self.logger.experiment[logger_idx].add_figure("Confusion Matrix/Macro Normalized",
-                                                                 fig_cm_macro_norm,
-                                                                 self.current_epoch)
-
-        # Log metrics for checkpoints saving and write logs in a csv file
-        if phase == "train":
-                    self.log("train_loss", loss,
-                             on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        elif phase == "val":
-            # self.log: log metrics we want to monitor for model selection in checkpoints creation
-            self.log("val_loss", loss,
-                     on_step=False, on_epoch=True, prog_bar=True, logger=False)
-            self.log('val_miou', metric_collection["Average/IoU"],
-                     on_step=False, on_epoch=True, prog_bar=True, logger=False)
-            # Write log in a csv file
-            if self.idx_csv_loggers:
-                for logger_idx in self.idx_csv_loggers:
-                    metric_collection['learning rate'] = self.learning_rate  # Add learning rate logging  
-                    self.logger.experiment[logger_idx].log_metrics(metric_collection, self.current_epoch)
-                    self.logger.experiment[logger_idx].save()
 
     def get_loss_function(self, loss_name, class_weight=None):
         if loss_name == "ce":

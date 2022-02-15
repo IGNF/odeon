@@ -1,8 +1,3 @@
-"""
-Entry point of the Detect CLI tool.
-This module aims to perform a detection based on an extent or a collection of extent
-with an Odeon model and a dictionary of raster input
-"""
 import os
 import pandas as pd
 import rasterio
@@ -24,14 +19,8 @@ ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 
 
-class DetectionTool(BaseTool):
-    """Main entry point of detection tool
+class DetectCLI(BaseTool):
 
-    Implements
-    ----------
-    BaseTool : object
-        the abstract class for implmenting a CLI tool
-    """
     def __init__(self,
                  verbosity,
                  img_size_pixel,
@@ -54,63 +43,7 @@ class DetectionTool(BaseTool):
                  dataset=None,
                  zone=None
                  ):
-        """[summary]
 
-        Parameters
-        ----------
-        verbosity : boolean
-            verbosity of logger
-        img_size_pixel : int
-            image size of output in pixel
-        resolution : Union(float, list(float, float))
-            output resolution in x and y
-        model_name : str
-            name of te model as declared in the nn.models.build_model function
-        file_name : str
-            file of trained model with only weights parameters.
-        n_classes : int
-            The number of class learned by the model
-        batch_size : int
-            the size of the batch in the dataloader
-        use_gpu : boolead
-            use a GPU or not
-        interruption_recovery : boolean
-            store and restart from where the detection has been
-            if an interruption has been encountered
-        mutual_exclusion : boolean
-            In multiclass model you can use softmax if True or
-            Sigmoïd if False
-        output_path : str
-            output path of the detection
-        output_type : str
-            the output type, one of int8, float32 or bit
-        sparse_mode : boolean
-            if set to True, will only write the annotated pixels on disk.
-            If can save a lot of space.
-        threshold : float beetwen 0 and 1
-            threshold used in the case of an output in bit (0/1)
-        margin : int, optional
-            a margin to use to make an overlaping detection.
-            It can improve your prediction by ignoring the bordered pixels
-            of the prediction, by default None
-        num_worker : int, optional
-            Number of worker used by the dataloader.
-            Stable with the prediction by dataset but not with
-            a prediction by zone, by default None (0 extra worker)
-        num_thread : int, optional
-            Number of thread used during the prediction.
-            Useful when you infer on CPU, by default None
-        dataset : dict, optional
-            the description of an inference by dataset, by default None
-        zone : dict, optional
-            the description of an inference by zone, by default None
-
-        Raises
-        ------
-
-        OdeonError
-            ERR_DETECTION_ERROR, if something goes wrong during the prediction
-        """
         self.verbosity = verbosity
         self.img_size_pixel = img_size_pixel
         self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
@@ -135,15 +68,13 @@ class DetectionTool(BaseTool):
         self.mutual_exclusion = mutual_exclusion
 
         if zone is not None:
-
             self.mode = "zone"
             self.zone = zone
-
         else:
-
             self.mode = "dataset"
             self.dataset = dataset
         STD_OUT_LOGGER.info(f"""detection type: {self.mode}
+
 device: {"cuda" if self.use_gpu else "cpu"}
 model: {self.model_name}
 model file: {self.file_name}
@@ -160,90 +91,52 @@ compute digital elevation model: {self.zone["dem"]}
 tile factor: {self.zone["tile_factor"]}
             """)
         try:
-
             self.check()
             self.configure()
-
         except OdeonError as error:
-
             raise error
 
         except Exception as error:
-
             raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
                              "something went wrong during detection configuration",
                              stack_trace=error)
 
     def __call__(self):
-        """Call the Detector implemented (by zone, or by dataset)
-        """
-        # LOGGER.debug(self.__dict__)
         self.detector.run()
 
     def check(self):
-        """Check configuration
-        if there is an anomaly in the input parameters.
-
-        Raises
-        ------
-        OdeonError
-            ERR_DETECTION_ERROR, f something wrong has been detected in parameters
-        """
-
         try:
-
             files_exist([self.file_name])
             dirs_exist([self.output_path])
-
         except OdeonError as error:
-
             raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
                              "something went wrong during detection configuration",
                              stack_trace=error)
-
         else:
-
             pass
 
     def configure(self):
-        """Configuraiton of the Detector class used to make the
-        detection
-        """
-
         if self.mode == "dataset":
-
             if self.dataset["path"].endswith(".csv"):
-
                 self.df = pd.read_csv(self.dataset["path"], usecols=[0], header=None, names=["img_file"])
-
             else:
-
                 img_array = [f for f in os.listdir(self.dataset["path"]) if os.path.isfile(os.path.join(
                     self.dataset["path"], f))]
                 self.df = pd.DataFrame(img_array, columns={"img_file": str})
-
             self.df["img_output_file"] = self.df.apply(lambda row: os.path.join(self.output_path,
                                                                                 str(row["img_file"]).split("/")[-1]),
                                                        axis=1)
-
             self.df["job_done"] = False
             self.df["transform"] = object()
-            # self.df = self.df.head(250)
-
             if "image_bands" in self.dataset.keys():
-
                 image_bands = self.dataset["image_bands"]
                 n_channel = len(image_bands)
-
             else:
-
                 with rasterio.open(self.df["img_file"].iloc[0]) as src:
-
                     n_channel = src.count
                     image_bands = range(1, n_channel + 1)
 
             patch_detection_job = PatchJobDetection(self.df, self.output_path, self.interruption_recovery)
-
             self.detector = PatchDetector(patch_detection_job,
                                           self.output_path,
                                           self.model_name,
@@ -263,31 +156,18 @@ tile factor: {self.zone["tile_factor"]}
                                           threshold=self.threshold,
                                           verbosity=self.verbosity,
                                           image_bands=image_bands)
-
             self.detector.configure()
-
         else:
-
-            """"
-            Build Job
-            """
-
             dict_of_raster = self.zone["sources"]
             with rasterio.open(next(iter(dict_of_raster.values()))["path"]) as src:
-
                 crs = src.crs
                 LOGGER.debug(crs)
-
             if os.path.isfile(self.zone["extent"]):
-
                 gdf_zone = gpd.GeoDataFrame.from_file(self.zone["extent"])
-
             else:
-
                 gdf_zone = gpd.GeoDataFrame([{"id": 1, "geometry": wkt.loads(self.zone["extent"])}],
                                             geometry="geometry",
                                             crs=crs)
-
             LOGGER.debug(gdf_zone)
             extent = self.zone["extent"]
             tile_factor = self.zone["tile_factor"]
@@ -304,22 +184,15 @@ tile factor: {self.zone["tile_factor"]}
 
             LOGGER.debug(len(self.df))
 
-            # self.df = self.df.sample(n=100, random_state=1).reset_index()
-            # self.df.to_file("/home/dlsupport/data/33/ground_truth/2018/learning_zones/test_zone_1.shp")
-
             if out_dalle_size is not None:
-
                 zone_detection_job = ZoneDetectionJob(self.df,
                                                       self.output_path,
                                                       self.interruption_recovery)
             else:
-
                 zone_detection_job = ZoneDetectionJobNoDalle(self.df,
                                                              self.output_path,
                                                              self.interruption_recovery)
             zone_detection_job.save_job()
-            # write_job = WriteJob(df_write, self.output_path, self.interruption_recovery, file_name="write_job.shp")
-            # write_job.save_job()
             dem = self.zone["dem"]
             n_channel = get_number_of_band(dict_of_raster, dem)
             LOGGER.debug(f"number of channel input: {n_channel}")

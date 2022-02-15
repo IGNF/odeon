@@ -98,7 +98,7 @@ class SegDataModule(LightningDataModule):
                                              height=self.height)
             if self.subset is True:
                 self.test_dataset = Subset(self.test_dataset, range(0, 10))
-        
+
     def train_dataloader(self):
         return DataLoader(dataset=self.train_dataset,
                           batch_size=self.train_batch_size,
@@ -195,7 +195,6 @@ class SegDataModule(LightningDataModule):
         else:
             check_raster_bands(raster_band=np.arange(1, self.sample_dims['mask'][-1] + 1),
                                proposed_bands=mask_bands)
-        
         return image_bands, mask_bands
 
     def get_batch_size(self, parameter_batch_size):

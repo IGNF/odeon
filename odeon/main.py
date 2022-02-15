@@ -147,14 +147,14 @@ def main():
 
     elif tool == "train":
 
-        from odeon.scripts.cli_train import CLITrain
+        from odeon.scripts.train_cli import TrainCLI
 
         with Timer("Train model"):
             try:
                 datasource_conf = conf.get('data_source')
                 model_conf = conf.get('model_setup')
                 train_conf = conf.get('train_setup')
-                trainer = CLITrain(verbosity,
+                trainer = TrainCLI(verbosity,
                                    **datasource_conf,
                                    **model_conf,
                                    **train_conf)
@@ -166,7 +166,7 @@ def main():
 
     elif tool == "detect":
 
-        from odeon.scripts.detect import DetectionTool
+        from odeon.scripts.detect_cli import DetectCLI
 
         with Timer("Detecting"):
 
@@ -180,13 +180,13 @@ def main():
                 if "zone" in conf.keys():
 
                     zone = conf["zone"]
-                    detector = DetectionTool(verbosity, **image, **model, **output_param, **detect_param, zone=zone)
+                    detector = DetectCLI(verbosity, **image, **model, **output_param, **detect_param, zone=zone)
                     detector()
 
                 else:
 
                     dataset = conf["dataset"]
-                    detector = DetectionTool(verbosity,
+                    detector = DetectCLI(verbosity,
                                              **image,
                                              **model,
                                              **output_param,
@@ -203,13 +203,13 @@ def main():
 
     elif tool == "metrics":
 
-        from odeon.scripts.cli_metrics import CLIMetrics
+        from odeon.scripts.metrics_cli import MetricsCLI
 
         with Timer("Metrics"):
 
             try:
                 metrics_conf = conf['metrics_setup']
-                metrics = CLIMetrics(**metrics_conf)
+                metrics = MetricsCLI(**metrics_conf)
                 metrics()
                 return 0
 

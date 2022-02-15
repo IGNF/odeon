@@ -1,10 +1,12 @@
 import os
 from datetime import date
+from time import gmtime, strftime
 import torch
 from torch.nn import functional as F
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger, WandbLogger
 from pytorch_lightning.strategies import DDPStrategy
+from pytorch_lightning.callbacks import LearningRateMonitor, EarlyStopping
 from pytorch_lightning import (
     Trainer,
     seed_everything
@@ -16,8 +18,14 @@ from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist
-from odeon.callbacks.utils_callbacks import MyModelCheckpoint
-from odeon.callbacks.tensorboard_callbacks import GraphAdder, HistogramAdder, PredictionsAdder
+from odeon.callbacks.utils_callbacks import MyModelCheckpoint, HistorySaver
+from odeon.callbacks.tensorboard_callbacks import (
+    MetricsAdder,
+    GraphAdder,
+    HistogramAdder,
+    PredictionsAdder,
+    HParamsAdder
+)
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
 from odeon.nn.models import build_model, model_list
 
@@ -36,7 +44,7 @@ NUM_WORKERS = 4
 NUM_CKPT_SAVED = 3
 
 
-class CLITrain(BaseTool):
+class TrainCLI(BaseTool):
     """
     Main entry point of training tool
 
@@ -56,7 +64,7 @@ class CLITrain(BaseTool):
                  mask_bands=None,
                  class_labels=None,
                  model_filename=None,
-                 load_pretrained_enc=False,
+                 load_pretrained=False,
                  epochs=NUM_EPOCHS,
                  batch_size=BATCH_SIZE,
                  patience=PATIENCE,
@@ -76,7 +84,11 @@ class CLITrain(BaseTool):
                  name_exp_log=None,
                  log_histogram=False,
                  log_graph=False,
-                 log_predictions=False
+                 log_predictions=False,
+                 log_learning_rate=False,
+                 log_hparams=False,
+                 use_wandb=False,
+                 early_stopping=False,
                  ):
         self.train_file = train_file
         self.val_file = val_file
@@ -88,7 +100,6 @@ class CLITrain(BaseTool):
             self.output_tensorboard_logs = output_folder
         else: 
             self.output_tensorboard_logs = output_tensorboard_logs
-
         self.reproducible = reproducible
         self.model_filename = model_filename if model_filename is not None else f"{model_name}.pth"
         self.epochs = epochs
@@ -102,12 +113,16 @@ class CLITrain(BaseTool):
         self.optimizer_name = optimizer
         self.learning_rate = lr
         self.class_imbalance = class_imbalance
-        self.load_pretrained_enc = load_pretrained_enc
+        self.load_pretrained = load_pretrained
         self.num_workers = num_workers
         self.val_check_interval = val_check_interval
         self.log_histogram = log_histogram
         self.log_graph = log_graph
         self.log_predictions = log_predictions
+        self.log_learning_rate = log_learning_rate
+        self.log_hparams = log_hparams
+        self.use_wandb = use_wandb
+        self.early_stopping = early_stopping
 
         if name_exp_log is None:
             self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
@@ -196,9 +211,11 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                              stack_trace=error)
 
     def configure(self):
-        self.model = build_model(self.model_name,
-                                 self.data_module.num_channels,
-                                 self.data_module.num_classes)
+        self.model = build_model(model_name=self.model_name,
+                                 n_channels=self.data_module.num_channels,
+                                 n_classes=self.data_module.num_classes,
+                                 continue_training=self.continue_training,
+                                 load_pretrained=self.load_pretrained)
 
         self.seg_module = SegmentationTask(model=self.model,
                                            num_classes=self.data_module.num_classes,
@@ -212,35 +229,50 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                            log_graph=self.log_graph,
                                            log_predictions=self.log_predictions)
         # Loggers definition
+        version_name = "version_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime())
         train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                         name="tensorboard_logs",
+                                        version=version_name,
                                         sub_dir='Train',
                                         filename_suffix='_train')
 
         valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                         name="tensorboard_logs",
+                                        version=version_name,
                                         sub_dir='Validation',
                                         filename_suffix='_val')
 
         loggers = [train_logger, valid_logger]
 
+        if self.use_wandb:
+            wandb_logger = WandbLogger(project=self.name_exp_log)
+            loggers.append(wandb_logger)
+
         if self.save_history:
             csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                   version=version_name,
                                    name="logs")
             loggers.append(csv_logger)
 
         # Callbacks definition
         checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
                                                      dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
+                                                     version=version_name,
                                                      save_top_k=NUM_CKPT_SAVED,
                                                      mode="max")
 
         checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
                                                      dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
+                                                     version=version_name,
                                                      save_top_k=NUM_CKPT_SAVED,
                                                      mode="min")
 
-        self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback]
+        tensorboard_metrics = MetricsAdder()
+
+        self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback, tensorboard_metrics]
+
+        if self.save_history:
+            self.callbacks.append(HistorySaver())
 
         if self.log_graph:
             self.callbacks.append(GraphAdder())
@@ -250,6 +282,21 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         if self.log_predictions:
             self.callbacks.append(PredictionsAdder())
+
+        if self.log_learning_rate:
+            lr_monitor_callback = LearningRateMonitor(logging_interval="step", log_momentum=True)
+            self.callbacks.append(lr_monitor_callback)
+
+        if self.log_hparams:
+            self.callbacks.append(HParamsAdder())            
+
+        if self.early_stopping:
+            if isinstance(self.early_stopping, str):
+                mode = 'min' if self.early_stopping.lower().endswith('loss') else 'max'
+                early_stop_callback = EarlyStopping(monitor=self.early_stopping, min_delta=0.00, patience=self.patience, verbose=False, mode=mode)
+            else:
+                early_stop_callback = EarlyStopping(monitor="val_miou", min_delta=0.00, patience=self.patience, verbose=False, mode="max")
+            self.callbacks.append(early_stop_callback)
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
                                gpus=self.device,
