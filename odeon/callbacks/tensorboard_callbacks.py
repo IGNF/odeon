@@ -8,6 +8,7 @@ from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.nn.datasets import PatchDataset
 from odeon.commons.metric.plots import plot_confusion_matrix
 
+ALPHA = 0.4
 NUM_PREDICTIONS = 5
 OCSGE_LUT = [
  (219,  14, 154),
@@ -64,7 +65,7 @@ class MetricsAdder(pl.Callback):
                                                      ['Positive', 'Negative'],
                                                      output_path=None,
                                                      cmap="YlGn")
-                trainer.logger[logger_idx].experiment.add_figure("Confusion Matrix/Micro",
+                trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/Micro",
                                                                  fig_cm_micro,
                                                                  pl_module.current_epoch)   
             elif key_metric == "cm_macro":
@@ -72,7 +73,7 @@ class MetricsAdder(pl.Callback):
                                                      pl_module.class_labels,
                                                      output_path=None,
                                                      cmap="YlGn")
-                trainer.logger[logger_idx].experiment.add_figure("Confusion Matrix/Macro",
+                trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/Macro",
                                                                  fig_cm_macro,
                                                                  pl_module.current_epoch)
                 fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric],
@@ -80,7 +81,7 @@ class MetricsAdder(pl.Callback):
                                                           output_path=None,
                                                           per_class_norm=True,
                                                           cmap="YlGn")
-                trainer.logger[logger_idx].experiment.add_figure("Confusion Matrix/Macro Normalized",
+                trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/MacroNormalized",
                                                                  fig_cm_macro_norm,
                                                                  pl_module.current_epoch)
 
@@ -110,12 +111,7 @@ class HParamsAdder(pl.Callback):
 
     def __init__(self):
         super().__init__()
-
-    def setup(self, trainer, pl_module, stage=None):
-        if stage == "fit":
-            self.train_best_metrics, self.val_best_metrics = None, None
-        if stage == "test":
-            self.test_best_metrics = None
+        self.train_best_metrics, self.val_best_metrics, self.test_best_metrics = None, None, None
 
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
@@ -168,6 +164,15 @@ class HParamsAdder(pl.Callback):
         self.add_hparams(trainer, pl_module, self.train_best_metrics, 'train')
         self.add_hparams(trainer, pl_module, self.val_best_metrics, 'val')
 
+    def on_exception(self, trainer, pl_module, exception):
+        if self.train_best_metrics is not None:
+            self.add_hparams(trainer, pl_module, self.train_best_metrics, 'train')
+        if self.val_best_metrics is not None:
+            self.add_hparams(trainer, pl_module, self.val_best_metrics, 'val')
+        if self.test_best_metrics is not None:
+            self.add_hparams(trainer, pl_module, self.test_best_metrics, 'test')
+        return super().on_exception(trainer, pl_module, exception)
+
     def on_test_end(self, trainer, pl_module):
         self.add_hparams(trainer, pl_module, self.test_best_metrics, 'test')
 
@@ -201,7 +206,7 @@ class GraphAdder(pl.Callback):
 
 
 class HistogramAdder(pl.Callback):
-    
+
     def __init__(self):
         super().__init__()
         self.tensorboard_logger_idx = None
@@ -234,7 +239,7 @@ class HistogramAdder(pl.Callback):
 
 class PredictionsAdder(pl.Callback):
 
-    def __init__(self, train_samples=None, val_samples=None, test_samples=None, num_predictions=NUM_PREDICTIONS):
+    def __init__(self, train_samples=None, val_samples=None, test_samples=None, num_predictions=NUM_PREDICTIONS, display_bands=[1, 2, 3]):
         super().__init__()
         self.tensorboard_logger_idx = None
         self.train_samples = train_samples
@@ -242,6 +247,7 @@ class PredictionsAdder(pl.Callback):
         self.test_samples = test_samples
         self.num_predictions = num_predictions
         self.sample_dataset = None
+        self.display_bands = [idx_band - 1 for idx_band in display_bands]
 
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
@@ -310,22 +316,23 @@ class PredictionsAdder(pl.Callback):
         targets = targets.cpu()
         preds = preds.cpu()
         grids = []
+        images = torch.stack([images[:, band_i, :, :] for band_i in self.display_bands], 1)
         for image, target, pred in zip(images, targets, preds):
             pred_bands = torch.zeros_like(target)
             for class_i in np.arange(trainer.datamodule.num_classes):
                 pred_bands[class_i, :, :] = pred == class_i
             pred_bands = pred_bands == 1  # draw_segmentation_masks function needs masks as bool tensors
             target = target == 1
-            pred_overlay = draw_segmentation_masks(image, masks=pred_bands, colors=OCSGE_LUT, alpha=0.4)
-            target_overlay = draw_segmentation_masks(image, masks=target, colors=OCSGE_LUT, alpha=0.4)
+            pred_overlay = draw_segmentation_masks(image, masks=pred_bands, colors=OCSGE_LUT, alpha=ALPHA)
+            target_overlay = draw_segmentation_masks(image, masks=target, colors=OCSGE_LUT, alpha=ALPHA)
             grids.append(make_grid([image, target_overlay, pred_overlay]))
         image_grid = torch.cat(grids, 1)
 
         if len(self.tensorboard_logger_idx) == 1:
-            trainer.logger.experiment.add_image("Predictions", image_grid, pl_module.current_epoch)
+            trainer.logger.experiment.add_image("Images - Masks - Predictions", image_grid, pl_module.current_epoch)
         elif len(self.tensorboard_logger_idx) > 1:
             phase_index = self.tensorboard_logger_idx[map_phase_logger_idx(phase)]
-            trainer.logger[phase_index].experiment.add_image("Predictions", image_grid, pl_module.current_epoch)
+            trainer.logger[phase_index].experiment.add_image("Images/Masks - Predictions", image_grid, pl_module.current_epoch)
         else:
             LOGGER.error("ERROR: the callback PredictionsAdder won't work if there is any Tensorboard logger.")
             raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,

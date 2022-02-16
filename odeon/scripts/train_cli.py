@@ -89,6 +89,7 @@ class TrainCLI(BaseTool):
                  log_hparams=False,
                  use_wandb=False,
                  early_stopping=False,
+                 testing=False
                  ):
         self.train_file = train_file
         self.val_file = val_file
@@ -123,6 +124,7 @@ class TrainCLI(BaseTool):
         self.log_hparams = log_hparams
         self.use_wandb = use_wandb
         self.early_stopping = early_stopping
+        self.testing = testing
 
         if name_exp_log is None:
             self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
@@ -137,6 +139,9 @@ class TrainCLI(BaseTool):
         else:
             self.random_seed = None
             self.deterministic = False
+
+        if self.use_wandb:
+            os.system("wandb login")
 
         if strategy == "ddp":
             strategy = DDPStrategy(find_unused_parameters=False)
@@ -174,7 +179,7 @@ class TrainCLI(BaseTool):
                                          percentage_val=self.percentage_val,
                                          pin_memory=True,
                                          deterministic=self.deterministic,
-                                         subset=True)
+                                         subset=self.testing)
 
         self.callbacks = None
 

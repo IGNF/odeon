@@ -62,7 +62,8 @@
                 "val_check_interval": {"type": "number"},
                 "strategy": {"type": "string"},
                 "early_stopping": {"type": ["string", "boolean"]},
-                "use_wandb": {"type": "boolean", "default": false}
+                "use_wandb": {"type": "boolean", "default": false},
+                "testing": {"type": "boolean", "default": false}
             }
         }
     }
