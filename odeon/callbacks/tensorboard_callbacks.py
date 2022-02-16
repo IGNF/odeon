@@ -166,8 +166,6 @@ class HParamsAdder(pl.Callback):
 
     def on_fit_end(self, trainer, pl_module):
         self.add_hparams(trainer, pl_module, self.train_best_metrics, 'train')
-
-    def on_validation_end(self, trainer, pl_module):
         self.add_hparams(trainer, pl_module, self.val_best_metrics, 'val')
 
     def on_test_end(self, trainer, pl_module):

@@ -233,12 +233,14 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
         train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                         name="tensorboard_logs",
                                         version=version_name,
+                                        default_hp_metric=False,
                                         sub_dir='Train',
                                         filename_suffix='_train')
 
         valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                         name="tensorboard_logs",
                                         version=version_name,
+                                        default_hp_metric=False,
                                         sub_dir='Validation',
                                         filename_suffix='_val')
 
