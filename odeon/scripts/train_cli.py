@@ -27,7 +27,7 @@ from odeon.callbacks.tensorboard_callbacks import (
     HParamsAdder
 )
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
-from odeon.nn.models import build_model, model_list
+from odeon.nn.models import model_list
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_training")
@@ -64,15 +64,18 @@ class TrainCLI(BaseTool):
                  mask_bands=None,
                  class_labels=None,
                  model_filename=None,
-                 load_pretrained=False,
+                 init_weights=None,
                  epochs=NUM_EPOCHS,
                  batch_size=BATCH_SIZE,
                  patience=PATIENCE,
+                 load_pretrained=None,
+                 init_model_weights=None,
                  save_history=True,
                  continue_training=False,
                  loss="ce",
                  class_imbalance=None,
-                 optimizer="adam",
+                 optimizer_config=None,
+                 scheduler_config=None,
                  data_augmentation=None,
                  device=None,
                  reproducible=True,
@@ -82,6 +85,7 @@ class TrainCLI(BaseTool):
                  strategy=None,
                  val_check_interval=VAL_CHECK_INTERVAL,
                  name_exp_log=None,
+                 version_name=None,
                  log_histogram=False,
                  log_graph=False,
                  log_predictions=False,
@@ -108,13 +112,16 @@ class TrainCLI(BaseTool):
         self.image_bands = image_bands
         self.mask_bands = mask_bands
         self.patience = patience
+        self.load_pretrained = load_pretrained
+        self.init_model_weights = init_model_weights
         self.save_history = save_history
         self.continue_training = continue_training
         self.loss_name = loss
-        self.optimizer_name = optimizer
+        self.optimizer_config = optimizer_config
+        self.scheduler_config = scheduler_config
         self.learning_rate = lr
         self.class_imbalance = class_imbalance
-        self.load_pretrained = load_pretrained
+        self.init_weights = init_weights
         self.num_workers = num_workers
         self.val_check_interval = val_check_interval
         self.log_histogram = log_histogram
@@ -130,6 +137,14 @@ class TrainCLI(BaseTool):
             self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
         else:
             self.name_exp_log = name_exp_log
+
+        if version_name is None:
+            self.version_name = "_".join(["version",
+                                          self.model_name,
+                                          f"LR{str(self.learning_rate)}",
+                                          strftime("%Y-%m-%d_%H-%M-%S", gmtime())])
+        else:
+            self.version_name = version_name
 
         if reproducible is True:
             self.random_seed = RANDOM_SEED
@@ -216,35 +231,29 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                              stack_trace=error)
 
     def configure(self):
-        self.model = build_model(model_name=self.model_name,
-                                 n_channels=self.data_module.num_channels,
-                                 n_classes=self.data_module.num_classes,
-                                 continue_training=self.continue_training,
-                                 load_pretrained=self.load_pretrained)
-
-        self.seg_module = SegmentationTask(model=self.model,
+        self.seg_module = SegmentationTask(model_name=self.model_name,
                                            num_classes=self.data_module.num_classes,
+                                           num_channels=self.data_module.num_channels,
                                            class_labels=self.class_labels,
-                                           criterion=self.loss_name,
-                                           optimizer=self.optimizer_name,
+                                           criterion_name=self.loss_name,
                                            learning_rate= self.learning_rate,
+                                           optimizer_config=self.optimizer_config,
+                                           scheduler_config=self.scheduler_config,
                                            patience=self.patience,
-                                           weights=self.class_imbalance,
-                                           log_histogram=self.log_histogram,
-                                           log_graph=self.log_graph,
-                                           log_predictions=self.log_predictions)
+                                           load_pretrained=self.load_pretrained,
+                                           init_model_weights=self.init_model_weights,
+                                           loss_classes_weights=self.class_imbalance)
         # Loggers definition
-        version_name = "version_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime())
         train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                         name="tensorboard_logs",
-                                        version=version_name,
+                                        version=self.version_name,
                                         default_hp_metric=False,
                                         sub_dir='Train',
                                         filename_suffix='_train')
 
         valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                         name="tensorboard_logs",
-                                        version=version_name,
+                                        version=self.version_name,
                                         default_hp_metric=False,
                                         sub_dir='Validation',
                                         filename_suffix='_val')
@@ -257,20 +266,20 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         if self.save_history:
             csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
-                                   version=version_name,
-                                   name="logs")
+                                   version=self.version_name,
+                                   name="history_csv")
             loggers.append(csv_logger)
 
         # Callbacks definition
         checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
                                                      dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
-                                                     version=version_name,
+                                                     version=self.version_name,
                                                      save_top_k=NUM_CKPT_SAVED,
                                                      mode="max")
 
         checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
                                                      dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
-                                                     version=version_name,
+                                                     version=self.version_name,
                                                      save_top_k=NUM_CKPT_SAVED,
                                                      mode="min")
 
@@ -321,9 +330,3 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
             self.trainer.fit(self.seg_module, datamodule=self.data_module)
         except OdeonError as error:
             raise error
-        except KeyboardInterrupt:
-            tmp_file = os.path.join('/tmp', 'INTERRUPTED.pth')
-            tmp_optimizer_file = os.path.join('/tmp', 'optimizer_INTERRUPTED.pth')
-            torch.save(self.model.state_dict(), tmp_file)
-            torch.save(self.optimizer_function.state_dict(), tmp_optimizer_file)
-            STD_OUT_LOGGER.info(f"Saved interrupt as {tmp_file}")

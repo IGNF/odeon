@@ -8,7 +8,11 @@ model_list = [
 ]
 
 
-def build_model(model_name, n_channels, n_classes, continue_training, load_pretrained):
+def build_model(model_name,
+                n_channels, 
+                n_classes,                                  
+                init_model_weights=None,
+                load_pretrained=None):
 
     if model_name == 'lightunet':
         net = LightUNet(n_channels=n_channels, n_classes=n_classes)

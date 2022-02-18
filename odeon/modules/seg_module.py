@@ -1,70 +1,79 @@
 import torch
-from torch import optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from odeon.nn.losses import (
-    BCEWithLogitsLoss,
-    CrossEntropyWithLogitsLoss,
-    FocalLoss2d,
-    ComboLoss
-)
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
 from odeon import LOGGER
 from odeon.modules.metrics_module import OdeonMetrics
+from odeon.nn.models import build_model
+from odeon.nn.losses import build_loss_function
+from odeon.nn.optim import build_optimizer, build_scheduler
 
 PATIENCE = 30
 
 
 class SegmentationTask(pl.LightningModule):
     def __init__(self,
-                 model,
+                 model_name,
                  num_classes,
+                 num_channels,
                  class_labels,
-                 criterion,
-                 optimizer,
+                 criterion_name,
                  learning_rate,
-                 scheduler=None,
+                 optimizer_config=None,
+                 scheduler_config=None,
                  patience=PATIENCE,
-                 log_histogram=False,
-                 log_graph=False,
-                 log_predictions=False,
-                 weights=None):
+                 load_pretrained=None,
+                 init_model_weights=None,
+                 loss_classes_weights=None):
 
         super().__init__()
-        self.model = model
+        self.model_name = model_name
         self.num_classes = num_classes
+        self.num_channels = num_channels
         self.class_labels = class_labels
-        self.criterion = criterion
-        self.optimizer = optimizer
+        self.criterion_name = criterion_name
         self.learning_rate = learning_rate
-        self.scheduler = scheduler
+        self.optimizer_config = optimizer_config
+        self.scheduler_config = scheduler_config
         self.patience = patience
-        self.log_histogram = log_histogram
-        self.log_graph = log_graph
-        self.log_predictions = log_predictions
+        self.load_pretrained = load_pretrained
+        self.init_model_weights = init_model_weights
+        self.loss_classes_weights = loss_classes_weights
+
+        # Variables not stocked in hparams dict
+        self.model = None
+        self.criterion = None
+        self.optimizer = None
+        self.scheduler = None
         self.samples = None
-        self.weights = weights
         self.idx_csv_loggers = None
-        if isinstance(criterion, str):
-            self.criterion= self.get_loss_function(criterion, self.weights)
-        else:
-            self.criterion = criterion
-        self.save_hyperparameters("num_classes", "criterion", "optimizer", "learning_rate", "scheduler", "patience", "weights")
+
+        self.save_hyperparameters("model_name", "num_classes", "num_channels", "class_labels", "criterion_name", 
+                                  "optimizer_config", "learning_rate", "scheduler_config", "patience", "load_pretrained", 
+                                  "init_model_weights", "loss_classes_weights")
 
     def setup(self, stage):
+        self.model = build_model(model_name=self.hparams.model_name,
+                                 n_channels=self.hparams.num_channels,
+                                 n_classes=self.hparams.num_classes,
+                                 init_model_weights=self.hparams.init_model_weights,
+                                 load_pretrained=self.hparams.load_pretrained
+                                 )
+
+        self.criterion= build_loss_function(self.hparams.criterion_name, self.hparams.loss_classes_weights)
+
         if stage == "fit":
             self.train_epoch_loss, self.val_epoch_loss = None, None
             self.train_epoch_metrics, self.val_epoch_metrics = None, None
-            self.train_metrics = OdeonMetrics(num_classes=self.num_classes,
-                                              class_labels=self.class_labels)
-            self.val_metrics = OdeonMetrics(num_classes=self.num_classes,
-                                            class_labels=self.class_labels)
+            self.train_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
+                                              class_labels=self.hparams.class_labels)
+            self.val_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
+                                            class_labels=self.hparams.class_labels)
             self.train_loss = MeanMetric()
             self.val_loss = MeanMetric()
         if stage == "test":
             self.test_epoch_loss, self.test_epoch_metrics = None, None
-            self.test_metrics = OdeonMetrics(num_classes=self.num_classes,
-                                             class_labels=self.class_labels)
+            self.test_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
+                                             class_labels=self.hparams.class_labels)
             self.test_loss = MeanMetric()
 
     def forward(self, images):
@@ -135,40 +144,15 @@ class SegmentationTask(pl.LightningModule):
         return {"proba": proba, "preds": preds, "targets": targets}
 
     def configure_optimizers(self):
-        if isinstance(self.optimizer, str):
-            if self.optimizer == 'adam':
-                optimizer= optim.Adam(self.model.parameters(), lr=self.learning_rate)
-            elif self.optimizer == 'SGD':
-                optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
-        else:
-            optimizer = self.optimizer(self.model.parameters(), lr=self.learning_rate)    
+        self.optimizer = build_optimizer(params=self.model.parameters(),
+                                         learning_rate=self.hparams.learning_rate,
+                                         optimizer_config=self.hparams.optimizer_config)
+        self.scheduler = build_scheduler(optimizer=self.optimizer,
+                                         scheduler_config=self.hparams.scheduler_config,
+                                         patience=self.hparams.patience)
 
-        if self.scheduler is False:
-            return optimizer
-        elif self.scheduler is None:
-            scheduler = ReduceLROnPlateau(optimizer,
-                                         'min',
-                                         factor=0.5,
-                                         patience=self.patience,
-                                         cooldown=4,
-                                         min_lr=1e-7)
-        else:
-            scheduler = self.scheduler
-
-        config = {"optimizer": optimizer,
-                  "lr_scheduler": scheduler,
+        config = {"optimizer": self.optimizer,
+                  "lr_scheduler": self.scheduler,
                   "monitor": "val_loss"}
-        return config
 
-    def get_loss_function(self, loss_name, class_weight=None):
-        if loss_name == "ce":
-            if class_weight is not None:
-                LOGGER.info(f"Weights used: {class_weight}")
-                class_weight = torch.FloatTensor(class_weight)
-            return CrossEntropyWithLogitsLoss(weight=class_weight)
-        elif loss_name == "bce":
-            return BCEWithLogitsLoss()
-        elif loss_name == "focal":
-            return FocalLoss2d()
-        elif loss_name == "combo":
-            return ComboLoss({'bce': 0.75, 'jaccard': 0.25})
+        return config

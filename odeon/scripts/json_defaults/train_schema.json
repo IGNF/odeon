@@ -32,11 +32,13 @@
             ],
             "properties": {
                 "model_name": {"type": "string"},
-                "load_pretrained": {"type": "boolean", "default": false},
+                "init_model_weights": {"type": "string"},
+                "load_pretrained": {"type": "string"},
                 "output_folder": {"type": "string"},
                 "output_tensorboard_logs": {"type": "string"},
                 "model_filename": {"type": "string"},
-                "name_exp_log": {"type": "string"}
+                "name_exp_log": {"type": "string"},
+                "version_name": {"type": "string"}
             }
         },
         "train_setup": {
@@ -47,9 +49,43 @@
                 "patience": {"type": "integer", "default": 30},
                 "save_history": {"type": "boolean", "default": true},
                 "continue_training": {"type": "boolean", "default": false},
-                "loss":  {"type": "string", "default": "ce"},
+                "loss": {"type": "string", "default": "ce"},
                 "class imbalance": {"type": "array", "items": {"type": "number"}},
-                "optimizer": {"type": "string", "default": "adam"},
+                "optimizer_config": {
+                    "type": "object",
+                    "properties": {
+                        "optimizer": {"type": "string", "default": "SGD"},
+                        "momentum": {"type": "number", "default": 0},
+                        "dampening": {"type": "number", "default": 0},
+                        "nesterov": {"type": "boolean", "default": false},
+                        "betas": {"type": "array", "default": [0.9, 0.999]},
+                        "eps": {"type": "number", "default": 1e-8},
+                        "weight_decay": {"type": "number", "default": 0},
+                        "amsgrad": {"type": "boolean", "default": false},
+                        "centered": {"type": "boolean", "default": false},
+                        "alpha": {"type": "number", "default": 0.99}
+                    }
+                },
+                "scheduler_config" : {
+                    "type": "object",
+                    "properties": {
+                        "scheduler": {"type": "string", "default": "reducelronplateau"},
+                        "mode": {"type": "string", "default": "min"},
+                        "factor": {"type": "number", "default": 0.5},
+                        "patience": {"type": "integer", "default": 30},
+                        "cooldown": {"type": "integer", "default": 4},
+                        "min_lr": {"type": "number", "default": 1e-7},
+                        "base_lr": {"type": "number", "default": 1e-3},
+                        "max_lr": {"type": "number", "default": 1e-1},
+                        "step_size_up": {"type": "number", "default": 2000},
+                        "step_size_down": {"type": "number", "default": 2000},
+                        "T_max": {"type": "number", "default": 2000},
+                        "T_0": {"type": "number", "default": 5},
+                        "T_mult": {"type": "number", "default": 1},
+                        "eta_min": {"type": "number", "default": 0},
+                        "last_epoch": {"type": "number", "default": -1}
+                    }
+                },
                 "lr": {"type": "number", "default": 0.01},
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
                 "device": {"type": ["string", "array", "integer"]},

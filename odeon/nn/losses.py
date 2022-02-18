@@ -1,15 +1,31 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from itertools import filterfalse
-import numpy as np
-
-
 """
 Parts of this file inspired by
 (solaris)[https://solaris.readthedocs.io/en/latest/_modules/solaris/nets/_torch_losses.html#lovasz_hinge_flat]
 and work from SpaceNet challenges participants
 """
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from itertools import filterfalse
+import numpy as np
+from odeon import LOGGER
+
+COMBOLOSS_BCE = 0.75
+COMBOLOSS_JACCARD = 0.25
+
+
+def build_loss_function(loss_name, class_weight=None):
+    if loss_name == "ce":
+        if class_weight is not None:
+            LOGGER.info(f"Weights used: {class_weight}")
+            class_weight = torch.FloatTensor(class_weight)
+        return CrossEntropyWithLogitsLoss(weight=class_weight)
+    elif loss_name == "bce":
+        return BCEWithLogitsLoss()
+    elif loss_name == "focal":
+        return FocalLoss2d()
+    elif loss_name == "combo":
+        return ComboLoss({'bce': COMBOLOSS_BCE, 'jaccard': COMBOLOSS_JACCARD})
 
 
 class BCEWithLogitsLoss(nn.Module):
