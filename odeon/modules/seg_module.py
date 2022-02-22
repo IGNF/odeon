@@ -1,3 +1,5 @@
+from json import load
+from sklearn.datasets import load_files
 import torch
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
@@ -21,7 +23,7 @@ class SegmentationTask(pl.LightningModule):
                  optimizer_config=None,
                  scheduler_config=None,
                  patience=PATIENCE,
-                 load_pretrained=None,
+                 load_pretrained_weights=None,
                  init_model_weights=None,
                  loss_classes_weights=None):
 
@@ -35,7 +37,7 @@ class SegmentationTask(pl.LightningModule):
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
         self.patience = patience
-        self.load_pretrained = load_pretrained
+        self.load_pretrained_weights = load_pretrained_weights
         self.init_model_weights = init_model_weights
         self.loss_classes_weights = loss_classes_weights
 
@@ -48,7 +50,7 @@ class SegmentationTask(pl.LightningModule):
         self.idx_csv_loggers = None
 
         self.save_hyperparameters("model_name", "num_classes", "num_channels", "class_labels", "criterion_name", 
-                                  "optimizer_config", "learning_rate", "scheduler_config", "patience", "load_pretrained", 
+                                  "optimizer_config", "learning_rate", "scheduler_config", "patience", "load_pretrained_weights", 
                                   "init_model_weights", "loss_classes_weights")
 
     def setup(self, stage):
@@ -56,7 +58,7 @@ class SegmentationTask(pl.LightningModule):
                                  n_channels=self.hparams.num_channels,
                                  n_classes=self.hparams.num_classes,
                                  init_model_weights=self.hparams.init_model_weights,
-                                 load_pretrained=self.hparams.load_pretrained
+                                 load_pretrained_weights=self.hparams.load_pretrained_weights
                                  )
 
         self.criterion= build_loss_function(self.hparams.criterion_name, self.hparams.loss_classes_weights)
@@ -70,6 +72,7 @@ class SegmentationTask(pl.LightningModule):
                                             class_labels=self.hparams.class_labels)
             self.train_loss = MeanMetric()
             self.val_loss = MeanMetric()
+
         if stage == "test":
             self.test_epoch_loss, self.test_epoch_metrics = None, None
             self.test_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
@@ -144,9 +147,11 @@ class SegmentationTask(pl.LightningModule):
         return {"proba": proba, "preds": preds, "targets": targets}
 
     def configure_optimizers(self):
+
         self.optimizer = build_optimizer(params=self.model.parameters(),
                                          learning_rate=self.hparams.learning_rate,
                                          optimizer_config=self.hparams.optimizer_config)
+
         self.scheduler = build_scheduler(optimizer=self.optimizer,
                                          scheduler_config=self.hparams.scheduler_config,
                                          patience=self.hparams.patience)
@@ -156,3 +161,9 @@ class SegmentationTask(pl.LightningModule):
                   "monitor": "val_loss"}
 
         return config
+
+    def on_save_checkpoint(self, checkpoint):
+        return super().on_save_checkpoint(checkpoint)
+
+    def on_load_checkpoint(self, checkpoint):
+        return super().on_load_checkpoint(checkpoint)

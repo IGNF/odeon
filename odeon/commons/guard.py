@@ -161,6 +161,12 @@ def raster_driver_guard(raster):
                          f"Odeon encountered an error during raster opening {raster}", stack_trace=rioe)
 
 
+def file_exist(file):
+    if os.path.isfile(file) is not True:
+        raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                            f"the file {file} doesn't exists")
+
+
 def files_exist(list_of_file):
     """
     Parameters

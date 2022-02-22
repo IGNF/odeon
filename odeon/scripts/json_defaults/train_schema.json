@@ -9,6 +9,7 @@
             "properties": {
                 "train_file": {"type": "string"},
                 "val_file": {"type": "string"},
+                "test_file": {"type": "string"},
                 "percentage_val": {"type": "number"},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
@@ -33,7 +34,7 @@
             "properties": {
                 "model_name": {"type": "string"},
                 "init_model_weights": {"type": "string"},
-                "load_pretrained": {"type": "string"},
+                "load_pretrained_weights": {"type": "string"},
                 "output_folder": {"type": "string"},
                 "output_tensorboard_logs": {"type": "string"},
                 "model_filename": {"type": "string"},
@@ -45,7 +46,7 @@
             "type": "object",
             "properties": {
                 "epochs": {"type": "integer", "default": 300},
-                "batch_size": {"type": "integer", "default": 5},
+                "batch_size": {"type": "integer", "default": 2},
                 "patience": {"type": "integer", "default": 30},
                 "save_history": {"type": "boolean", "default": true},
                 "continue_training": {"type": "boolean", "default": false},
@@ -87,8 +88,12 @@
                     }
                 },
                 "lr": {"type": "number", "default": 0.01},
+                "num_workers": {"type": "integer", "default": 4},
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
                 "device": {"type": ["string", "array", "integer"]},
+                "accelerator": {"type": "string", "default": "gpu"},
+                "num_nodes": {"type": "integer", "default": 1},
+                "num_processes": {"type": "integer"},
                 "reproducible": {"type": "boolean", "default": false},
                 "log_histogram": {"type": "boolean", "default": false},
                 "log_graph": {"type": "boolean", "default": false},
@@ -98,6 +103,7 @@
                 "val_check_interval": {"type": "number"},
                 "strategy": {"type": "string"},
                 "early_stopping": {"type": ["string", "boolean"]},
+                "save_top_k":  {"type": "integer", "default": 3},
                 "use_wandb": {"type": "boolean", "default": false},
                 "testing": {"type": "boolean", "default": false}
             }
