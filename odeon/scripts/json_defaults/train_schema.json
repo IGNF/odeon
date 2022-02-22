@@ -38,6 +38,7 @@
                 "output_folder": {"type": "string"},
                 "output_tensorboard_logs": {"type": "string"},
                 "model_filename": {"type": "string"},
+                "model_out_ext": {"type": "string", "default": ".ckpt"},
                 "name_exp_log": {"type": "string"},
                 "version_name": {"type": "string"}
             }

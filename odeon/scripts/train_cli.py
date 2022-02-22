@@ -19,7 +19,7 @@ from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist, files_exist, file_exist
 from odeon.nn.models import get_train_filenames
-from odeon.callbacks.utils_callbacks import ContinueTraining, HistorySaver, MyModelCheckpoint
+from odeon.callbacks.utils_callbacks import ContinueTraining, HistorySaver, MyModelCheckpoint, ExoticCheckPoint
 from odeon.callbacks.tensorboard_callbacks import (
     MetricsAdder,
     GraphAdder,
@@ -44,6 +44,7 @@ LEARNING_RATE = 0.001
 NUM_WORKERS = 4
 NUM_CKPT_SAVED = 3
 UNIQUE_CKPT = 1
+MODEL_OUT_EXT = ".ckpt"
 ACCELERATOR = "gpu"
 
 
@@ -68,6 +69,7 @@ class TrainCLI(BaseTool):
                  mask_bands=None,
                  class_labels=None,
                  model_filename=None,
+                 model_out_ext=None,
                  init_weights=None,
                  epochs=NUM_EPOCHS,
                  batch_size=BATCH_SIZE,
@@ -103,12 +105,23 @@ class TrainCLI(BaseTool):
                  save_top_k=NUM_CKPT_SAVED,
                  testing=False
                  ):
+
         self.train_file = train_file
         self.val_file = val_file
         self.test_file = test_file
         self.percentage_val = percentage_val
         self.verbosity = verbosity
         self.model_filename = model_filename
+
+        if model_out_ext is None:
+            if self.model_filename is None:
+                self.model_out_ext = MODEL_OUT_EXT
+            else:
+                self.model_out_ext = os.path.splitext(self.model_filename)[-1]
+        else:
+            self.model_out_ext = model_out_ext
+
+        self.model_out_ext = model_out_ext
         self.model_name = model_name
         self.reproducible = reproducible
         self.epochs = epochs
@@ -307,25 +320,37 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                 loggers.append(test_csv_logger)
 
         # Callbacks definition
-        checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
-                                                     dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
-                                                     version=self.version_name,
-                                                     filename=self.model_filename,
-                                                     save_top_k=self.save_top_k,
-                                                     mode="max",
-                                                     save_last=True)
-
-        checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
-                                                     dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
-                                                     version=self.version_name,
-                                                     filename=self.model_filename,
-                                                     save_top_k=self.save_top_k,
-                                                     mode="min",
-                                                     save_last=True)
-
         tensorboard_metrics = MetricsAdder()
+        self.callbacks = [tensorboard_metrics]
 
-        self.callbacks = [checkpoint_miou_callback, checkpoint_loss_callback, tensorboard_metrics]
+        if self.model_out_ext == ".ckpt":
+            checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
+                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
+                                                         version=self.version_name,
+                                                         filename=self.model_filename,
+                                                         save_top_k=self.save_top_k,
+                                                         mode="max",
+                                                         save_last=True)
+
+            checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
+                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
+                                                         version=self.version_name,
+                                                         filename=self.model_filename,
+                                                         save_top_k=self.save_top_k,
+                                                         mode="min",
+                                                         save_last=True)
+            self.callbacks.extend([checkpoint_miou_callback, checkpoint_loss_callback])
+  
+        elif self.model_out_ext == ".pth":
+            checkpoint_pth = ExoticCheckPoint(out_folder=self.output_folder,
+                                              out_filename=self.model_filename,
+                                              model_out_ext=self.model_out_ext)
+            self.callbacks.append(checkpoint_pth)
+
+        else:
+            LOGGER.error('ERROR: parameter model_out_ext could only be .ckpt or  .pth ...')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                "The input parameter model_out_ext is incorrect.")
 
         if self.save_history:
             self.callbacks.append(HistorySaver())
@@ -365,8 +390,9 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
             elif ext == ".ckpt":
                 self.resume_checkpoint = os.path.join(self.output_folder, self.model_filename)
             else:
-                LOGGER.error("ERROR: Odeon only handles files of type .pth, .ckpt")
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, "The parameter model_filename is incorrect.")
+                LOGGER.error("ERROR: Odeon only handles files of type .pth, .ckpt for the continue training feature.")
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
+                                 "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
                                devices=self.device,

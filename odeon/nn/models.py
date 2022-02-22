@@ -3,7 +3,6 @@ import torch
 from pathlib import Path
 from odeon.nn.unet import UNet, UNetResNet, LightUNet
 from odeon.nn.deeplabv3p import DeeplabV3p
-from odeon.commons.exception import OdeonError, ErrorCodes
 
 model_list = [
     "unet", "lightunet",
@@ -46,15 +45,15 @@ def get_train_filenames(out_dir, out_filename):
         "history": history_file}
 
 
-# def save_model(out_dir, out_filename, model, optimizer=None, scheduler=None, train_dict=None):
-#     train_filenames = get_train_filenames(out_dir, out_filename)
+def save_model(out_dir, out_filename, model, optimizer=None, scheduler=None, train_dict=None):
+    train_filenames = get_train_filenames(out_dir, out_filename)
 
-#     torch.save(model.state_dict(), train_filenames["model"])
-#     if optimizer is not None:
-#         torch.save(optimizer.state_dict(), train_filenames["optimizer"])
-#     if train_dict is not None or scheduler is not None:
-#         save_train_dict = train_dict if train_dict is not None else dict()
-#         if scheduler is not None:
-#             save_train_dict["scheduler"] = scheduler.state_dict()
-#         torch.save(save_train_dict, train_filenames["train"])
-#     return train_filenames["model"]
+    torch.save(model.state_dict(), train_filenames["model"])
+    if optimizer is not None:
+        torch.save(optimizer.state_dict(), train_filenames["optimizer"])
+    if train_dict is not None or scheduler is not None:
+        save_train_dict = train_dict if train_dict is not None else dict()
+        if scheduler is not None:
+            save_train_dict["scheduler"] = scheduler.state_dict()
+        torch.save(save_train_dict, train_filenames["train"])
+    return train_filenames["model"]

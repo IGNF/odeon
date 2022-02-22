@@ -147,19 +147,18 @@ class SegmentationTask(pl.LightningModule):
         return {"proba": proba, "preds": preds, "targets": targets}
 
     def configure_optimizers(self):
-
-        self.optimizer = build_optimizer(params=self.model.parameters(),
-                                         learning_rate=self.hparams.learning_rate,
-                                         optimizer_config=self.hparams.optimizer_config)
-
-        self.scheduler = build_scheduler(optimizer=self.optimizer,
-                                         scheduler_config=self.hparams.scheduler_config,
-                                         patience=self.hparams.patience)
+        if self.optimizer is None:
+            self.optimizer = build_optimizer(params=self.model.parameters(),
+                                            learning_rate=self.hparams.learning_rate,
+                                            optimizer_config=self.hparams.optimizer_config)
+        if self.scheduler is None:
+            self.scheduler = build_scheduler(optimizer=self.optimizer,
+                                            scheduler_config=self.hparams.scheduler_config,
+                                            patience=self.hparams.patience)
 
         config = {"optimizer": self.optimizer,
                   "lr_scheduler": self.scheduler,
                   "monitor": "val_loss"}
-
         return config
 
     def on_save_checkpoint(self, checkpoint):
