@@ -92,3 +92,7 @@ possibility to output in a csv file the threshold values corresponding to each p
 - Fix issue 44: Deployment script changes in relation to pylint developments.
 - Fix issues 43: Metrics: use the tool with predictions and masks of differents shapes.
 - Refactoring of metrics code (to correct fiew problems on testing parameters and to gather plot functions).
+
+0.2.15 (2022-02-21)
+-------------------
+- Fix issue 45: Metrics - Problem reading file name during dataset creation

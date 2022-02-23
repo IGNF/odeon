@@ -284,7 +284,9 @@ class CLIMetrics(BaseTool):
                 mask_files.append(os.path.join(self.mask_path, msk))
                 pred_files.append(os.path.join(self.pred_path, pred))
             else:
-                LOGGER.warning('Problem of matching names between mask/prediction for %s', msk)
+                LOGGER.error('ERROR: Problem of matching names between mask/prediction for %s', msk)
+                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
+                                 f"Mask file {msk} does not match with a corresponding prediction file.")
         return mask_files, pred_files
 
     @staticmethod
