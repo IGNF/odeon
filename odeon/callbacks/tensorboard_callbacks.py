@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid, draw_segmentation_masks
 import pytorch_lightning as pl
+from pytorch_lightning.utilities import rank_zero_only
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.nn.datasets import PatchDataset
@@ -44,10 +45,12 @@ def map_phase_logger_idx(phase):
 
 
 class MetricsAdder(pl.Callback):
-
+    
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
 
+    @rank_zero_only
     def add_metrics(self, trainer, pl_module, metric_collection, loss, phase):
         # For tensorboards loggers
         logger_idx = self.tensorboard_logger_idx[map_phase_logger_idx(phase)]
@@ -84,7 +87,7 @@ class MetricsAdder(pl.Callback):
                 trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/MacroNormalized",
                                                                  fig_cm_macro_norm,
                                                                  pl_module.current_epoch)
-
+    @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
         self.add_metrics(trainer=trainer,
                          pl_module=pl_module,
@@ -92,6 +95,7 @@ class MetricsAdder(pl.Callback):
                          loss=pl_module.train_epoch_loss, 
                          phase='train')
 
+    @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         self.add_metrics(trainer=trainer,
                          pl_module=pl_module,
@@ -99,6 +103,7 @@ class MetricsAdder(pl.Callback):
                          loss=pl_module.val_epoch_loss, 
                          phase='val')
 
+    @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         self.add_metrics(trainer=trainer,
                          pl_module=pl_module,
@@ -108,14 +113,16 @@ class MetricsAdder(pl.Callback):
 
 
 class HParamsAdder(pl.Callback):
-
+    
     def __init__(self):
         super().__init__()
         self.train_best_metrics, self.val_best_metrics, self.test_best_metrics = None, None, None
 
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
 
+    @rank_zero_only
     def add_hparams(self, trainer, pl_module, metric_dict, phase):
         hparams = {}
         for key, value in pl_module.hparams.items():
@@ -130,15 +137,15 @@ class HParamsAdder(pl.Callback):
             LOGGER.error("ERROR: the callback HParamsAdder won't work if there is any Tensorboard logger.")
             raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
                              "HParamsAdder callback is not use properly.")
-
-    @staticmethod
-    def update_best_metrics(input_metric_dict, used_metric_dict):
+    @rank_zero_only
+    def update_best_metrics(self, input_metric_dict, used_metric_dict):
         for key in used_metric_dict.keys():
             if key != "cm_macro" and key != "cm_micro":
                 if input_metric_dict[key] > used_metric_dict[key]:
                     used_metric_dict[key] = input_metric_dict[key]
         return used_metric_dict
 
+    @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
         if self.train_best_metrics is None:
             self.train_best_metrics = {key: value for key, value in pl_module.train_epoch_metrics.items() if key != "cm_macro" and key != "cm_micro"}
@@ -146,6 +153,7 @@ class HParamsAdder(pl.Callback):
             self.train_best_metrics = self.update_best_metrics(input_metric_dict=pl_module.train_epoch_metrics,
                                                                used_metric_dict=self.train_best_metrics)
 
+    @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         if self.val_best_metrics is None:
             self.val_best_metrics = {key: value for key, value in pl_module.val_epoch_metrics.items() if key != "cm_macro" and key != "cm_micro"}
@@ -153,6 +161,7 @@ class HParamsAdder(pl.Callback):
             self.val_best_metrics = self.update_best_metrics(input_metric_dict=pl_module.val_epoch_metrics,
                                                              used_metric_dict=self.val_best_metrics)
 
+    @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         if self.test_best_metrics is None:
             self.test_best_metrics = {key: value for key, value in pl_module.test_epoch_metrics.items() if key != "cm_macro" and key != "cm_micro"}
@@ -160,10 +169,12 @@ class HParamsAdder(pl.Callback):
             self.test_best_metrics = self.update_best_metrics(input_metric_dict=pl_module.test_epoch_metrics,
                                                               used_metric_dict=self.test_best_metrics)
 
+    @rank_zero_only
     def on_fit_end(self, trainer, pl_module):
         self.add_hparams(trainer, pl_module, self.train_best_metrics, 'train')
         self.add_hparams(trainer, pl_module, self.val_best_metrics, 'val')
 
+    @rank_zero_only
     def on_exception(self, trainer, pl_module, exception):
         if self.train_best_metrics is not None:
             self.add_hparams(trainer, pl_module, self.train_best_metrics, 'train')
@@ -173,6 +184,7 @@ class HParamsAdder(pl.Callback):
             self.add_hparams(trainer, pl_module, self.test_best_metrics, 'test')
         return super().on_exception(trainer, pl_module, exception)
 
+    @rank_zero_only
     def on_test_end(self, trainer, pl_module):
         self.add_hparams(trainer, pl_module, self.test_best_metrics, 'test')
 
@@ -185,6 +197,7 @@ class GraphAdder(pl.Callback):
         self.tensorboard_logger_idx = None
         self.samples = samples
 
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
         model_device = next(iter(pl_module.model.parameters())).device
@@ -211,9 +224,11 @@ class HistogramAdder(pl.Callback):
         super().__init__()
         self.tensorboard_logger_idx = None
 
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
 
+    @rank_zero_only
     def add_histogram(self, trainer, pl_module, phase):
         if len(self.tensorboard_logger_idx) == 1: 
             for name, params in pl_module.named_parameters():
@@ -227,18 +242,21 @@ class HistogramAdder(pl.Callback):
             raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
                              "HistogramAdder callback is not use properly.")
 
+    @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
         self.add_histogram(trainer=trainer, pl_module=pl_module, phase='train')
 
+    @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         self.add_histogram(trainer=trainer, pl_module=pl_module, phase='val')
 
+    @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         self.add_histogram(trainer=trainer, pl_module=pl_module, phase='test')
 
 
 class PredictionsAdder(pl.Callback):
-
+    
     def __init__(self, train_samples=None, val_samples=None, test_samples=None, num_predictions=NUM_PREDICTIONS, display_bands=[1, 2, 3]):
         super().__init__()
         self.tensorboard_logger_idx = None
@@ -249,6 +267,7 @@ class PredictionsAdder(pl.Callback):
         self.sample_dataset = None
         self.display_bands = [idx_band - 1 for idx_band in display_bands]
 
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = get_tensorboard_logger_idx(trainer=trainer)
         if self.train_samples is None:
@@ -281,6 +300,7 @@ class PredictionsAdder(pl.Callback):
                                                 shuffle=True)
             self.val_samples = next(iter(self.val_sample_loader))
 
+    @rank_zero_only
     def on_test_start(self, trainer, pl_module):
         if self.test_samples is None:
             self.test_sample_dataset = PatchDataset(image_files=trainer.datamodule.test_image_files,
@@ -297,6 +317,7 @@ class PredictionsAdder(pl.Callback):
                                                  shuffle=True)
             self.test_samples = next(iter(self.test_sample_loader))
 
+    @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
         if phase == "train":
             samples = self.train_samples
@@ -338,11 +359,14 @@ class PredictionsAdder(pl.Callback):
             raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
                              "PredictionsAdder callback is not use properly.")
 
+    @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
         self.add_predictions(trainer=trainer, pl_module=pl_module, phase='train')
 
+    @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         self.add_predictions(trainer=trainer, pl_module=pl_module, phase='val')
 
+    @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         self.add_predictions(trainer=trainer, pl_module=pl_module, phase='test')

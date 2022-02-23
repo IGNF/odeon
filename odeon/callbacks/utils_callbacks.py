@@ -10,6 +10,7 @@ from odeon import LOGGER
 from odeon.commons.guard import files_exist
 from odeon.nn.models import get_train_filenames, save_model
 from odeon.commons.exception import OdeonError, ErrorCodes
+from pytorch_lightning.utilities import rank_zero_only
 
 
 class LightningCheckpoint(ModelCheckpoint):
@@ -34,6 +35,7 @@ class LightningCheckpoint(ModelCheckpoint):
         dirpath = self.check_path_ckpt(dirpath)
         super().__init__(monitor=monitor, dirpath=dirpath, filename=filename, save_top_k=save_top_k, **kwargs)
 
+    @rank_zero_only
     def check_path_ckpt(self, path): 
         if not os.path.exists(path):
             path_ckpt = path if self.version is None else os.path.join(path, self.version)
@@ -45,20 +47,25 @@ class LightningCheckpoint(ModelCheckpoint):
             path_ckpt = os.path.join(path, description)
         return path_ckpt
 
+    @rank_zero_only
     def on_load_checkpoint(self, trainer, pl_module, callback_state):
         return super().on_load_checkpoint(trainer, pl_module, callback_state)
 
+    @rank_zero_only
     def on_save_checkpoint(self, trainer, pl_module, checkpoint):
         return super().on_save_checkpoint(trainer, pl_module, checkpoint)
 
 
 class HistorySaver(pl.Callback):
+    
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         if pl_module.logger is not None:
             idx_csv_loggers = [idx for idx, logger in enumerate(pl_module.logger.experiment)\
                 if isinstance(logger, pl.loggers.csv_logs.ExperimentWriter)]
             self.idx_loggers = {'val': idx_csv_loggers[0], 'test': idx_csv_loggers[-1]}
 
+    @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['val']
         metric_collection = pl_module.val_epoch_metrics.copy()
@@ -67,6 +74,7 @@ class HistorySaver(pl.Callback):
         pl_module.logger.experiment[logger_idx].log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger.experiment[logger_idx].save()
 
+    @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['test']
         metric_collection = pl_module.test_epoch_metrics.copy()
@@ -76,6 +84,7 @@ class HistorySaver(pl.Callback):
 
 
 class ContinueTraining(pl.Callback):
+
     def __init__(self,
                  out_dir,
                  out_filename,
@@ -89,6 +98,7 @@ class ContinueTraining(pl.Callback):
         files_exist(check_train_files)
         self.history_dict = None
 
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         current_device = next(iter(pl_module.model.parameters())).device
         model_state_dict = torch.load(self.train_files["model"],
@@ -129,6 +139,7 @@ class ExoticCheckPoint(pl.Callback):
         self.best_val_loss = None
         self.input_sample = None
 
+    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         # if self.model_out_ext == ".onnx":
         #     self.sample_loader = DataLoader(dataset=trainer.datamodule.val_dataset,
@@ -138,14 +149,17 @@ class ExoticCheckPoint(pl.Callback):
         #     self.input_sample = next(iter(self.sample_loader))["image"]
         return super().on_fit_start(trainer, pl_module)
 
+    @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         self.compare_and_save(trainer, pl_module)
 
+    @rank_zero_only
     def on_exception(self, trainer, pl_module, exception):
         #TODO will not find the val_loss of the current epoch..
         self.compare_and_save(trainer, pl_module)
         return super().on_exception(trainer, pl_module, exception)
 
+    @rank_zero_only
     def compare_and_save(self, trainer, pl_module):
         if self.best_val_loss is None:  
             self.best_val_loss = pl_module.val_epoch_loss
@@ -184,6 +198,7 @@ class ExoticCheckPoint(pl.Callback):
 # Check size of tensors in forward pass
 class CheckBatchGradient(pl.Callback):
 
+    @rank_zero_only
     def on_train_start(self, trainer, model):
         n = 0
 

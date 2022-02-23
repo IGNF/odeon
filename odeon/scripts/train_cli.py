@@ -445,8 +445,7 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                 "ERROR: Something went wrong during the test step of the training",
                                 stack_trace=error)
 
-    @staticmethod
-    def get_path_best_ckpt(ckpt_folder, monitor="val_loss", mode="min"):
+    def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
         best_ckpt_path = None
         list_ckpt = os.listdir(ckpt_folder)
         if len(list_ckpt) == 1:
