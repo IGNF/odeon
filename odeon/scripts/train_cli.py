@@ -423,16 +423,23 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         if self.test_file is not None:
             try:
+                best_val_loss_ckpt_path = None
                 if self.model_out_ext == ".ckpt":
                     ckpt_val_loss_folder = os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt", self.version_name)
+                    best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
+                                                                      monitor="val_loss",
+                                                                      mode="min")
+
                 elif self.model_out_ext == ".pth":
-                    ckpt_val_loss_folder = self.output_folder
-                best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
-                                                                    monitor="val_loss",
-                                                                    mode="min")
+                    # Load model weights into the model of the seg module
+                    best_model_state_dict = torch.load(os.path.join(self.output_folder, self.model_filename))
+                    self.seg_module.model.load_state_dict(state_dict=best_model_state_dict)
+                    LOGGER.info(f"Test with .pth file :{os.path.join(self.output_folder, self.model_filename)}")
+
                 self.trainer.test(self.seg_module,
                                   datamodule=self.data_module,
                                   ckpt_path=best_val_loss_ckpt_path)
+
             except OdeonError as error:
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                 "ERROR: Something went wrong during the test step of the training",
