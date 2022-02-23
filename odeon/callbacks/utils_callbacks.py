@@ -3,7 +3,7 @@ import json
 from time import gmtime, strftime
 from pathlib import Path
 import torch
-from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from odeon import LOGGER
@@ -12,20 +12,27 @@ from odeon.nn.models import get_train_filenames, save_model
 from odeon.commons.exception import OdeonError, ErrorCodes
 
 
-class MyModelCheckpoint(ModelCheckpoint):
+class LightningCheckpoint(ModelCheckpoint):
 
     def __init__(self,
                  monitor,
                  dirpath,
+                 save_top_k,
                  filename=None,
                  version=None,
                  **kwargs):
 
+        self.save_top_k = save_top_k
         if filename is None:
             filename = "checkpoint-{epoch:02d}-{" + monitor + ":.2f}"
+        elif self.save_top_k > 1:
+            filename = os.path.splitext(filename)[0] + "-{epoch:02d}-{" + monitor + ":.2f}"
+        else:
+            filename = os.path.splitext(filename)[0]
+
         self.version = version
         dirpath = self.check_path_ckpt(dirpath)
-        super().__init__(monitor=monitor, dirpath=dirpath, filename=filename, **kwargs)
+        super().__init__(monitor=monitor, dirpath=dirpath, filename=filename, save_top_k=save_top_k, **kwargs)
 
     def check_path_ckpt(self, path): 
         if not os.path.exists(path):
@@ -144,7 +151,7 @@ class ExoticCheckPoint(pl.Callback):
             self.best_val_loss = pl_module.val_epoch_loss
 
         elif self.best_val_loss < pl_module.val_epoch_loss:
-    
+
             if self.out_filename is None:
                 self.out_filename =  f"checkpoint-epoch{pl_module.current_epoch}-val_loss{pl_module.val_epoch_loss}"
 

@@ -1,8 +1,8 @@
 import os
+import numpy as np
 from datetime import date
 from time import gmtime, strftime
 import torch
-from torch.nn import functional as F
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger, WandbLogger
 # from pytorch_lightning.strategies import DDPStrategy
@@ -17,9 +17,13 @@ from odeon.modules.datamodule import SegDataModule
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.guard import dirs_exist, files_exist, file_exist
-from odeon.nn.models import get_train_filenames
-from odeon.callbacks.utils_callbacks import ContinueTraining, HistorySaver, MyModelCheckpoint, ExoticCheckPoint
+from odeon.commons.guard import dirs_exist, file_exist
+from odeon.callbacks.utils_callbacks import (
+    ContinueTraining,
+    ExoticCheckPoint,
+    HistorySaver,
+    LightningCheckpoint
+)
 from odeon.callbacks.tensorboard_callbacks import (
     MetricsAdder,
     GraphAdder,
@@ -43,7 +47,6 @@ NUM_EPOCHS = 1000
 LEARNING_RATE = 0.001
 NUM_WORKERS = 4
 NUM_CKPT_SAVED = 3
-UNIQUE_CKPT = 1
 MODEL_OUT_EXT = ".ckpt"
 ACCELERATOR = "gpu"
 
@@ -324,7 +327,7 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
         self.callbacks = [tensorboard_metrics]
 
         if self.model_out_ext == ".ckpt":
-            checkpoint_miou_callback = MyModelCheckpoint(monitor="val_miou",
+            checkpoint_miou_callback = LightningCheckpoint(monitor="val_miou",
                                                          dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
                                                          version=self.version_name,
                                                          filename=self.model_filename,
@@ -332,7 +335,7 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                                                          mode="max",
                                                          save_last=True)
 
-            checkpoint_loss_callback = MyModelCheckpoint(monitor="val_loss",
+            checkpoint_loss_callback = LightningCheckpoint(monitor="val_loss",
                                                          dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
                                                          version=self.version_name,
                                                          filename=self.model_filename,
@@ -381,16 +384,16 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         if self.continue_training:
             file_exist(os.path.join(self.output_folder, self.model_filename))
-            ext = os.path.splitext(os.path.join(self.output_folder, self.model_filename))[-1]
-            if ext == ".pth":
+            resume_file_ext = os.path.splitext(os.path.join(self.output_folder, self.model_filename))[-1]
+            if resume_file_ext == ".pth":
                 continue_training_callback = ContinueTraining(out_dir=self.output_folder,
                                                               out_filename=self.model_filename,
                                                               save_history=self.save_history)
                 self.callbacks.append(continue_training_callback)
-            elif ext == ".ckpt":
+            elif resume_file_ext == ".ckpt":
                 self.resume_checkpoint = os.path.join(self.output_folder, self.model_filename)
             else:
-                LOGGER.error("ERROR: Odeon only handles files of type .pth, .ckpt for the continue training feature.")
+                LOGGER.error("ERROR: Odeon only handles files of type .pth or .ckpt for the continue training feature.")
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
                                  "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
 
@@ -420,9 +423,33 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
 
         if self.test_file is not None:
             try:
+                if self.model_out_ext == ".ckpt":
+                    ckpt_val_loss_folder = os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt", self.version_name)
+                elif self.model_out_ext == ".pth":
+                    ckpt_val_loss_folder = self.output_folder
+                best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
+                                                                    monitor="val_loss",
+                                                                    mode="min")
                 self.trainer.test(self.seg_module,
-                                  datamodule=self.data_module)
+                                  datamodule=self.data_module,
+                                  ckpt_path=best_val_loss_ckpt_path)
             except OdeonError as error:
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                 "ERROR: Something went wrong during the test step of the training",
                                 stack_trace=error)
+
+    @staticmethod
+    def get_path_best_ckpt(ckpt_folder, monitor="val_loss", mode="min"):
+        best_ckpt_path = None
+        list_ckpt = os.listdir(ckpt_folder)
+        if len(list_ckpt) == 1:
+            best_ckpt_path = list_ckpt[0]
+        else:
+            list_ckpt = [x for x in list_ckpt if monitor in x]
+            get_value_monitor = lambda x : float(x.split(monitor)[-1][1: 5])
+            value_ckpt = np.array([get_value_monitor(x) for x in list_ckpt ])
+            if mode == "min":
+                best_ckpt_path = list_ckpt[np.argmin(value_ckpt)]
+            else:
+                best_ckpt_path = list_ckpt[np.argmax(value_ckpt)]
+        return os.path.join(ckpt_folder, best_ckpt_path)

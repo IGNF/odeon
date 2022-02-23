@@ -279,10 +279,12 @@ class MetricsCLI(BaseTool):
         """
         mask_files, pred_files = [], []
 
-        for msk, pred in zip(sorted(os.listdir(self.mask_path)), sorted(os.listdir(self.pred_path))):
-            if msk == pred:
-                mask_files.append(os.path.join(self.mask_path, msk))
-                pred_files.append(os.path.join(self.pred_path, pred))
+        for name_file in os.listdir(self.mask_path):
+            file_msk = os.path.join(self.mask_path, name_file)
+            file_pred = os.path.join(self.pred_path, name_file)
+            if os.path.exists(file_msk) and os.path.exists(file_pred):
+                mask_files.append(file_msk)
+                pred_files.append(file_pred)
             else:
                 LOGGER.warning('Problem of matching names between mask/prediction for %s', msk)
         return mask_files, pred_files

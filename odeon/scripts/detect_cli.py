@@ -17,6 +17,7 @@ from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, ZoneDetectionJobNo
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
+ACCELERATOR = "gpu"
 
 
 class DetectCLI(BaseTool):
@@ -41,7 +42,11 @@ class DetectCLI(BaseTool):
                  num_worker=None,
                  num_thread=None,
                  dataset=None,
-                 zone=None
+                 zone=None,
+                 device=None,
+                 accelerator=ACCELERATOR,
+                 num_nodes=1,
+                 num_processes=None,
                  ):
 
         self.verbosity = verbosity
@@ -63,8 +68,8 @@ class DetectCLI(BaseTool):
         self.output_type = output_type
         self.sparse_mode = sparse_mode
         self.threshold = threshold
-        self.df: pd.DataFrame = None
-        self.detector: BaseDetector = None
+        self.df = None
+        self.detector = None
         self.mutual_exclusion = mutual_exclusion
 
         if zone is not None:
