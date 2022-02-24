@@ -19,22 +19,22 @@ PERCENTAGE_VAL = 0.3
 class SegDataModule(LightningDataModule):
 
     def __init__(self,
-                 train_file,
-                 val_file=None,
-                 test_file=None,
-                 image_bands=None,
-                 mask_bands=None,
-                 transforms=None,
-                 width=None,
-                 height=None,
-                 batch_size=BATCH_SIZE,
-                 num_workers=NUM_WORKERS,
-                 percentage_val=PERCENTAGE_VAL,
-                 pin_memory=True,
-                 deterministic=False,
-                 get_prediction=False,
-                 resolution=None,
-                 subset=False):
+                train_file,
+                val_file=None,
+                test_file=None,
+                image_bands=None,
+                mask_bands=None,
+                transforms=None,
+                width=None,
+                height=None,
+                batch_size=BATCH_SIZE,
+                num_workers=NUM_WORKERS,
+                percentage_val=PERCENTAGE_VAL,
+                pin_memory=True,
+                deterministic=False,
+                get_prediction=False,
+                resolution=None,
+                subset=False):
 
         super().__init__()
         self.train_file = train_file
@@ -69,7 +69,6 @@ class SegDataModule(LightningDataModule):
         self.train_batch_size, self.val_batch_size, self.test_batch_size = None, None, None
         self.get_batch_size(batch_size)
         self.train_dataset, self.val_dataset, self.test_dataset = None, None, None
-        
 
     def prepare_data(self):
         pass
@@ -78,12 +77,12 @@ class SegDataModule(LightningDataModule):
         if stage == "fit" or stage == "validate":
             if not self.train_dataset and not self.val_dataset:
                 self.train_dataset = PatchDataset(image_files=self.train_image_files,
-                                                mask_files=self.train_mask_files,
-                                                transform=self.transforms['train'],
-                                                image_bands=self.image_bands,
-                                                mask_bands=self.mask_bands,
-                                                width=self.width,
-                                                height=self.height)
+                                                  mask_files=self.train_mask_files,
+                                                  transform=self.transforms['train'],
+                                                  image_bands=self.image_bands,
+                                                  mask_bands=self.mask_bands,
+                                                  width=self.width,
+                                                  height=self.height)
 
                 self.val_dataset = PatchDataset(image_files=self.val_image_files,
                                                 mask_files=self.val_mask_files,

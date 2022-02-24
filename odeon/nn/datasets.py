@@ -182,8 +182,6 @@ class PatchDetectionDataset(Dataset):
 
         # load image file
         image_file = self.job.get_cell_at(index, "img_file")
-        # LOGGER.info(image_file)
-        # LOGGER.info(self.image_files)
         img, meta = raster_to_ndarray(
                                        image_file,
                                        width=self.width,
