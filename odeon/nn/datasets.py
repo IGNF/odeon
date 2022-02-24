@@ -106,7 +106,7 @@ class PatchDataset(Dataset):
     """
 
     def __init__(self, image_files, mask_files, transform=None, width=None, height=None, image_bands=None,
-                 mask_bands=None):
+                 mask_bands=None, get_filename=False):
 
         self.image_files = image_files
         self.image_bands = image_bands
@@ -115,17 +115,16 @@ class PatchDataset(Dataset):
         self.width = width
         self.height = height
         self.transform_function = transform
-        pass
+        self.get_filename = get_filename
 
     def __len__(self):
-
         return len(self.image_files)
 
     def __getitem__(self, index):
 
         # load image file
         image_file = self.image_files[index]
-        img, _ = raster_to_ndarray(
+        img, meta = raster_to_ndarray(
                                     image_file,
                                     width=self.width,
                                     height=self.height,
@@ -151,6 +150,9 @@ class PatchDataset(Dataset):
             self.transform_function = ToDoubleTensor()
         sample = self.transform_function(**sample)
 
+        if self.get_filename:
+            sample["filename"] = os.path.basename(image_file)
+            sample["affine"] = affine_to_ndarray(meta["transform"])
         return sample
 
 

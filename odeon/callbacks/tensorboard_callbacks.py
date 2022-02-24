@@ -39,8 +39,9 @@ def get_tensorboard_logger_idx(trainer):
 def map_phase_logger_idx(phase):
     phase_table = {"train": 0,
                    "val": 1,
-                   "test": 2}
-    assert phase in phase_table.keys(), "Phases are train/val/test."
+                   "test": 2,
+                   "predict": 2}
+    assert phase in phase_table.keys(), "Phases are train/val/test and predict."
     return phase_table[phase]
 
 
@@ -87,6 +88,7 @@ class MetricsAdder(pl.Callback):
                 trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/MacroNormalized",
                                                                  fig_cm_macro_norm,
                                                                  pl_module.current_epoch)
+
     @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
         self.add_metrics(trainer=trainer,
@@ -111,12 +113,20 @@ class MetricsAdder(pl.Callback):
                          loss=pl_module.test_epoch_loss, 
                          phase='test')
 
+    @rank_zero_only
+    def on_predict_end(self, trainer, pl_module):
+        self.add_metrics(trainer=trainer,
+                         pl_module=pl_module,
+                         metric_collection=pl_module.predict_epoch_metrics,
+                         loss=pl_module.predict_epoch_loss, 
+                         phase='predict')
+
 
 class HParamsAdder(pl.Callback):
-    
+
     def __init__(self):
         super().__init__()
-        self.train_best_metrics, self.val_best_metrics, self.test_best_metrics = None, None, None
+        self.train_best_metrics, self.val_best_metrics, self.test_best_metrics, self.predict_best_metrics = None, None, None, None
 
     @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
@@ -137,6 +147,7 @@ class HParamsAdder(pl.Callback):
             LOGGER.error("ERROR: the callback HParamsAdder won't work if there is any Tensorboard logger.")
             raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
                              "HParamsAdder callback is not use properly.")
+
     @rank_zero_only
     def update_best_metrics(self, input_metric_dict, used_metric_dict):
         for key in used_metric_dict.keys():
@@ -187,6 +198,12 @@ class HParamsAdder(pl.Callback):
     @rank_zero_only
     def on_test_end(self, trainer, pl_module):
         self.add_hparams(trainer, pl_module, self.test_best_metrics, 'test')
+
+    @rank_zero_only
+    def on_predict_end(self, trainer, pl_module):
+        self.predict_best_metrics = {key: value for key, value in pl_module.predict_epoch_metrics.items() if key != "cm_macro" and key != "cm_micro"}
+        self.add_hparams(trainer, pl_module, self.predict_best_metrics, 'predict')
+        return super().on_predict_end(trainer, pl_module)
 
 
 class GraphAdder(pl.Callback):
@@ -254,6 +271,10 @@ class HistogramAdder(pl.Callback):
     def on_test_epoch_end(self, trainer, pl_module):
         self.add_histogram(trainer=trainer, pl_module=pl_module, phase='test')
 
+    @rank_zero_only
+    def on_predict_end(self, trainer, pl_module):
+        self.add_histogram(trainer=trainer, pl_module=pl_module, phase='predict')
+
 
 class PredictionsAdder(pl.Callback):
     
@@ -318,12 +339,29 @@ class PredictionsAdder(pl.Callback):
             self.test_samples = next(iter(self.test_sample_loader))
 
     @rank_zero_only
+    def on_predict_start(self, trainer, pl_module):
+        if self.test_samples is None:
+            self.test_sample_dataset = PatchDataset(image_files=trainer.datamodule.test_image_files,
+                                                    mask_files=trainer.datamodule.test_mask_files,
+                                                    transform=None,
+                                                    image_bands=trainer.datamodule.image_bands,
+                                                    mask_bands=trainer.datamodule.mask_bands,
+                                                    width=trainer.datamodule.width,
+                                                    height=trainer.datamodule.height)
+            self.test_sample_loader = DataLoader(dataset=self.test_sample_dataset,
+                                                    batch_size=self.num_predictions,
+                                                    num_workers=trainer.datamodule.num_workers,
+                                                    pin_memory=trainer.datamodule.pin_memory,
+                                                    shuffle=True)
+            self.test_samples = next(iter(self.test_sample_loader))
+
+    @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
         if phase == "train":
             samples = self.train_samples
         elif phase == "val":
             samples = self.val_samples
-        elif phase == "test":
+        elif phase == "test" or phase =="predict":
             samples = self.test_samples
 
         model_device = next(iter(pl_module.model.parameters())).device
@@ -370,3 +408,7 @@ class PredictionsAdder(pl.Callback):
     @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         self.add_predictions(trainer=trainer, pl_module=pl_module, phase='test')
+
+    @rank_zero_only
+    def on_predict_end(self, trainer, pl_module):
+        self.add_predictions(trainer=trainer, pl_module=pl_module, phase='predict')

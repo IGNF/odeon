@@ -32,6 +32,8 @@ class SegDataModule(LightningDataModule):
                  percentage_val=PERCENTAGE_VAL,
                  pin_memory=True,
                  deterministic=False,
+                 get_prediction=False,
+                 resolution=None,
                  subset=False):
 
         super().__init__()
@@ -46,6 +48,7 @@ class SegDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.percentage_val = percentage_val
         self.pin_memory = pin_memory
+        self.get_prediction = get_prediction
         self.subset = subset
         if deterministic:
             self.random_seed = None
@@ -56,48 +59,55 @@ class SegDataModule(LightningDataModule):
         self.train_image_files, self.val_image_files, self.test_image_files = None, None, None
         self.train_mask_files, self.val_mask_files, self.test_mask_files = None, None, None
         self.get_split_files()
-        self.sample_dims = self.get_dims()
+        self.resolution, self.meta = {}, {} 
+        self.sample_dims = self.get_dims_and_meta()
+        if resolution is not None:
+            self.get_resolution(resolution)
         self.image_bands, self.mask_bands = self.get_bands(image_bands, mask_bands)
         self.num_classes = len(self.mask_bands)
         self.num_channels = len(self.image_bands)
         self.train_batch_size, self.val_batch_size, self.test_batch_size = None, None, None
         self.get_batch_size(batch_size)
         self.train_dataset, self.val_dataset, self.test_dataset = None, None, None
+        
 
     def prepare_data(self):
         pass
 
-    def setup(self, stage=None):        
-        if not self.train_dataset and not self.val_dataset:
-            self.train_dataset = PatchDataset(image_files=self.train_image_files,
-                                              mask_files=self.train_mask_files,
-                                              transform=self.transforms['train'],
-                                              image_bands=self.image_bands,
-                                              mask_bands=self.mask_bands,
-                                              width=self.width,
-                                              height=self.height)
+    def setup(self, stage=None):
+        if stage == "fit" or stage == "validate":
+            if not self.train_dataset and not self.val_dataset:
+                self.train_dataset = PatchDataset(image_files=self.train_image_files,
+                                                mask_files=self.train_mask_files,
+                                                transform=self.transforms['train'],
+                                                image_bands=self.image_bands,
+                                                mask_bands=self.mask_bands,
+                                                width=self.width,
+                                                height=self.height)
 
-            self.val_dataset = PatchDataset(image_files=self.val_image_files,
-                                             mask_files=self.val_mask_files,
-                                             transform=self.transforms['val'],
-                                             image_bands=self.image_bands,
-                                             mask_bands=self.mask_bands,
-                                             width=self.width,
-                                             height=self.height)
-            if self.subset is True:
-                self.train_dataset = Subset(self.train_dataset, range(0, 20))
-                self.val_dataset = Subset(self.val_dataset, range(0, 10))
+                self.val_dataset = PatchDataset(image_files=self.val_image_files,
+                                                mask_files=self.val_mask_files,
+                                                transform=self.transforms['val'],
+                                                image_bands=self.image_bands,
+                                                mask_bands=self.mask_bands,
+                                                width=self.width,
+                                                height=self.height)
+                if self.subset is True:
+                    self.train_dataset = Subset(self.train_dataset, range(0, 20))
+                    self.val_dataset = Subset(self.val_dataset, range(0, 10))
 
-        if not self.test_dataset:
-            self.test_dataset = PatchDataset(image_files=self.test_image_files,
-                                             mask_files=self.test_mask_files,
-                                             transform=self.transforms['test'],
-                                             image_bands=self.image_bands,
-                                             mask_bands=self.mask_bands,
-                                             width=self.width,
-                                             height=self.height)
-            if self.subset is True:
-                self.test_dataset = Subset(self.test_dataset, range(0, 10))
+        elif stage == "test" or stage == "predict":
+            if not self.test_dataset:
+                self.test_dataset = PatchDataset(image_files=self.test_image_files,
+                                                 mask_files=self.test_mask_files,
+                                                 transform=self.transforms['test'],
+                                                 image_bands=self.image_bands,
+                                                 mask_bands=self.mask_bands,
+                                                 width=self.width,
+                                                 height=self.height,
+                                                 get_filename=self.get_prediction)
+                if self.subset is True:
+                    self.test_dataset = Subset(self.test_dataset, range(0, 10))
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_dataset,
@@ -114,6 +124,13 @@ class SegDataModule(LightningDataModule):
                           shuffle=False)
 
     def test_dataloader(self):
+        return DataLoader(dataset=self.test_dataset,
+                          batch_size=self.test_batch_size,
+                          num_workers=self.num_workers,
+                          pin_memory=self.pin_memory,
+                          shuffle=False)
+
+    def predict_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
                           batch_size=self.test_batch_size,
                           num_workers=self.num_workers,
@@ -160,9 +177,11 @@ class SegDataModule(LightningDataModule):
         image_file, mask_file = image_files[index], mask_files[index]
         with rasterio.open(image_file) as image_raster:
             image = image_raster.read().swapaxes(0, 2).swapaxes(0, 1)
+            meta = image_raster.meta
+            res = image_raster.res
         with rasterio.open(mask_file) as mask_raster:
             mask = mask_raster.read().swapaxes(0, 2).swapaxes(0, 1)
-        return {'image': image, 'mask': mask}
+        return {"image": image, "mask": mask, "meta": meta, "resolution": res}
 
     @staticmethod
     def check_sample(sample):
@@ -172,16 +191,35 @@ class SegDataModule(LightningDataModule):
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "Detections and masks have different width/height.")
 
-    def get_dims(self):
-        train_sample  = self.get_samples(self.train_image_files,
+    def get_dims_and_meta(self):
+        train_sample = self.get_samples(self.train_image_files,
                                          self.train_mask_files)
-        val_sample  = self.get_samples(self.val_image_files,
-                                       self.val_mask_files)
+        val_sample = self.get_samples(self.val_image_files,
+                                      self.val_mask_files)
         self.check_sample(train_sample)
         self.check_sample(val_sample)
+
         if train_sample['image'].shape != val_sample['image'].shape:
             LOGGER.warning("WARNING: Data in train dataset and validation dataset don\'t have\
                            the same dimensions.")
+
+        # Meta and resolution definition
+        self.resolution["train"] = train_sample["resolution"]
+        self.resolution["val"] = val_sample["resolution"]
+
+        self.meta["train"] = train_sample["meta"]
+        self.meta["val"] = val_sample["meta"]
+
+        if self.test_file:
+            test_sample = self.get_samples(self.test_image_files,
+                                           self.test_mask_files)
+            self.check_sample(test_sample)
+            self.resolution["test"] = test_sample["resolution"]
+            self.meta["test"] = test_sample["meta"]
+        else:
+            self.resolution["test"] = self.resolution["val"]
+            self.meta["test"] = self.meta["val"]
+
         return {'image': train_sample['image'].shape, 'mask': train_sample['mask'].shape}
 
     def get_bands(self, image_bands, mask_bands):
@@ -222,6 +260,16 @@ class SegDataModule(LightningDataModule):
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.test_batch_size = test_batch_size
+
+    def get_resolution(self, parameter_resolution):
+        if isinstance(parameter_resolution, int):
+            self.resolution["train"] = parameter_resolution
+            self.resolution["val"]  = parameter_resolution
+            self.resolution["test"]  = parameter_resolution
+        elif isinstance(parameter_resolution, (tuple, list, np.ndarray)):
+            self.resolution["train"]  = parameter_resolution[0]
+            self.resolution["val"]  = parameter_resolution[1]
+            self.resolution["test"]  = parameter_resolution[-1]
 
     def teardown(self, stage=None):
         # Used to clean-up when the run is finished

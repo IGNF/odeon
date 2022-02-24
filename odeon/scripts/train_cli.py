@@ -20,6 +20,7 @@ from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist, file_exist
 from odeon.callbacks.utils_callbacks import (
     ContinueTraining,
+    CustomPredictionWriter,
     ExoticCheckPoint,
     HistorySaver,
     LightningCheckpoint
@@ -71,6 +72,7 @@ class TrainCLI(BaseTool):
                  image_bands=None,
                  mask_bands=None,
                  class_labels=None,
+                 resolution=None,
                  model_filename=None,
                  model_out_ext=None,
                  init_weights=None,
@@ -106,6 +108,8 @@ class TrainCLI(BaseTool):
                  use_wandb=False,
                  early_stopping=False,
                  save_top_k=NUM_CKPT_SAVED,
+                 get_prediction=False,
+                 prediction_output_type="uint8",
                  testing=False
                  ):
 
@@ -131,6 +135,7 @@ class TrainCLI(BaseTool):
         self.batch_size = batch_size
         self.image_bands = image_bands
         self.mask_bands = mask_bands
+        self.resolution = resolution
         self.patience = patience
         self.load_pretrained_weights = load_pretrained_weights
         self.init_model_weights = init_model_weights
@@ -152,6 +157,8 @@ class TrainCLI(BaseTool):
         self.use_wandb = use_wandb
         self.early_stopping = early_stopping
         self.save_top_k = save_top_k
+        self.get_prediction = get_prediction
+        self.prediction_output_type = prediction_output_type
         self.testing = testing
 
         if name_exp_log is None:
@@ -205,7 +212,7 @@ class TrainCLI(BaseTool):
 
         self.transforms = {'train': Compose(self.transformation_functions),
                            'val': Compose(self.transformation_functions),
-                           'test':Compose(self.transformation_functions)}
+                           'test': Compose(self.transformation_functions)}
 
         self.accelerator = accelerator
         self.num_nodes = num_nodes
@@ -225,6 +232,8 @@ class TrainCLI(BaseTool):
                                          percentage_val=self.percentage_val,
                                          pin_memory=True,
                                          deterministic=self.deterministic,
+                                         get_prediction=self.get_prediction,
+                                         resolution=self.resolution,
                                          subset=self.testing)
 
         self.callbacks = None
@@ -308,6 +317,7 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
             loggers.append(csv_logger)
 
         if self.test_file:
+            # Logger will be use for test or predict phase
             test_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
                                             name="tensorboard_logs",
                                             version=self.version_name,
@@ -397,6 +407,13 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
                                  "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
 
+        if self.get_prediction:
+            path_predictions = os.path.join(self.output_folder, self.name_exp_log, "predictions", self.version_name)
+            custom_pred_writer = CustomPredictionWriter(output_dir=path_predictions,
+                                                        output_type=self.prediction_output_type,
+                                                        write_interval="batch")
+            self.callbacks.append(custom_pred_writer)
+
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
                                devices=self.device,
                                accelerator=self.accelerator,
@@ -427,23 +444,27 @@ number of samples: {len(self.data_module.train_image_files) + len(self.data_modu
                 if self.model_out_ext == ".ckpt":
                     ckpt_val_loss_folder = os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt", self.version_name)
                     best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
-                                                                      monitor="val_loss",
-                                                                      mode="min")
-
+                                                                        monitor="val_loss",
+                                                                        mode="min")
                 elif self.model_out_ext == ".pth":
                     # Load model weights into the model of the seg module
                     best_model_state_dict = torch.load(os.path.join(self.output_folder, self.model_filename))
                     self.seg_module.model.load_state_dict(state_dict=best_model_state_dict)
                     LOGGER.info(f"Test with .pth file :{os.path.join(self.output_folder, self.model_filename)}")
 
-                self.trainer.test(self.seg_module,
-                                  datamodule=self.data_module,
-                                  ckpt_path=best_val_loss_ckpt_path)
+                if self.get_prediction:
+                    self.trainer.predict(self.seg_module,
+                                         datamodule=self.data_module,
+                                         ckpt_path=best_val_loss_ckpt_path)
+                else:
+                    self.trainer.test(self.seg_module,
+                                      datamodule=self.data_module,
+                                      ckpt_path=best_val_loss_ckpt_path)
 
             except OdeonError as error:
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
-                                "ERROR: Something went wrong during the test step of the training",
-                                stack_trace=error)
+                                    "ERROR: Something went wrong during the test step of the training",
+                                    stack_trace=error)
 
     def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
         best_ckpt_path = None

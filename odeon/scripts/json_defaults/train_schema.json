@@ -13,7 +13,8 @@
                 "percentage_val": {"type": "number"},
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
-                "class_labels": {"type": "array", "items": {"type": "string"}}
+                "class_labels": {"type": "array", "items": {"type": "string"}},
+                "resolution": {"type": ["number", "array"]}
             },
             "oneOf": [{
                 "required": [
@@ -40,7 +41,12 @@
                 "model_filename": {"type": "string"},
                 "model_out_ext": {"type": "string", "default": ".ckpt"},
                 "name_exp_log": {"type": "string"},
-                "version_name": {"type": "string"}
+                "version_name": {"type": "string"},
+                "get_prediction": {"type": "boolean", "default": false},
+                "prediction_output_type": {        
+                    "type": "string",
+                    "enum": ["bit", "uint8", "float32"],
+                    "default": "uint8"}
             }
         },
         "train_setup": {

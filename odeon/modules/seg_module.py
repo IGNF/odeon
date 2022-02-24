@@ -3,6 +3,7 @@ from sklearn.datasets import load_files
 import torch
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
+
 from odeon import LOGGER
 from odeon.modules.metrics_module import OdeonMetrics
 from odeon.nn.models import build_model
@@ -73,11 +74,23 @@ class SegmentationTask(pl.LightningModule):
             self.train_loss = MeanMetric()
             self.val_loss = MeanMetric()
 
-        if stage == "test":
+        elif stage == "validate":
+            self.val_epoch_loss, self.val_epoch_metrics = None, None
+            self.val_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
+                                            class_labels=self.hparams.class_labels)
+            self.val_loss = MeanMetric()
+
+        elif stage == "test":
             self.test_epoch_loss, self.test_epoch_metrics = None, None
             self.test_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
                                              class_labels=self.hparams.class_labels)
             self.test_loss = MeanMetric()
+
+        elif stage == "predict":
+            self.predict_epoch_loss, self.predict_epoch_metrics = None, None
+            self.predict_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
+                                                class_labels=self.hparams.class_labels)
+            self.predict_loss = MeanMetric()
 
     def forward(self, images):
         logits = self.model(images)
@@ -140,25 +153,43 @@ class SegmentationTask(pl.LightningModule):
         self.test_metrics.reset()
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        images, targets = batch["image"], batch["mask"]
+        images, targets, filenames, affines = batch["image"], batch["mask"], batch["filename"], batch["affine"]
         logits = self.model(images)
+
+        loss = self.criterion(logits, targets)
         proba = torch.softmax(logits, dim=1)
+
         preds = torch.argmax(proba, dim=1)
-        return {"proba": proba, "preds": preds, "targets": targets}
+        preds = preds.flatten(start_dim=1)
+
+        targets = torch.argmax(targets, dim=1)
+        targets = targets.flatten(start_dim=1).type(torch.int32)
+
+        self.predict_loss.update(loss)
+        self.predict_metrics(preds=preds, target=targets)
+
+        return {"proba": proba, "filename": filenames, "affine": affines}
+
+    def on_predict_epoch_end(self, results):
+        self.predict_epoch_loss = self.predict_loss.compute()
+        self.predict_epoch_metrics = self.predict_metrics.compute()
+        self.predict_loss.reset()
+        self.predict_metrics.reset()
 
     def configure_optimizers(self):
         if self.optimizer is None:
             self.optimizer = build_optimizer(params=self.model.parameters(),
-                                            learning_rate=self.hparams.learning_rate,
-                                            optimizer_config=self.hparams.optimizer_config)
+                                             learning_rate=self.hparams.learning_rate,
+                                             optimizer_config=self.hparams.optimizer_config)
         if self.scheduler is None:
             self.scheduler = build_scheduler(optimizer=self.optimizer,
-                                            scheduler_config=self.hparams.scheduler_config,
-                                            patience=self.hparams.patience)
+                                             scheduler_config=self.hparams.scheduler_config,
+                                             patience=self.hparams.patience)
 
         config = {"optimizer": self.optimizer,
                   "lr_scheduler": self.scheduler,
                   "monitor": "val_loss"}
+
         return config
 
     def on_save_checkpoint(self, checkpoint):
