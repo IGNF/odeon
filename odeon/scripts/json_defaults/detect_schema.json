@@ -5,20 +5,8 @@
       "image": {
         "type": "object",
         "properties": {
-          "img_size_pixel": {
-            "type": "integer",
-            "default": 256,
-            "minimum": 1
-          },
-          "resolution": {
-              "type": ["number", "array"],
-              "items": [{
-                  "type": "number"
-              }, {
-                  "type": "number"
-              }],
-              "default": 0.2
-          }
+          "img_size_pixel": {"type": "integer", "default": 256, "minimum": 1},
+          "resolution": { "type": ["number", "array"], "items": [{"type": "number"}, { "type": "number"}], "default": 0.2}
         }
       },
       "zone": {
@@ -57,78 +45,21 @@
       },
       "detect_param": {
         "type": "object",
-        "properties":
-        {
-           "batch_size": {
-             "type": "integer",
-             "minimum": 1,
-             "default": 1},
-           "use_gpu": {
-               "type": "boolean",
-               "default": true},
-           "idx_gpu": {
-                "type": "integer",
-                "default": 0},
-           "num_worker": {
-               "type": "integer",
-               "minimum": 0
-           },
-           "num_thread": {
-            "type": "integer",
-            "minimum": 1
-           },
-           "interruption_recovery":
-           {
-            "type": "boolean",
-            "default": false
-           },
-           "mutual_exclusion":
-           {
-            "type": "boolean",
-            "default": true
-           }
-        },
-        "default": {
-          "batch_size": 1,
-          "use_gpu": true,
-          "interruption_recovery": false,
-          "mutual_exclusion": true
+        "properties": {
+          "batch_size": {"type": "integer",  "minimum": 1, "default": 1},
+          "num_workers": {"type": "integer", "minimum": 0}
         }
       },
       "output_param": {
         "type": "object",
-        "properties":
-        {
-           "output_path": {
-             "type": "string"
-           },
-           "output_type": {
-             "type": "string",
-             "enum": ["bit", "uint8", "float32"],
-             "default": "uint8"
-           },
-          "sparse_mode": {
-             "type": "boolean",
-             "default": false
-           },
-          "threshold": {
-             "type": "number",
-             "default": 0.5
-           },
-            "n_classes": {"type": "integer", "minimum": 1}
+        "properties":{
+          "output_path": {"type": "string"},
+          "output_type": {"type": "string", "enum": ["bit", "uint8", "float32"], "default": "uint8"},
+          "sparse_mode": {"type": "boolean", "default": false},
+          "threshold": {"type": "number", "default": 0.5}
         },
-        "required": ["output_path", "output_type", "n_classes"]
+        "required": ["output_path", "output_type"]
       }
-
     },
-  "required": ["model", "output_param", "detect_param", "image"],
-  "oneOf": [{
-                "required": [
-                    "zone"
-                ]
-            }, {
-                "required": [
-                    "dataset"
-                ]
-            }]
+  "required": ["model", "output_param", "detect_param", "image"]
 }

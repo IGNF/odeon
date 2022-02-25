@@ -218,10 +218,9 @@ class GraphAdder(TensorboardCallback):
     @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         self.tensorboard_logger_idx = self.get_tensorboard_logger_idx(trainer=trainer)
-        model_device = next(iter(pl_module.model.parameters())).device
         if self.samples is None:
             self.samples = next(iter(trainer.datamodule.val_dataloader()))["image"]
-        self.samples = self.samples.to(model_device)
+        self.samples = self.samples.to(device=pl_module.device)
         if len(self.tensorboard_logger_idx) == 1:
             logger_idx = [0]
             trainer.logger[logger_idx].experiment.add_graph(pl_module.model, self.samples)
@@ -361,8 +360,7 @@ class PredictionsAdder(TensorboardCallback):
         elif phase == "test" or phase =="predict":
             samples = self.test_samples
 
-        model_device = next(iter(pl_module.model.parameters())).device
-        images, targets = samples["image"].to(model_device), samples["mask"].to(model_device)
+        images, targets = samples["image"].to(device=pl_module.device), samples["mask"].to(device=pl_module.device)
         with torch.no_grad():
             logits = pl_module.forward(images)
             proba = torch.softmax(logits, dim=1)

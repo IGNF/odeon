@@ -12,19 +12,7 @@ from pytorch_lightning import (
     seed_everything
 )
 from odeon import LOGGER
-from odeon.modules.seg_module import SegmentationTask
-from odeon.modules.datamodule import SegDataModule
-from odeon.commons.core import BaseTool
-from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.guard import dirs_exist, file_exist
-from odeon.callbacks.utils_callbacks import (
-    ContinueTraining,
-    CustomPredictionWriter,
-    ExoticCheckPoint,
-    HistorySaver,
-    LightningCheckpoint
-)
+from odeon.callbacks.legacy_callbacks import ContinueTraining, ExoticCheckPoint
 from odeon.callbacks.tensorboard_callbacks import (
     MetricsAdder,
     GraphAdder,
@@ -32,6 +20,17 @@ from odeon.callbacks.tensorboard_callbacks import (
     PredictionsAdder,
     HParamsAdder
 )
+from odeon.callbacks.utils_callbacks import (
+    CustomPredictionWriter,
+    HistorySaver,
+    LightningCheckpoint
+)
+from odeon.commons.core import BaseTool
+from odeon.commons.exception import OdeonError, ErrorCodes
+from odeon.commons.logger.logger import get_new_logger, get_simple_handler
+from odeon.commons.guard import dirs_exist, file_exist
+from odeon.modules.datamodule import SegDataModule
+from odeon.modules.seg_module import SegmentationTask
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
 from odeon.nn.models import model_list
 
@@ -251,14 +250,15 @@ class TrainCLI(BaseTool):
         else:
             self.class_labels = [f'class {i + 1}' for i in range(self.data_module.num_classes)]
 
-        STD_OUT_LOGGER.info(f"""Training :
-device: {self.device}
-model: {self.model_name}
-model file: {self.model_filename}
-number of classes: {self.data_module.num_classes}
-number of samples: {len(self.data_module.train_image_files) + len(self.data_module.val_image_files)} \
-(train: {len(self.data_module.train_image_files)}, val: {len(self.data_module.val_image_files)})
-""")
+        STD_OUT_LOGGER.info(
+            f"Training : \n" 
+            f"device: {self.device} \n"
+            f"model: {self.model_name} \n"
+            f"model file: {self.model_filename} \n"
+            f"number of classes: {self.data_module.num_classes} \n"
+            f"number of samples: {len(self.data_module.train_image_files) + len(self.data_module.val_image_files)}  "
+            f"(train: {len(self.data_module.train_image_files)}, val: {len(self.data_module.val_image_files)})"
+            )
         self.check()
         self.configure()
 

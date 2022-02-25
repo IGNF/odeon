@@ -18,83 +18,91 @@ STD_OUT_LOGGER = get_new_logger("stdout_detection")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 ACCELERATOR = "gpu"
+BATCH_SIZE = 5
+NUM_WORKERS = 4
+THRESHOLD = 0.5
 
 
 class DetectCLI(BaseTool):
 
-    def __init__(self,
-                 verbosity,
-                 img_size_pixel,
-                 resolution,
-                 model_name,
-                 file_name,
-                 n_classes,
-                 batch_size,
-                 use_gpu,
-                 idx_gpu,
-                 interruption_recovery,
-                 mutual_exclusion,
-                 output_path,
-                 output_type,
-                 sparse_mode,
-                 threshold,
-                 margin=None,
-                 num_worker=None,
-                 num_thread=None,
-                 dataset=None,
-                 zone=None,
-                 device=None,
-                 accelerator=ACCELERATOR,
-                 num_nodes=1,
-                 num_processes=None,
-                 ):
+    def __init__(
+        self,
+        model_name,
+        model_filename,
+        output_path,
+        output_type="uint8",
+        img_size_pixel=None,
+        test_file=None,
+        image_bands=None,
+        mask_bands=None,
+        class_labels=None,
+        resolution=None,
+        batch_size=BATCH_SIZE,
+        device=None,
+        accelerator=ACCELERATOR,
+        num_nodes=1,
+        num_processes=None,
+        num_workers=NUM_WORKERS,
+        strategy=None,
+        name_exp_log=None,
+        version_name=None,
+        testing=False,
+        threshold=THRESHOLD,
+        margin=None,
+        zone=None,
+        sparse_mode=None,
+        dataset=None,
+        ):
 
-        self.verbosity = verbosity
-        self.img_size_pixel = img_size_pixel
-        self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
-        self.margin = margin
         self.model_name = model_name
-        self.file_name = file_name
-        self.n_classes = n_classes
-        self.batch_size = batch_size
-        self.use_gpu = use_gpu
-        STD_OUT_LOGGER.info(f"""CUDA available? {torch.cuda.is_available()}""")
-        self.use_gpu = False if torch.cuda.is_available() is False else self.use_gpu
-        self.idx_gpu = idx_gpu
-        self.num_worker = num_worker
-        self.num_thread = num_thread
-        self.interruption_recovery = interruption_recovery
+        self.model_filename = model_filename
         self.output_path = output_path
         self.output_type = output_type
-        self.sparse_mode = sparse_mode
+        self.img_size_pixel = img_size_pixel
+        self.test_file = test_file
+        self.image_bands = image_bands
+        self.mask_bands = mask_bands
+        self.class_labels = class_labels
+        self.resolution = resolution
+        self.batch_size = batch_size
+        self.device = device
+        self.accelerator = accelerator
+        self.num_nodes = num_nodes
+        self.num_processes = num_processes
+        self.num_workers = num_workers
+        self.strategy = strategy
+        self.version_name = version_name
+        self.testing = testing
         self.threshold = threshold
+        self.margin = margin
+        self.sparse_mode = sparse_mode
+        self.dataset = dataset
+        self.img_size_pixel = img_size_pixel
+        self.resolution = resolution
+        self.margin = margin
+
         self.df = None
         self.detector = None
-        self.mutual_exclusion = mutual_exclusion
 
         if zone is not None:
             self.mode = "zone"
             self.zone = zone
         else:
             self.mode = "dataset"
-            self.dataset = dataset
-        STD_OUT_LOGGER.info(f"""detection type: {self.mode}
 
-device: {"cuda" if self.use_gpu else "cpu"}
-model: {self.model_name}
-model file: {self.file_name}
-number of classes: {self.n_classes}
-batch size: {self.batch_size}
-image size pixel: {self.img_size_pixel}
-resolution: {self.resolution}
-activation: {"softmax" if self.mutual_exclusion is True else "sigmoïd"}
-output type: {self.output_type}""")
-        if self.mode == "zone":
+        STD_OUT_LOGGER.info(
+            f"Detection : \n" 
+            f"detection type: {self.mode} \n"
+            f"device: {self.device} \n"
+            f"model: {self.model_name} \n"
+            f"model file: {self.file_name} \n"
+            f"number of classes: {self.data_module.num_classes} \n"
+            f"batch size: {self.batch_size} \n"
+            f"image size pixel: {self.img_size_pixel} \n"
+            f"resolution: {self.resolution} \n"
+            f"output type: {self.output_type}"
+            )
 
-            STD_OUT_LOGGER.info(f"""overlap margin: {self.zone["margin_zone"]}
-compute digital elevation model: {self.zone["dem"]}
-tile factor: {self.zone["tile_factor"]}
-            """)
         try:
             self.check()
             self.configure()
@@ -202,30 +210,7 @@ tile factor: {self.zone["tile_factor"]}
             n_channel = get_number_of_band(dict_of_raster, dem)
             LOGGER.debug(f"number of channel input: {n_channel}")
 
-            self.detector = ZoneDetector(dict_of_raster=dict_of_raster,
-                                         extent=extent,
-                                         tile_factor=tile_factor,
-                                         margin_zone=margin_zone,
-                                         job=zone_detection_job,
-                                         output_path=self.output_path,
-                                         model_name=self.model_name,
-                                         file_name=self.file_name,
-                                         n_classes=self.n_classes,
-                                         n_channel=n_channel,
-                                         img_size_pixel=self.img_size_pixel,
-                                         resolution=self.resolution,
-                                         batch_size=self.batch_size,
-                                         use_gpu=self.use_gpu,
-                                         idx_gpu=self.idx_gpu,
-                                         num_worker=self.num_worker,
-                                         num_thread=self.num_thread,
-                                         mutual_exclusion=self.mutual_exclusion,
-                                         output_type=self.output_type,
-                                         sparse_mode=self.sparse_mode,
-                                         threshold=self.threshold,
-                                         verbosity=self.verbosity,
-                                         dem=dem,
-                                         out_dalle_size=out_dalle_size)
+
 
             LOGGER.debug(self.detector.__dict__)
             self.detector.configure()

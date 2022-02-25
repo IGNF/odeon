@@ -19,7 +19,7 @@ PERCENTAGE_VAL = 0.3
 class SegDataModule(LightningDataModule):
 
     def __init__(self,
-                train_file,
+                train_file=None,
                 val_file=None,
                 test_file=None,
                 image_bands=None,
@@ -151,19 +151,20 @@ class SegDataModule(LightningDataModule):
 
     def get_split_files(self):
         # Read csv file with columns: image, mask
-        train_image_files, train_mask_files = self.read_csv_sample_file(self.train_file)
-        if self.val_file is not None:
-            val_image_files, val_mask_files = self.read_csv_sample_file(self.val_file)
-        else:
-            train_image_files, val_image_files, train_mask_files, val_mask_files = \
-                train_test_split(train_image_files,
-                                 train_mask_files,
-                                 test_size=self.percentage_val,
-                                 random_state=self.random_seed)
-        for list_files in [train_image_files, val_image_files, train_mask_files, val_mask_files]:
-            check_files(list_files)
-        self.train_image_files, self.train_mask_files = train_image_files, train_mask_files
-        self.val_image_files, self.val_mask_files = val_image_files, val_mask_files
+        if self.train_file and self.val_file:
+            train_image_files, train_mask_files = self.read_csv_sample_file(self.train_file)
+            if self.val_file is not None:
+                val_image_files, val_mask_files = self.read_csv_sample_file(self.val_file)
+            else:
+                train_image_files, val_image_files, train_mask_files, val_mask_files = \
+                    train_test_split(train_image_files,
+                                    train_mask_files,
+                                    test_size=self.percentage_val,
+                                    random_state=self.random_seed)
+            for list_files in [train_image_files, val_image_files, train_mask_files, val_mask_files]:
+                check_files(list_files)
+            self.train_image_files, self.train_mask_files = train_image_files, train_mask_files
+            self.val_image_files, self.val_mask_files = val_image_files, val_mask_files
 
         if self.test_file is not None:
             test_image_files, test_mask_files = self.read_csv_sample_file(self.test_file)
@@ -262,9 +263,9 @@ class SegDataModule(LightningDataModule):
 
     def get_resolution(self, parameter_resolution):
         if isinstance(parameter_resolution, int):
-            self.resolution["train"] = parameter_resolution
-            self.resolution["val"]  = parameter_resolution
-            self.resolution["test"]  = parameter_resolution
+            self.resolution["train"] = [parameter_resolution, parameter_resolution]
+            self.resolution["val"]  = [parameter_resolution, parameter_resolution]
+            self.resolution["test"]  = [parameter_resolution, parameter_resolution]
         elif isinstance(parameter_resolution, (tuple, list, np.ndarray)):
             self.resolution["train"]  = parameter_resolution[0]
             self.resolution["val"]  = parameter_resolution[1]
