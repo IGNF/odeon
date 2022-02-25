@@ -112,7 +112,8 @@
                 "early_stopping": {"type": ["string", "boolean"]},
                 "save_top_k":  {"type": "integer", "default": 3},
                 "use_wandb": {"type": "boolean", "default": false},
-                "testing": {"type": "boolean", "default": false}
+                "testing": {"type": "boolean", "default": false},
+                "progress":  {"type": "integer", "default": 1}
             }
         }
     }

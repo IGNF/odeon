@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger, WandbLogger
 # from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import LearningRateMonitor, EarlyStopping
+from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning import (
     Trainer,
     seed_everything
@@ -111,8 +112,9 @@ class TrainCLI(BaseTool):
         get_prediction=False,
         prediction_output_type="uint8",
         testing=False,
+        progress=1
         ):
-
+    
         self.train_file = train_file
         self.val_file = val_file
         self.test_file = test_file
@@ -160,6 +162,7 @@ class TrainCLI(BaseTool):
         self.get_prediction = get_prediction
         self.prediction_output_type = prediction_output_type
         self.testing = testing
+        self.progress_rate = progress
 
         if name_exp_log is None:
             self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
@@ -413,6 +416,13 @@ class TrainCLI(BaseTool):
                                                         output_type=self.prediction_output_type,
                                                         write_interval="batch")
             self.callbacks.append(custom_pred_writer)
+        
+        if self.progress_rate <= 0 :
+            enable_progress_bar = False
+        else :
+            progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
+            self.callbacks.append(progress_bar)
+            enable_progress_bar = True
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
                                devices=self.device,
@@ -423,7 +433,8 @@ class TrainCLI(BaseTool):
                                deterministic=self.deterministic,
                                strategy=self.strategy,
                                num_nodes=self.num_nodes,
-                               num_processes=self.num_processes)
+                               num_processes=self.num_processes,
+                               enable_progress_bar=enable_progress_bar)
 
     def __call__(self):
         """
