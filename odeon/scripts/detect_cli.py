@@ -1,5 +1,5 @@
 import os
-import pandas as pd
+import yaml
 import torch
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
@@ -51,6 +51,7 @@ class DetectCLI(BaseTool):
         resolution,
         # Output_param
         output_path,
+        hparams_file=None,
         output_type=DEFAULT_OUTPUT_TYPE,
         class_labels=None,
         sparse_mode=None,
@@ -78,6 +79,8 @@ class DetectCLI(BaseTool):
         # Model
         self.model_name = model_name
         self.model_filename = file_name
+        self.hparams_file = hparams_file
+
         # Image
         self.img_size_pixel = img_size_pixel
         self.resolution = resolution
@@ -120,7 +123,7 @@ class DetectCLI(BaseTool):
         if zone is not None:
             self.mode = "zone"
             self.zone = zone
-            print("In zone part, will  be implemented soon...")
+            print("In zone part, will be implemented soon...")
 
         else:
             self.mode = "dataset"
@@ -176,20 +179,13 @@ class DetectCLI(BaseTool):
 
     def __call__(self):
         try:
-            prediction_ckpt = None
+            predict_ckpt = None
             if self.model_ext == ".ckpt":
-                prediction_ckpt = self.model_filename
-
-            elif self.model_ext == ".pth":
-                # Load model weights into the model of the seg module
-                model_state_dict = torch.load(os.path.join(self.model_filename))
-                self.seg_module.model.load_state_dict(state_dict=model_state_dict)
-                LOGGER.info(f"Prediction with file :{self.model_filename}")
+                predict_ckpt = self.model_filename
 
             self.trainer.predict(self.seg_module,
                                  datamodule=self.data_module,
-                                 ckpt_path=prediction_ckpt)
-
+                                 ckpt_path=predict_ckpt)
         except OdeonError as error:
             raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                 "ERROR: Something went wrong during the test step of the training",
@@ -206,8 +202,28 @@ class DetectCLI(BaseTool):
                              stack_trace=error)
 
     def configure(self):
-        self.init_params = torch.load(self.model_filename)["hyper_parameters"]
-        self.seg_module = SegmentationTask(**self.init_params)
+        if self.model_ext == ".ckpt":
+            self.init_params = torch.load(self.model_filename)["hyper_parameters"]
+            self.seg_module = SegmentationTask(**self.init_params)
+
+        elif self.model_ext == ".pth" and self.hparams_file is not None:
+            with open(self.hparams_file, "r") as stream:
+                try:
+                    self.init_params = yaml.safe_load(stream)
+                except yaml.YAMLError as error:
+                    raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
+                                    "something went wrong during detection configuration",
+                                    stack_trace=error)
+            self.seg_module = SegmentationTask(**self.init_params)
+            self.seg_module.setup(stage="predict")
+            model_state_dict = torch.load(os.path.join(self.model_filename))
+            self.seg_module.model.load_state_dict(state_dict=model_state_dict)
+            LOGGER.info(f"Prediction with file :{self.model_filename}")
+
+        else:
+            LOGGER.error('ERROR: Detection tool work only with .ckpt and .pth files. For .pth you have to declare a hparams_file')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                "The input parameter labels is incorrect.")
 
         # Loggers definition
         loggers = []

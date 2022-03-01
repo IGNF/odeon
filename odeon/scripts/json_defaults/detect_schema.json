@@ -6,7 +6,8 @@
         "type": "object",
         "properties": {
           "model_name": {"type": "string"},
-          "file_name": {"type": "string"}
+          "file_name": {"type": "string"},
+          "hparams_file": {"type": "string"}
         },
         "required": ["model_name", "file_name"]
       },

@@ -43,7 +43,7 @@ class SegmentationTask(pl.LightningModule):
         self.load_pretrained_weights = load_pretrained_weights
         self.init_model_weights = init_model_weights
         self.loss_classes_weights = self.num_classes * [1] if loss_classes_weights is None else loss_classes_weights
-        print("dans l'init", self.loss_classes_weights)
+
         # Variables not stocked in hparams dict
         self.model = None
         self.criterion = None
