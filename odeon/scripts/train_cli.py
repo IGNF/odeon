@@ -457,12 +457,14 @@ class TrainCLI(BaseTool):
 
         if self.test_file is not None:
             try:
+
                 best_val_loss_ckpt_path = None
                 if self.model_out_ext == ".ckpt":
                     ckpt_val_loss_folder = os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt", self.version_name)
                     best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
                                                                         monitor="val_loss",
                                                                         mode="min")
+
                 elif self.model_out_ext == ".pth":
                     # Load model weights into the model of the seg module
                     best_model_state_dict = torch.load(os.path.join(self.output_folder, self.model_filename))
@@ -473,6 +475,7 @@ class TrainCLI(BaseTool):
                     self.trainer.predict(self.seg_module,
                                          datamodule=self.data_module,
                                          ckpt_path=best_val_loss_ckpt_path)
+
                 else:
                     self.trainer.test(self.seg_module,
                                       datamodule=self.data_module,

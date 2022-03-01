@@ -56,6 +56,10 @@ class LightningCheckpoint(ModelCheckpoint):
 
 class HistorySaver(pl.Callback):
     
+    def __init__(self):
+        super().__init__()
+        self.idx_loggers = None
+
     def on_fit_start(self, trainer, pl_module):
         if pl_module.logger is not None:
             idx_csv_loggers = [idx for idx, logger in enumerate(pl_module.logger.experiment)\
@@ -64,7 +68,17 @@ class HistorySaver(pl.Callback):
                 self.idx_loggers = {'val': idx_csv_loggers[0], 'test': idx_csv_loggers[-1], "predict": idx_csv_loggers[-1]}
             else:
                 self.idx_loggers = {'val': None, 'test': None}
-    
+
+    def on_test_start(self, trainer, pl_module):
+        if self.idx_loggers is None:
+            self.on_fit_start(trainer, pl_module)
+        return super().on_test_start(trainer, pl_module)
+
+    def on_predict_start(self, trainer, pl_module):
+        if self.idx_loggers is None:
+            self.on_fit_start(trainer, pl_module)
+        return super().on_predict_end(trainer, pl_module)
+
     @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['val']
@@ -82,75 +96,6 @@ class HistorySaver(pl.Callback):
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
 
-
-class ContinueTraining(pl.Callback):
-
-    def __init__(self,
-                 out_dir,
-                 out_filename,
-                 save_history=False):
-        super().__init__()
-        self.out_dir = out_dir
-        self.out_filename = out_filename
-        self.save_history = save_history
-        self.train_files = get_train_filenames(self.out_dir, self.out_filename)
-        check_train_files = [self.train_files["model"], self.train_files["optimizer"]]
-        files_exist(check_train_files)
-        self.history_dict = None
-
-    def on_fit_start(self, trainer, pl_module):
-        current_device = next(iter(pl_module.model.parameters())).device
-        model_state_dict = torch.load(self.train_files["model"],
-                                      map_location=current_device)
-        pl_module.model.load_state_dict(state_dict=model_state_dict)
-
-        optimizer_state_dict = torch.load(self.train_files["optimizer"],
-                                          map_location=current_device)
-
-        pl_module.optimizer.load_state_dict(state_dict=optimizer_state_dict)
-
-        if Path(self.train_files["history"]).exists():
-            # Recuperation epoch and learning rate to resume the training
-            try:
-                with open(self.train_files["history"], 'r') as file:
-                    self.history_dict = json.load(file)
-            except OdeonError as error:
-                raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                                 f"{self.train_files['history']} not found",
-                                 stack_trace=error)
-
-        if Path(self.train_files["train"]).exists():
-            train_dict = torch.load(self.train_files["train"])
-            pl_module.scheduler.load_state_dict(train_dict["scheduler"])
-        return super().on_fit_start(trainer, pl_module)
-
-
-class ExoticCheckPoint(pl.Callback):
-
-    def __init__(self, out_folder, out_filename, model_out_ext):
-        super().__init__()
-        self.out_folder = out_folder
-        self.model_out_ext = model_out_ext
-        if os.path.splitext(out_filename)[-1] != self.model_out_ext:
-            self.out_filename = os.path.splitext(out_filename)[0] + self.model_out_ext
-        else:
-            self.out_filename = out_filename
-        self.best_val_loss = None
-        self.input_sample = None
-
-    def on_fit_start(self, trainer, pl_module):
-        # if self.model_out_ext == ".onnx":
-        #     self.sample_loader = DataLoader(dataset=trainer.datamodule.val_dataset,
-        #                                     batch_size=trainer.datamodule.train_batch_size,
-        #                                     num_workers=trainer.datamodule.num_workers,
-        #                                     pin_memory=trainer.datamodule.pin_memory)
-        #     self.input_sample = next(iter(self.sample_loader))["image"]
-        return super().on_fit_start(trainer, pl_module)
-
-    @rank_zero_only
-    def on_validation_epoch_end(self, trainer, pl_module):
-        self.compare_and_save(trainer, pl_module)
-
     @rank_zero_only
     def on_predict_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['predict']
@@ -158,7 +103,6 @@ class ExoticCheckPoint(pl.Callback):
         metric_collection['loss'] = pl_module.predict_epoch_loss
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
-        return super().on_predict_end(trainer, pl_module)
 
 
 class CustomPredictionWriter(BasePredictionWriter):
@@ -178,7 +122,7 @@ class CustomPredictionWriter(BasePredictionWriter):
         if self.img_size_pixel is None:
             self.img_size_pixel = min(trainer.datamodule.sample_dims['image'][0],
                                       trainer.datamodule.sample_dims['image'][1])
-    
+
         self.gdal_options = {"compress": "LZW",
                              "tiled": True,
                              "blockxsize": self.img_size_pixel,

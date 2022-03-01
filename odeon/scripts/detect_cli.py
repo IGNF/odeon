@@ -202,6 +202,7 @@ class DetectCLI(BaseTool):
                              stack_trace=error)
 
     def configure(self):
+
         if self.model_ext == ".ckpt":
             self.init_params = torch.load(self.model_filename)["hyper_parameters"]
             self.seg_module = SegmentationTask(**self.init_params)
@@ -215,7 +216,7 @@ class DetectCLI(BaseTool):
                                     "something went wrong during detection configuration",
                                     stack_trace=error)
             self.seg_module = SegmentationTask(**self.init_params)
-            self.seg_module.setup(stage="predict")
+            self.seg_module.setup()
             model_state_dict = torch.load(os.path.join(self.model_filename))
             self.seg_module.model.load_state_dict(state_dict=model_state_dict)
             LOGGER.info(f"Prediction with file :{self.model_filename}")
@@ -223,7 +224,7 @@ class DetectCLI(BaseTool):
         else:
             LOGGER.error('ERROR: Detection tool work only with .ckpt and .pth files. For .pth you have to declare a hparams_file')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                "The input parameter labels is incorrect.")
+                                "The input parameter file_name is incorrect.")
 
         # Loggers definition
         loggers = []
@@ -232,8 +233,8 @@ class DetectCLI(BaseTool):
         loggers.append(detect_csv_logger)
 
         # Callbacks definition
-        path_predictions = os.path.join(self.output_folder, "predictions")
-        custom_pred_writer = CustomPredictionWriter(output_dir=path_predictions,
+        path_detections = os.path.join(self.output_folder, "detections")
+        custom_pred_writer = CustomPredictionWriter(output_dir=path_detections,
                                                     output_type=self.output_type,
                                                     write_interval="batch")
         self.callbacks = [custom_pred_writer]

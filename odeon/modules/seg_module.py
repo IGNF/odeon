@@ -56,15 +56,16 @@ class SegmentationTask(pl.LightningModule):
                                   "optimizer_config", "learning_rate", "scheduler_config", "patience", "load_pretrained_weights", 
                                   "init_model_weights", "loss_classes_weights")
 
-    def setup(self, stage):
-        self.model = build_model(model_name=self.hparams.model_name,
-                                 n_channels=self.hparams.num_channels,
-                                 n_classes=self.hparams.num_classes,
-                                 init_model_weights=self.hparams.init_model_weights,
-                                 load_pretrained_weights=self.hparams.load_pretrained_weights
-                                 )
-
-        self.criterion= build_loss_function(self.hparams.criterion_name, self.hparams.loss_classes_weights)
+    def setup(self, stage=None):
+        if self.model is None:
+            self.model = build_model(model_name=self.hparams.model_name,
+                                    n_channels=self.hparams.num_channels,
+                                    n_classes=self.hparams.num_classes,
+                                    init_model_weights=self.hparams.init_model_weights,
+                                    load_pretrained_weights=self.hparams.load_pretrained_weights
+                                    )
+        if self.criterion is None:
+            self.criterion= build_loss_function(self.hparams.criterion_name, self.hparams.loss_classes_weights)
 
         if stage == "fit":
             self.train_epoch_loss, self.val_epoch_loss = None, None
