@@ -2,11 +2,46 @@
     "type": "object",
     "properties":
     {
+      "model": {
+        "type": "object",
+        "properties": {
+          "model_name": {"type": "string"},
+          "file_name": {"type": "string"}
+        },
+        "required": ["model_name", "file_name"]
+      },
       "image": {
         "type": "object",
         "properties": {
           "img_size_pixel": {"type": "integer", "default": 256, "minimum": 1},
           "resolution": { "type": ["number", "array"], "items": [{"type": "number"}, { "type": "number"}], "default": 0.2}
+        }
+      },
+      "output_param": {
+        "type": "object",
+        "properties":{
+          "output_path": {"type": "string"},
+          "output_type": {"type": "string", "enum": ["bit", "uint8", "float32"], "default": "uint8"},
+          "class_labels": {"type": "array", "items": {"type": "string"}},
+          "sparse_mode": {"type": "boolean", "default": false},
+          "threshold": {"type": "number", "default": 0.5}
+        },
+        "required": ["output_path", "output_type"]
+      },
+      "detect_param": {
+        "type": "object",
+        "properties": {
+          "batch_size": {"type": "integer",  "minimum": 1, "default": 1},
+          "device": {"type": ["string", "array", "integer"]},
+          "accelerator": {"type": "string", "enum":["auto", "gpu", "ipu", "tpu", "cpu"], "default": "gpu"},
+          "num_nodes": {"type": "integer", "default": 1},
+          "num_processes": {"type": "integer"},
+          "num_workers": {"type": "integer", "minimum": 0},
+          "deterministic": {"type": "boolean", "default": false},
+          "testing": {"type": "boolean", "default": false},
+          "get_metrics" : {"type": "boolean", "default": true},
+          "progress":  {"type": "integer", "default": 1},
+          "strategy": {"type": "string"}
         }
       },
       "zone": {
@@ -31,35 +66,13 @@
         "type": "object",
         "properties": {
           "path": {"type": "string"},
-          "image_bands": {"type": "array"}
+          "image_bands": {"type": "array"},
+          "mask_bands": {"type": "array"}
         },
         "required": ["path"]
       },
-      "model": {
-        "type": "object",
-        "properties": {
-          "model_name": {"type": "string"},
-          "file_name": {"type": "string"}
-        },
-        "required": ["model_name", "file_name"]
-      },
-      "detect_param": {
-        "type": "object",
-        "properties": {
-          "batch_size": {"type": "integer",  "minimum": 1, "default": 1},
-          "num_workers": {"type": "integer", "minimum": 0}
-        }
-      },
-      "output_param": {
-        "type": "object",
-        "properties":{
-          "output_path": {"type": "string"},
-          "output_type": {"type": "string", "enum": ["bit", "uint8", "float32"], "default": "uint8"},
-          "sparse_mode": {"type": "boolean", "default": false},
-          "threshold": {"type": "number", "default": 0.5}
-        },
-        "required": ["output_path", "output_type"]
-      }
-    },
-  "required": ["model", "output_param", "detect_param", "image"]
+  "required": ["model", "output_param", "detect_param", "image"],
+  "oneOf": [{ "required": ["zone"]},
+            {"required": ["dataset"]}]
+    }
 }

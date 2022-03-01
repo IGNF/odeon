@@ -98,7 +98,7 @@
                 "num_workers": {"type": "integer", "default": 4},
                 "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
                 "device": {"type": ["string", "array", "integer"]},
-                "accelerator": {"type": "string", "default": "gpu"},
+                "accelerator": {"type": "string", "enum":["auto", "gpu", "ipu", "tpu", "cpu"], "default": "gpu"},
                 "num_nodes": {"type": "integer", "default": 1},
                 "num_processes": {"type": "integer"},
                 "reproducible": {"type": "boolean", "default": false},

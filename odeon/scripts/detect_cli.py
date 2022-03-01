@@ -1,17 +1,27 @@
 import os
 import pandas as pd
-import rasterio
 import torch
-import geopandas as gpd
-from shapely import wkt
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
+from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
+from pytorch_lightning import (
+    Trainer,
+    seed_everything
+)
+from zmq import device
+from odeon.callbacks.utils_callbacks import (
+    CustomPredictionWriter,
+    HistorySaver
+)
 from odeon.commons.core import BaseTool
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.rasterio import get_number_of_band
-from odeon.nn.detector import BaseDetector, PatchDetector, ZoneDetector
-from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, ZoneDetectionJobNoDalle
+from odeon.nn.job import ZoneDetectionJob, ZoneDetectionJobNoDalle
+from odeon.modules.datamodule import SegDataModule
+from odeon.modules.seg_module import SegmentationTask
+from odeon.nn.transforms import Compose, ToDoubleTensor
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
@@ -21,49 +31,65 @@ ACCELERATOR = "gpu"
 BATCH_SIZE = 5
 NUM_WORKERS = 4
 THRESHOLD = 0.5
+DEFAULT_OUTPUT_TYPE="uint8"
+PROGRESS = 1
+RANDOM_SEED = 42
+NUM_PROCESSES = 1
+NUM_NODES = 1
 
 
 class DetectCLI(BaseTool):
 
     def __init__(
         self,
+        verbosity,
+        # Model
         model_name,
-        model_filename,
+        file_name,
+        # Image
+        img_size_pixel,
+        resolution,
+        # Output_param
         output_path,
-        output_type="uint8",
-        img_size_pixel=None,
-        test_file=None,
-        image_bands=None,
-        mask_bands=None,
+        output_type=DEFAULT_OUTPUT_TYPE,
         class_labels=None,
-        resolution=None,
+        sparse_mode=None,
+        threshold=THRESHOLD,
+        # Detect_param
         batch_size=BATCH_SIZE,
         device=None,
         accelerator=ACCELERATOR,
-        num_nodes=1,
-        num_processes=None,
+        num_nodes=NUM_NODES,
+        num_processes=NUM_PROCESSES,
         num_workers=NUM_WORKERS,
+        deterministic=False,
         strategy=None,
-        name_exp_log=None,
-        version_name=None,
         testing=False,
-        threshold=THRESHOLD,
-        margin=None,
-        zone=None,
-        sparse_mode=None,
+        get_metrics=True,
+        progress=PROGRESS,
+        # Dataset
         dataset=None,
+        # Zone
+        zone=None,
         ):
 
+        self.verbosity = verbosity
+
+        # Model
         self.model_name = model_name
-        self.model_filename = model_filename
-        self.output_path = output_path
-        self.output_type = output_type
+        self.model_filename = file_name
+        # Image
         self.img_size_pixel = img_size_pixel
-        self.test_file = test_file
-        self.image_bands = image_bands
-        self.mask_bands = mask_bands
-        self.class_labels = class_labels
         self.resolution = resolution
+
+        # Output_param
+        self.output_folder = output_path
+        self.output_type = output_type
+        self.class_labels = class_labels
+        self.sparse_mode = sparse_mode
+        self.threshold = threshold
+
+        # Detect_param
         self.batch_size = batch_size
         self.device = device
         self.accelerator = accelerator
@@ -71,31 +97,65 @@ class DetectCLI(BaseTool):
         self.num_processes = num_processes
         self.num_workers = num_workers
         self.strategy = strategy
-        self.version_name = version_name
         self.testing = testing
-        self.threshold = threshold
-        self.margin = margin
-        self.sparse_mode = sparse_mode
-        self.dataset = dataset
-        self.img_size_pixel = img_size_pixel
-        self.resolution = resolution
-        self.margin = margin
+        self.get_metrics = get_metrics
+        self.progress_rate = progress
 
         self.df = None
         self.detector = None
 
+        if deterministic is True:
+            self.random_seed = RANDOM_SEED
+            seed_everything(self.random_seed, workers=True)
+            self.deterministic = False
+        else:
+            self.random_seed = None
+            self.deterministic = False
+
+        self.model_ext = os.path.splitext(self.model_filename)[-1]
+
+        # implement TTA?
+        self.transforms = {"test": Compose([ToDoubleTensor()])}
+
         if zone is not None:
             self.mode = "zone"
             self.zone = zone
+            print("In zone part, will  be implemented soon...")
+
         else:
             self.mode = "dataset"
+            self.dataset =dataset
+
+            self.data_module = SegDataModule(test_file=self.dataset["path"],
+                                             image_bands=self.dataset["image_bands"],
+                                             mask_bands=self.dataset["mask_bands"],
+                                             transforms=self.transforms,
+                                             width=None,
+                                             height=None,
+                                             batch_size=self.batch_size,
+                                             num_workers=self.num_workers,
+                                             pin_memory=True,
+                                             deterministic=False,
+                                             resolution=self.resolution,
+                                             get_sample_info=True,
+                                             subset=self.testing)
+
+        if class_labels is not None:
+            if len(class_labels) == self.data_module.num_classes:
+                self.class_labels = class_labels
+            else:
+                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                    "The input parameter labels is incorrect.")
+        else:
+            self.class_labels = [f'class {i + 1}' for i in range(self.data_module.num_classes)]
 
         STD_OUT_LOGGER.info(
-            f"Detection : \n" 
+            f"Detection : \n"
             f"detection type: {self.mode} \n"
             f"device: {self.device} \n"
             f"model: {self.model_name} \n"
-            f"model file: {self.file_name} \n"
+            f"model file: {self.model_filename} \n"
             f"number of classes: {self.data_module.num_classes} \n"
             f"batch size: {self.batch_size} \n"
             f"image size pixel: {self.img_size_pixel} \n"
@@ -115,102 +175,69 @@ class DetectCLI(BaseTool):
                              stack_trace=error)
 
     def __call__(self):
-        self.detector.run()
+        try:
+            prediction_ckpt = None
+            if self.model_ext == ".ckpt":
+                prediction_ckpt = self.model_filename
+
+            elif self.model_ext == ".pth":
+                # Load model weights into the model of the seg module
+                model_state_dict = torch.load(os.path.join(self.model_filename))
+                self.seg_module.model.load_state_dict(state_dict=model_state_dict)
+                LOGGER.info(f"Prediction with file :{self.model_filename}")
+
+            self.trainer.predict(self.seg_module,
+                                 datamodule=self.data_module,
+                                 ckpt_path=prediction_ckpt)
+
+        except OdeonError as error:
+            raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
+                                "ERROR: Something went wrong during the test step of the training",
+                                stack_trace=error)
 
     def check(self):
         try:
-            files_exist([self.file_name])
-            dirs_exist([self.output_path])
+            files_to_check = [self.model_filename]
+            files_exist(files_to_check)
+            dirs_exist([self.output_folder])
         except OdeonError as error:
             raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
                              "something went wrong during detection configuration",
                              stack_trace=error)
-        else:
-            pass
 
     def configure(self):
-        if self.mode == "dataset":
-            if self.dataset["path"].endswith(".csv"):
-                self.df = pd.read_csv(self.dataset["path"], usecols=[0], header=None, names=["img_file"])
-            else:
-                img_array = [f for f in os.listdir(self.dataset["path"]) if os.path.isfile(os.path.join(
-                    self.dataset["path"], f))]
-                self.df = pd.DataFrame(img_array, columns={"img_file": str})
-            self.df["img_output_file"] = self.df.apply(lambda row: os.path.join(self.output_path,
-                                                                                str(row["img_file"]).split("/")[-1]),
-                                                       axis=1)
-            self.df["job_done"] = False
-            self.df["transform"] = object()
-            if "image_bands" in self.dataset.keys():
-                image_bands = self.dataset["image_bands"]
-                n_channel = len(image_bands)
-            else:
-                with rasterio.open(self.df["img_file"].iloc[0]) as src:
-                    n_channel = src.count
-                    image_bands = range(1, n_channel + 1)
+        self.init_params = torch.load(self.model_filename)["hyper_parameters"]
+        self.seg_module = SegmentationTask(**self.init_params)
 
-            patch_detection_job = PatchJobDetection(self.df, self.output_path, self.interruption_recovery)
-            self.detector = PatchDetector(patch_detection_job,
-                                          self.output_path,
-                                          self.model_name,
-                                          self.file_name,
-                                          n_classes=self.n_classes,
-                                          n_channel=n_channel,
-                                          img_size_pixel=self.img_size_pixel,
-                                          resolution=self.resolution,
-                                          batch_size=self.batch_size,
-                                          use_gpu=self.use_gpu,
-                                          idx_gpu=self.idx_gpu,
-                                          num_worker=self.num_worker,
-                                          num_thread=self.num_thread,
-                                          mutual_exclusion=self.mutual_exclusion,
-                                          output_type=self.output_type,
-                                          sparse_mode=self.sparse_mode,
-                                          threshold=self.threshold,
-                                          verbosity=self.verbosity,
-                                          image_bands=image_bands)
-            self.detector.configure()
-        else:
-            dict_of_raster = self.zone["sources"]
-            with rasterio.open(next(iter(dict_of_raster.values()))["path"]) as src:
-                crs = src.crs
-                LOGGER.debug(crs)
-            if os.path.isfile(self.zone["extent"]):
-                gdf_zone = gpd.GeoDataFrame.from_file(self.zone["extent"])
-            else:
-                gdf_zone = gpd.GeoDataFrame([{"id": 1, "geometry": wkt.loads(self.zone["extent"])}],
-                                            geometry="geometry",
-                                            crs=crs)
-            LOGGER.debug(gdf_zone)
-            extent = self.zone["extent"]
-            tile_factor = self.zone["tile_factor"]
-            margin_zone = self.zone["margin_zone"]
-            output_size = self.img_size_pixel * tile_factor
-            out_dalle_size = self.zone["out_dalle_size"] if "out_dalle_size" in self.zone.keys() else None
-            LOGGER.debug(f"output_size {out_dalle_size}")
+        # Loggers definition
+        loggers = []
+        detect_csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder),
+                                      name="detect_csv")
+        loggers.append(detect_csv_logger)
 
-            self.df, _ = ZoneDetectionJob.build_job(gdf=gdf_zone,
-                                                    output_size=output_size,
-                                                    resolution=self.resolution,
-                                                    overlap=self.zone["margin_zone"],
-                                                    out_dalle_size=out_dalle_size)
+        # Callbacks definition
+        path_predictions = os.path.join(self.output_folder, "predictions")
+        custom_pred_writer = CustomPredictionWriter(output_dir=path_predictions,
+                                                    output_type=self.output_type,
+                                                    write_interval="batch")
+        self.callbacks = [custom_pred_writer]
 
-            LOGGER.debug(len(self.df))
+        if self.get_metrics:
+            self.callbacks.append(HistorySaver())
 
-            if out_dalle_size is not None:
-                zone_detection_job = ZoneDetectionJob(self.df,
-                                                      self.output_path,
-                                                      self.interruption_recovery)
-            else:
-                zone_detection_job = ZoneDetectionJobNoDalle(self.df,
-                                                             self.output_path,
-                                                             self.interruption_recovery)
-            zone_detection_job.save_job()
-            dem = self.zone["dem"]
-            n_channel = get_number_of_band(dict_of_raster, dem)
-            LOGGER.debug(f"number of channel input: {n_channel}")
+        if self.progress_rate <= 0 :
+            enable_progress_bar = False
+        else :
+            progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
+            self.callbacks.append(progress_bar)
+            enable_progress_bar = True
 
-
-
-            LOGGER.debug(self.detector.__dict__)
-            self.detector.configure()
+        self.trainer = Trainer(devices=self.device,
+                               accelerator=self.accelerator,
+                               callbacks=self.callbacks,
+                               logger=loggers,
+                               deterministic=self.deterministic,
+                               strategy=self.strategy,
+                               num_nodes=self.num_nodes,
+                               num_processes=self.num_processes,
+                               enable_progress_bar=enable_progress_bar)

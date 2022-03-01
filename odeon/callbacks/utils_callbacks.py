@@ -70,7 +70,7 @@ class HistorySaver(pl.Callback):
         logger_idx = self.idx_loggers['val']
         metric_collection = pl_module.val_epoch_metrics.copy()
         metric_collection['loss'] = pl_module.val_epoch_loss
-        metric_collection['learning rate'] = pl_module.learning_rate  # Add learning rate logging  
+        metric_collection['learning rate'] = pl_module.hparams.learning_rate  # Add learning rate logging  
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
 

@@ -79,14 +79,14 @@ class MetricsAdder(TensorboardCallback):
                                                                  pl_module.current_epoch)
             elif key_metric == "cm_macro":
                 fig_cm_macro = plot_confusion_matrix(metric_collection[key_metric],
-                                                     pl_module.class_labels,
+                                                     pl_module.hparams.class_labels,
                                                      output_path=None,
                                                      cmap="YlGn")
                 trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/Macro",
                                                                  fig_cm_macro,
                                                                  pl_module.current_epoch)
                 fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric],
-                                                          pl_module.class_labels,
+                                                          pl_module.hparams.class_labels,
                                                           output_path=None,
                                                           per_class_norm=True,
                                                           cmap="YlGn")
@@ -274,7 +274,14 @@ class HistogramAdder(TensorboardCallback):
 
 class PredictionsAdder(TensorboardCallback):
     
-    def __init__(self, train_samples=None, val_samples=None, test_samples=None, num_predictions=NUM_PREDICTIONS, display_bands=[1, 2, 3]):
+    def __init__(
+        self, train_samples=None,
+        val_samples=None,
+        test_samples=None,
+        num_predictions=NUM_PREDICTIONS,
+        display_bands=[1, 2, 3],
+        ):
+
         super().__init__()
         self.tensorboard_logger_idx = None
         self.train_samples = train_samples

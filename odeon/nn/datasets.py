@@ -102,11 +102,10 @@ class PatchDataset(Dataset):
         list of band indices to keep in sample generation, by default None
     mask_bands : [type], optional
         list of band indices to keep in sample generation, by default None
-
     """
 
     def __init__(self, image_files, mask_files, transform=None, width=None, height=None, image_bands=None,
-                 mask_bands=None, get_filename=False):
+                 mask_bands=None, get_sample_info=False):
 
         self.image_files = image_files
         self.image_bands = image_bands
@@ -115,7 +114,7 @@ class PatchDataset(Dataset):
         self.width = width
         self.height = height
         self.transform_function = transform
-        self.get_filename = get_filename
+        self.get_sample_info = get_sample_info
 
     def __len__(self):
         return len(self.image_files)
@@ -131,7 +130,6 @@ class PatchDataset(Dataset):
                                     resolution=None,
                                     band_indices=self.image_bands
                                     )
-
 
         # load mask file
         mask_file = self.mask_files[index]
@@ -150,7 +148,7 @@ class PatchDataset(Dataset):
             self.transform_function = ToDoubleTensor()
         sample = self.transform_function(**sample)
 
-        if self.get_filename:
+        if self.get_sample_info:
             sample["filename"] = os.path.basename(image_file)
             sample["affine"] = affine_to_ndarray(meta["transform"])
         return sample

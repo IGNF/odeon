@@ -18,7 +18,8 @@ def build_loss_function(loss_name, class_weight=None):
     if loss_name == "ce":
         if class_weight is not None:
             LOGGER.info(f"Weights used: {class_weight}")
-            class_weight = torch.FloatTensor(class_weight)
+            with torch.no_grad():
+                class_weight = torch.FloatTensor(class_weight)
         return CrossEntropyWithLogitsLoss(weight=class_weight)
     elif loss_name == "bce":
         return BCEWithLogitsLoss()

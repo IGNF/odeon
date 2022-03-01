@@ -32,7 +32,7 @@ class SegDataModule(LightningDataModule):
                 percentage_val=PERCENTAGE_VAL,
                 pin_memory=True,
                 deterministic=False,
-                get_prediction=False,
+                get_sample_info=False,
                 resolution=None,
                 subset=False):
 
@@ -48,7 +48,7 @@ class SegDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.percentage_val = percentage_val
         self.pin_memory = pin_memory
-        self.get_prediction = get_prediction
+        self.get_sample_info = get_sample_info
         self.subset = subset
         if deterministic:
             self.random_seed = None
@@ -104,7 +104,7 @@ class SegDataModule(LightningDataModule):
                                                  mask_bands=self.mask_bands,
                                                  width=self.width,
                                                  height=self.height,
-                                                 get_filename=self.get_prediction)
+                                                 get_sample_info=self.get_sample_info)
                 if self.subset is True:
                     self.test_dataset = Subset(self.test_dataset, range(0, 10))
 
@@ -166,7 +166,7 @@ class SegDataModule(LightningDataModule):
             self.train_image_files, self.train_mask_files = train_image_files, train_mask_files
             self.val_image_files, self.val_mask_files = val_image_files, val_mask_files
 
-        if self.test_file is not None:
+        if self.test_file:
             test_image_files, test_mask_files = self.read_csv_sample_file(self.test_file)
             for list_files in [test_image_files, test_mask_files]:
                 check_files(list_files)
@@ -192,23 +192,24 @@ class SegDataModule(LightningDataModule):
                              "Detections and masks have different width/height.")
 
     def get_dims_and_meta(self):
-        train_sample = self.get_samples(self.train_image_files,
-                                         self.train_mask_files)
-        val_sample = self.get_samples(self.val_image_files,
-                                      self.val_mask_files)
-        self.check_sample(train_sample)
-        self.check_sample(val_sample)
+        if self.train_file and self.val_file:
+            train_sample = self.get_samples(self.train_image_files,
+                                            self.train_mask_files)
+            val_sample = self.get_samples(self.val_image_files,
+                                        self.val_mask_files)
+            self.check_sample(train_sample)
+            self.check_sample(val_sample)
 
-        if train_sample['image'].shape != val_sample['image'].shape:
-            LOGGER.warning("WARNING: Data in train dataset and validation dataset don\'t have\
-                           the same dimensions.")
+            if train_sample['image'].shape != val_sample['image'].shape:
+                LOGGER.warning("WARNING: Data in train dataset and validation dataset don\'t have\
+                            the same dimensions.")
 
-        # Meta and resolution definition
-        self.resolution["train"] = train_sample["resolution"]
-        self.resolution["val"] = val_sample["resolution"]
+            # Meta and resolution definition
+            self.resolution["train"] = train_sample["resolution"]
+            self.resolution["val"] = val_sample["resolution"]
 
-        self.meta["train"] = train_sample["meta"]
-        self.meta["val"] = val_sample["meta"]
+            self.meta["train"] = train_sample["meta"]
+            self.meta["val"] = val_sample["meta"]
 
         if self.test_file:
             test_sample = self.get_samples(self.test_image_files,
@@ -220,7 +221,15 @@ class SegDataModule(LightningDataModule):
             self.resolution["test"] = self.resolution["val"]
             self.meta["test"] = self.meta["val"]
 
-        return {'image': train_sample['image'].shape, 'mask': train_sample['mask'].shape}
+        if self.train_file:
+            dims = {'image': train_sample['image'].shape, 'mask': train_sample['mask'].shape}
+        elif self.test_file:
+            dims = {'image': test_sample['image'].shape, 'mask': test_sample['mask'].shape}
+        else:
+            LOGGER.error("ERROR: SegDataModule need at least a train file or a test file to be instantiate.")
+            raise ValueError('Parameter train_file/test_file is not correct.')
+
+        return dims
 
     def get_bands(self, image_bands, mask_bands):
         if image_bands is None:
@@ -248,10 +257,11 @@ class SegDataModule(LightningDataModule):
             LOGGER.error("ERROR: Parameter batch_size should a list/tuple of length one, two or three.")
             raise ValueError('Parameter batch_size is not correct.')
 
-        assert train_batch_size <= len(self.train_image_files),\
+        if self.train_file and self.val_file:
+            assert train_batch_size <= len(self.train_image_files),\
+                "batch_size must be lower than the number of files in the dataset"
+            assert val_batch_size <= len(self.val_image_files),\
             "batch_size must be lower than the number of files in the dataset"
-        assert val_batch_size <= len(self.val_image_files),\
-         "batch_size must be lower than the number of files in the dataset"
 
         if self.test_file is not None:
             assert test_batch_size <= len(self.test_image_files),\

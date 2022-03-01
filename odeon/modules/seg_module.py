@@ -11,6 +11,8 @@ from odeon.nn.losses import build_loss_function
 from odeon.nn.optim import build_optimizer, build_scheduler
 
 PATIENCE = 30
+DEFAULT_CRITERION = "ce"
+DEFAULT_LR = 0.01
 
 
 class SegmentationTask(pl.LightningModule):
@@ -19,8 +21,8 @@ class SegmentationTask(pl.LightningModule):
                  num_classes,
                  num_channels,
                  class_labels,
-                 criterion_name,
-                 learning_rate,
+                 criterion_name=DEFAULT_CRITERION,
+                 learning_rate=DEFAULT_LR,
                  optimizer_config=None,
                  scheduler_config=None,
                  patience=PATIENCE,
@@ -40,8 +42,8 @@ class SegmentationTask(pl.LightningModule):
         self.patience = patience
         self.load_pretrained_weights = load_pretrained_weights
         self.init_model_weights = init_model_weights
-        self.loss_classes_weights = loss_classes_weights
-
+        self.loss_classes_weights = self.num_classes * [1] if loss_classes_weights is None else loss_classes_weights
+        print("dans l'init", self.loss_classes_weights)
         # Variables not stocked in hparams dict
         self.model = None
         self.criterion = None
@@ -189,7 +191,6 @@ class SegmentationTask(pl.LightningModule):
         config = {"optimizer": self.optimizer,
                   "lr_scheduler": self.scheduler,
                   "monitor": "val_loss"}
-
         return config
 
     def on_save_checkpoint(self, checkpoint):

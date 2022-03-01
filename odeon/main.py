@@ -178,20 +178,23 @@ def main():
                 image = conf["image"]
 
                 if "zone" in conf.keys():
-
                     zone = conf["zone"]
-                    detector = DetectCLI(verbosity, **image, **model, **output_param, **detect_param, zone=zone)
+                    detector = DetectCLI(verbosity,
+                                         **image,
+                                         **model,
+                                         **output_param,
+                                         **detect_param,
+                                         zone=zone)
                     detector()
 
                 else:
-
                     dataset = conf["dataset"]
                     detector = DetectCLI(verbosity,
-                                             **image,
-                                             **model,
-                                             **output_param,
-                                             **detect_param,
-                                             dataset=dataset)
+                                         **model,
+                                         **image,
+                                         **output_param,
+                                         **detect_param,
+                                         dataset=dataset)
                     detector()
 
                 return 0

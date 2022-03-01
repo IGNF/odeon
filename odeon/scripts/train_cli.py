@@ -50,6 +50,8 @@ NUM_WORKERS = 4
 NUM_CKPT_SAVED = 3
 MODEL_OUT_EXT = ".ckpt"
 ACCELERATOR = "gpu"
+PROGRESS = 1
+NUM_NODES = 1
 
 
 class TrainCLI(BaseTool):
@@ -91,7 +93,7 @@ class TrainCLI(BaseTool):
         data_augmentation=None,
         device=None,
         accelerator=ACCELERATOR,
-        num_nodes=1,
+        num_nodes=NUM_NODES,
         num_processes=None,
         reproducible=True,
         lr=LEARNING_RATE,
@@ -112,7 +114,7 @@ class TrainCLI(BaseTool):
         get_prediction=False,
         prediction_output_type="uint8",
         testing=False,
-        progress=1
+        progress=PROGRESS
         ):
     
         self.train_file = train_file
@@ -217,6 +219,7 @@ class TrainCLI(BaseTool):
                            'val': Compose(self.transformation_functions),
                            'test': Compose(self.transformation_functions)}
 
+        # Parameters for device definition in the trainer
         self.accelerator = accelerator
         self.num_nodes = num_nodes
         self.num_processes = num_processes
@@ -235,7 +238,7 @@ class TrainCLI(BaseTool):
                                          percentage_val=self.percentage_val,
                                          pin_memory=True,
                                          deterministic=self.deterministic,
-                                         get_prediction=self.get_prediction,
+                                         get_sample_info=self.get_prediction,
                                          resolution=self.resolution,
                                          subset=self.testing)
 
@@ -403,8 +406,10 @@ class TrainCLI(BaseTool):
                                                               out_filename=self.model_filename,
                                                               save_history=self.save_history)
                 self.callbacks.append(continue_training_callback)
+
             elif resume_file_ext == ".ckpt":
                 self.resume_checkpoint = os.path.join(self.output_folder, self.model_filename)
+
             else:
                 LOGGER.error("ERROR: Odeon only handles files of type .pth or .ckpt for the continue training feature.")
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
@@ -416,7 +421,7 @@ class TrainCLI(BaseTool):
                                                         output_type=self.prediction_output_type,
                                                         write_interval="batch")
             self.callbacks.append(custom_pred_writer)
-        
+
         if self.progress_rate <= 0 :
             enable_progress_bar = False
         else :
@@ -444,6 +449,7 @@ class TrainCLI(BaseTool):
             self.trainer.fit(self.seg_module,
                              datamodule=self.data_module,
                              ckpt_path=self.resume_checkpoint)
+
         except OdeonError as error:
             raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                              "ERROR: Something went wrong during the fit step of the training",
