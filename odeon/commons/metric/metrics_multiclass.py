@@ -12,71 +12,58 @@ from odeon.commons.metric.metrics import Metrics, get_metrics_from_obs, DEFAULTS
 from odeon.commons.metric.plots import plot_hists
 
 
-def torch_get_metrics_from_cm(cm_macro, nbr_class, class_labels, weighted, weights):
+def torch_metrics_from_cm(cm_macro, class_labels):
     """
     Function to get metrics from a confusion matrix.
 
     Parameters
     ----------
-    cm_macro : np.array
+    cm_macro : torch.Tensor
         Confusion matrix in macro strategy.
+
+    class_labels: list
+        List of string for the name of each class.
+
     Returns
     -------
-    (dict, dict, dict, np.array, np.array)
-        Metrics (per class, micro, macro) and cms (per class, micro).
+    dict
+        Metrics (per class, micro, macro) and cms (macro, micro).
     """
-    def torch_get_obs_by_class_from_cm(conf_mat, class_labels):
-        """
-        Function to get the metrics for each class from a confusion matrix.
+    metrics_collection = {"cm_macro": cm_macro}
 
-        Parameters
-        ----------
-        cm : np.array
-            Input confusion matrix.
+    stats_macro = torch.zeros(cm_macro.shape[0], 4).to(cm_macro.device)
 
-        Returns
-        -------
-        dict
-            Dict with metrics for each class.
-            The keys of th dict will be the labels of the classes.
-        """
-        obs_by_class = {}
-        for i, class_i in enumerate(class_labels):
-            obs_by_class[class_i] = {'tp': conf_mat[i, i],
-                                     'fn': torch.sum(conf_mat[i, :]) - conf_mat[i, i],
-                                     'fp': torch.sum(conf_mat[:, i]) - conf_mat[i, i],
-                                     'tn': torch.sum(conf_mat) - torch.sum(conf_mat[i, :])
-                                     - torch.sum(conf_mat[:, i]) + conf_mat[i, i]}
-        return obs_by_class
+    stats_macro[:, 0] = torch.diag(cm_macro)                            # TP
+    stats_macro[:, 1] = cm_macro.sum(0) - torch.diag(cm_macro)          # FP
+    stats_macro[:, 2] = cm_macro.sum(1) - torch.diag(cm_macro)          # FN
+    stats_macro[:, 3] = cm_macro.sum() - (stats_macro[:, 0:3].sum(1))   # TN
 
-    obs_by_class = torch_get_obs_by_class_from_cm(conf_mat=cm_macro,
-                                                  class_labels=class_labels)
-    cms_classes = torch.zeros([nbr_class, 2, 2])
+    # Micro 
+    cm_micro = stats_macro.sum(0)
+    metrics_micro = get_metrics_from_obs(true_pos = cm_micro[0],
+                                         false_pos = cm_micro[1],
+                                         false_neg = cm_micro[2],
+                                         true_neg = cm_micro[3],
+                                         micro=True)
 
-    metrics_by_class = {}
-    for i, class_i in enumerate(class_labels):
-        cms_classes[i] = torch.Tensor([[obs_by_class[class_i]['tp'], obs_by_class[class_i]['fn']],
-                                      [obs_by_class[class_i]['fp'], obs_by_class[class_i]['tn']]])
-        metrics_by_class[class_i] = get_metrics_from_obs(obs_by_class[class_i]['tp'],
-                                                         obs_by_class[class_i]['fn'],
-                                                         obs_by_class[class_i]['fp'],
-                                                         obs_by_class[class_i]['tn'])
+    metrics_collection["cm_micro"] = cm_micro.reshape(2, 2)
+    metrics_collection["Overall/Accuracy"] = metrics_micro["OA"] * 100
+    metrics_collection["Overall/Precision"] = metrics_micro["IoU"] * 100
 
-    # If weights are used, the sum of the confusion matrices of each class weighted by the input weights.
-    # If not, the confusions matrices of classes will directly added together.
-    if weighted:
-        cm_micro = torch.zeros([2, 2])
-        for k, weight in zip(range(nbr_class), weights):
-            cm_micro += cms_classes[k] * weight
-    else:
-        cm_micro = torch.sum(cms_classes, axis=0)
+    # Per classes and macro
+    metrics_by_class = get_metrics_from_obs(true_pos = stats_macro[:, 0],
+                                            false_pos = stats_macro[:, 1],
+                                            false_neg = stats_macro[:, 2],
+                                            true_neg = stats_macro[:, 3])
 
-    metrics_micro = get_metrics_from_obs(cm_micro[0][0],
-                                         cm_micro[0][1],
-                                         cm_micro[1][0],
-                                         cm_micro[1][1])
+    for metric_name, metric_per_class in metrics_by_class.items():
+        metrics_collection["Average/" + metric_name] = metric_per_class.mean() * 100
+        for class_idx, class_label in enumerate(class_labels):
+            metrics_collection[class_label + "/" + metric_name] = metric_per_class[class_idx] * 100
+    
+    stats_macro = stats_macro.detach()
 
-    return metrics_by_class, metrics_micro, cms_classes, cm_micro
+    return metrics_collection
 
 
 def get_metrics_from_cm(cm_macro, nbr_class, class_labels, weighted, weights):

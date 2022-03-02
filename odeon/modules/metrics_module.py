@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 from torchmetrics import Metric
-from odeon.commons.metric.metrics_multiclass import torch_get_metrics_from_cm
-from torchmetrics.functional import confusion_matrix as torch_cm
+from odeon.commons.metric.metrics_multiclass import torch_metrics_from_cm
+from torchmetrics.functional import confusion_matrix
 
 
 class OdeonMetrics(Metric):
@@ -21,31 +21,13 @@ class OdeonMetrics(Metric):
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
         assert preds.shape == target.shape
-        self.confmat += torch_cm(preds,
-                                 target,
-                                 num_classes=self.num_classes,
-                                 normalize=None)
+        self.confmat += confusion_matrix(preds,
+                                         target,
+                                         num_classes=self.num_classes,
+                                         normalize=None)
 
     def compute(self):
+        metrics_collecton = torch_metrics_from_cm(cm_macro=self.confmat,
+                                                  class_labels=self.class_labels)
 
-        cm_macro = self.confmat
-        metrics_by_class, metrics_micro, _, cm_micro = \
-            torch_get_metrics_from_cm(cm_macro=cm_macro,
-                                      nbr_class=self.num_classes,
-                                      class_labels=self.class_labels,
-                                      weighted=False,
-                                      weights=None)
-
-        metrics = {'cm_macro': cm_macro,
-                   'cm_micro': cm_micro,
-                   'Overall/Accuracy': metrics_micro['Precision'],
-                   'Overall/IoU': metrics_micro['IoU']}
-
-        for metric in ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'IoU', 'Specificity']:
-            counter= []
-            for class_i in self.class_labels:
-                metrics[class_i + '/' + metric] = metrics_by_class[class_i][metric]
-                counter.append(metrics_by_class[class_i][metric])
-            metrics['Average/' + metric] = torch.Tensor(counter).mean()
-
-        return metrics
+        return metrics_collecton

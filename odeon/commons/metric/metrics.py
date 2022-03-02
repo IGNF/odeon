@@ -61,7 +61,7 @@ DEFAULTS_VARS = {'output_type': 'html',
                  'decimals': 2}
 
 
-def get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg, smooth=SMOOTH):
+def get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg, smooth=SMOOTH, micro=False):
     """
     Function to calculate the metrics from the observations of the number tp, fn, fp, tn of a confusion matrix.
 
@@ -81,21 +81,29 @@ def get_metrics_from_obs(true_pos, false_neg, false_pos, true_neg, smooth=SMOOTH
     dict
         Dictionary containing the desired metrics.
     """
-    accuracy = (true_pos + true_neg) / (true_pos + false_pos + true_neg + false_neg + smooth)
-    precision = true_pos / (true_pos + false_pos + smooth)
-    recall = true_pos / (true_pos + false_neg + smooth)
-    specificity = true_neg / (true_neg + false_pos + smooth)
-    fpr = false_pos / (false_pos + true_neg + smooth)
-    f1_score = (2 * true_pos) / (2 * true_pos + false_pos + false_neg + smooth)
-    iou = true_pos / (true_pos + false_pos + false_neg + smooth)
+    if micro:
+        oa = true_pos / (true_pos + false_pos + smooth)
+        iou = true_pos / (true_pos + false_pos + false_neg + smooth)
+        metrics =  {'OA': oa,
+                    'IoU': iou}
+    else:
+        accuracy = (true_pos + true_neg) / (true_pos + false_pos + true_neg + false_neg + smooth)
+        precision = true_pos / (true_pos + false_pos + smooth)
+        recall = true_pos / (true_pos + false_neg + smooth)
+        specificity = true_neg / (true_neg + false_pos + smooth)
+        fpr = false_pos / (false_pos + true_neg + smooth)
+        f1_score = (2 * true_pos) / (2 * true_pos + false_pos + false_neg + smooth)
+        iou = true_pos / (true_pos + false_pos + false_neg + smooth)
 
-    return {'Accuracy': accuracy,
-            'Precision': precision,
-            'Recall': recall,
-            'Specificity': specificity,
-            'F1-Score': f1_score,
-            'IoU': iou,
-            'FPR': fpr}
+        metrics =  {'Accuracy': accuracy,
+                    'Precision': precision,
+                    'Recall': recall,
+                    'Specificity': specificity,
+                    'F1-Score': f1_score,
+                    'IoU': iou,
+                    'FPR': fpr}
+
+    return metrics
 
 
 class Metrics(ABC):
