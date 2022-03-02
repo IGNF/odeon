@@ -179,6 +179,7 @@ class DetectCLI(BaseTool):
 
     def __call__(self):
         try:
+
             predict_ckpt = None
             if self.model_ext == ".ckpt":
                 predict_ckpt = self.model_filename
@@ -186,6 +187,7 @@ class DetectCLI(BaseTool):
             self.trainer.predict(self.seg_module,
                                  datamodule=self.data_module,
                                  ckpt_path=predict_ckpt)
+
         except OdeonError as error:
             raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                 "ERROR: Something went wrong during the test step of the training",

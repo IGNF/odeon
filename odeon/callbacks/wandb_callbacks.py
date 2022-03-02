@@ -2,14 +2,13 @@ import subprocess
 from pathlib import Path
 from typing import List
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sn
 import torch
 import wandb
 from pytorch_lightning import Callback, Trainer
 from pytorch_lightning.loggers import LoggerCollection, WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
-from sklearn import metrics
-from sklearn.metrics import f1_score, precision_score, recall_score
 
 
 def get_wandb_logger(trainer: Trainer) -> WandbLogger:
@@ -33,17 +32,23 @@ def get_wandb_logger(trainer: Trainer) -> WandbLogger:
     )
 
 
-class WatchModel(Callback):
-    """Make wandb watch model at the beginning of the run."""
-
-    def __init__(self, log: str = "gradients", log_freq: int = 100):
-        self.log = log
-        self.log_freq = log_freq
+class MetricsWandb(Callback):
 
     @rank_zero_only
-    def on_train_start(self, trainer, pl_module):
+    def add_metrics(self, trainer, pl_module, metric_collection, loss):
         logger = get_wandb_logger(trainer=trainer)
-        logger.watch(model=trainer.model, log=self.log, log_freq=self.log_freq, log_graph=True)
+        log_dict = metric_collection.copy()
+        log_dict["Loss"] = loss
+        del log_dict["cm_macro"]
+        del log_dict["cm_micro"]
+        logger.log_metrics(log_dict, step=pl_module.current_epoch)
+
+    @rank_zero_only
+    def on_validation_epoch_end(self, trainer, pl_module):
+        self.add_metrics(trainer=trainer,
+                         pl_module=pl_module,
+                         metric_collection=pl_module.val_epoch_metrics,
+                         loss=pl_module.val_epoch_loss)
 
 
 class UploadCodeAsArtifact(Callback):
@@ -136,24 +141,13 @@ class LogConfusionMatrix(Callback):
         """Start executing this callback only after all validation sanity checks end."""
         self.ready = True
 
-    def on_validation_batch_end(
-        self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx
-    ):
-        """Gather data from single batch."""
-        if self.ready:
-            self.preds.append(outputs["preds"])
-            self.targets.append(outputs["targets"])
-
     def on_validation_epoch_end(self, trainer, pl_module):
         """Generate confusion matrix."""
         if self.ready:
             logger = get_wandb_logger(trainer)
             experiment = logger.experiment
 
-            preds = torch.cat(self.preds).cpu().numpy()
-            targets = torch.cat(self.targets).cpu().numpy()
-
-            confusion_matrix = metrics.confusion_matrix(y_true=targets, y_pred=preds)
+            confusion_matrix = pl_module.val_epoch_metrics["cm_macro"]
 
             # set figure size
             plt.figure(figsize=(14, 8))
@@ -194,26 +188,16 @@ class LogF1PrecRecHeatmap(Callback):
         """Start executing this callback only after all validation sanity checks end."""
         self.ready = True
 
-    def on_validation_batch_end(
-        self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx
-    ):
-        """Gather data from single batch."""
-        if self.ready:
-            self.preds.append(outputs["preds"])
-            self.targets.append(outputs["targets"])
-
     def on_validation_epoch_end(self, trainer, pl_module):
         """Generate f1, precision and recall heatmap."""
         if self.ready:
             logger = get_wandb_logger(trainer=trainer)
             experiment = logger.experiment
 
-            preds = torch.cat(self.preds).cpu().numpy()
-            targets = torch.cat(self.targets).cpu().numpy()
-            f1 = f1_score(targets, preds, average=None)
-            r = recall_score(targets, preds, average=None)
-            p = precision_score(targets, preds, average=None)
-            data = [f1, p, r]
+            f1 = pl_module.val_epoch_metrics["Average/F1-Score"]
+            r = pl_module.val_epoch_metrics["Average/Recall"]
+            p = pl_module.val_epoch_metrics["Average/Precision"]
+            data = np.asarray([f1, p, r]).reshape(3, 1)
 
             # set figure size
             plt.figure(figsize=(14, 3))

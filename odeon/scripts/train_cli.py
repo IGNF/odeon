@@ -26,6 +26,12 @@ from odeon.callbacks.utils_callbacks import (
     HistorySaver,
     LightningCheckpoint
 )
+from odeon.callbacks.wandb_callbacks import (
+    LogConfusionMatrix,
+    LogF1PrecRecHeatmap,
+    MetricsWandb, 
+    UploadCodeAsArtifact
+)
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
@@ -196,6 +202,7 @@ class TrainCLI(BaseTool):
 
         if self.use_wandb:
             os.system("wandb login")
+            # os.system("wandb offline")
 
         # if strategy == "ddp":
         #     strategy = DDPStrategy(find_unused_parameters=False)
@@ -314,7 +321,8 @@ class TrainCLI(BaseTool):
         loggers = [train_logger, valid_logger]
 
         if self.use_wandb:
-            wandb_logger = WandbLogger(project=self.name_exp_log)
+            wandb_logger = WandbLogger(project=self.name_exp_log,
+                                       save_dir=os.path.join(self.output_folder, self.name_exp_log))
             loggers.append(wandb_logger)
 
         if self.save_history:
@@ -342,6 +350,15 @@ class TrainCLI(BaseTool):
         # Callbacks definition
         tensorboard_metrics = MetricsAdder()
         self.callbacks = [tensorboard_metrics]
+
+        if self.use_wandb:
+            code_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+            self.callbacks.extend([MetricsWandb(),
+                                   LogConfusionMatrix(),
+                                   LogF1PrecRecHeatmap(),
+                                   UploadCodeAsArtifact(code_dir=code_dir,
+                                                        use_git=True)])
 
         if self.model_out_ext == ".ckpt":
             checkpoint_miou_callback = LightningCheckpoint(monitor="val_miou",
