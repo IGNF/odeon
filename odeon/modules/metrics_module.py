@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torchmetrics import Metric
-from odeon.commons.metric.metrics_multiclass import get_metrics_from_cm
+from odeon.commons.metric.metrics_multiclass import torch_get_metrics_from_cm
 from torchmetrics.functional import confusion_matrix as torch_cm
 
 
@@ -27,13 +27,14 @@ class OdeonMetrics(Metric):
                                  normalize=None)
 
     def compute(self):
-        cm_macro = self.confmat.cpu().numpy()
-        metrics_by_class, metrics_micro, cms_classes, cm_micro = \
-            get_metrics_from_cm(cm_macro=cm_macro,
-                                nbr_class=self.num_classes,
-                                class_labels=self.class_labels,
-                                weighted=False,
-                                weights=None)
+
+        cm_macro = self.confmat
+        metrics_by_class, metrics_micro, _, cm_micro = \
+            torch_get_metrics_from_cm(cm_macro=cm_macro,
+                                      nbr_class=self.num_classes,
+                                      class_labels=self.class_labels,
+                                      weighted=False,
+                                      weights=None)
 
         metrics = {'cm_macro': cm_macro,
                    'cm_micro': cm_micro,
@@ -45,6 +46,6 @@ class OdeonMetrics(Metric):
             for class_i in self.class_labels:
                 metrics[class_i + '/' + metric] = metrics_by_class[class_i][metric]
                 counter.append(metrics_by_class[class_i][metric])
-            metrics['Average/' + metric] = np.array(counter).mean()
+            metrics['Average/' + metric] = torch.Tensor(counter).mean()
 
         return metrics

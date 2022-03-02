@@ -70,7 +70,7 @@ class MetricsAdder(TensorboardCallback):
                                                                  metric_collection[key_metric],
                                                                  global_step=pl_module.current_epoch)
             elif key_metric == "cm_micro":
-                fig_cm_micro = plot_confusion_matrix(metric_collection[key_metric],
+                fig_cm_micro = plot_confusion_matrix(metric_collection[key_metric].cpu().numpy(),
                                                      ['Positive', 'Negative'],
                                                      output_path=None,
                                                      cmap="YlGn")
@@ -78,14 +78,14 @@ class MetricsAdder(TensorboardCallback):
                                                                  fig_cm_micro,
                                                                  pl_module.current_epoch)
             elif key_metric == "cm_macro":
-                fig_cm_macro = plot_confusion_matrix(metric_collection[key_metric],
+                fig_cm_macro = plot_confusion_matrix(metric_collection[key_metric].cpu().numpy(),
                                                      pl_module.hparams.class_labels,
                                                      output_path=None,
                                                      cmap="YlGn")
                 trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/Macro",
                                                                  fig_cm_macro,
                                                                  pl_module.current_epoch)
-                fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric],
+                fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric].cpu().numpy(),
                                                           pl_module.hparams.class_labels,
                                                           output_path=None,
                                                           per_class_norm=True,

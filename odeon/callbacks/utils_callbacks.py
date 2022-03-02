@@ -82,8 +82,8 @@ class HistorySaver(pl.Callback):
     @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['val']
-        metric_collection = pl_module.val_epoch_metrics.copy()
-        metric_collection['loss'] = pl_module.val_epoch_loss
+        metric_collection = {key: value.cpu().numpy() for key, value in pl_module.val_epoch_metrics.items()}
+        metric_collection['loss'] = pl_module.val_epoch_loss.cpu().numpy()
         metric_collection['learning rate'] = pl_module.hparams.learning_rate  # Add learning rate logging  
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
@@ -91,16 +91,16 @@ class HistorySaver(pl.Callback):
     @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['test']
-        metric_collection = pl_module.test_epoch_metrics.copy()
-        metric_collection['loss'] = pl_module.test_epoch_loss
+        metric_collection = {key: value.cpu().numpy() for key, value in pl_module.test_epoch_metrics.items()}
+        metric_collection['loss'] = pl_module.test_epoch_loss.cpu().numpy()
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
 
     @rank_zero_only
     def on_predict_end(self, trainer, pl_module):
         logger_idx = self.idx_loggers['predict']
-        metric_collection = pl_module.predict_epoch_metrics.copy()
-        metric_collection['loss'] = pl_module.predict_epoch_loss
+        metric_collection = {key: value.cpu().numpy() for key, value in pl_module.predict_epoch_metrics.items()}
+        metric_collection['loss'] = pl_module.predict_epoch_loss.cpu().numpy()
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
 
