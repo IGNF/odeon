@@ -5,7 +5,7 @@ from pytorch_lightning import Trainer
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.modules.datamodule import SegDataModule
 from odeon.nn.transforms import ToDoubleTensor
-from odeon.modules.metrics_module import MeanVector, IncrementalAverage
+from odeon.modules.metrics_module import MeanVector, IncrementalVariance
 
 RANDOM_SEED = 42
 BATCH_SIZE = 5
@@ -30,14 +30,14 @@ class StatsModule(pl.LightningModule):
     def setup(self, stage):
         if stage == "fit":
             self.train_means = MeanVector(len_vector=self.num_channels)
-            self.train_vars = IncrementalAverage(len_vector=self.num_channels)
+            self.train_vars = IncrementalVariance(len_vector=self.num_channels)
 
             self.val_means = MeanVector(len_vector=self.num_channels)
-            self.val_vars = IncrementalAverage(len_vector=self.num_channels)
+            self.val_vars = IncrementalVariance(len_vector=self.num_channels)
 
         elif stage == "test":
             self.test_means = MeanVector(len_vector=self.num_channels)
-            self.test_vars = IncrementalAverage(len_vector=self.num_channels)
+            self.test_vars = IncrementalVariance(len_vector=self.num_channels)
 
     def training_step(self, batch, batch_idx):
         images = batch["image"]

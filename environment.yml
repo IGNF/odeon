@@ -20,3 +20,5 @@ dependencies:
   - albumentations>=1.0.3
   - pytorch-lightning>=1.5.8
   - torchmetrics>=0.7.0
+  - seaborn
+  - wandb
