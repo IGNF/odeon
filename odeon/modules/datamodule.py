@@ -34,6 +34,7 @@ class SegDataModule(LightningDataModule):
                 deterministic=False,
                 get_sample_info=False,
                 resolution=None,
+                drop_last=False,
                 subset=False):
 
         super().__init__()
@@ -49,6 +50,7 @@ class SegDataModule(LightningDataModule):
         self.percentage_val = percentage_val
         self.pin_memory = pin_memory
         self.get_sample_info = get_sample_info
+        self.drop_last = drop_last 
         self.subset = subset
         if deterministic:
             self.random_seed = None
@@ -113,28 +115,32 @@ class SegDataModule(LightningDataModule):
                           batch_size=self.train_batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
-                          shuffle=self.shuffle)
+                          shuffle=self.shuffle,
+                          drop_last=self.drop_last)
 
     def val_dataloader(self):
         return DataLoader(dataset=self.val_dataset,
                           batch_size=self.val_batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
-                          shuffle=False)
+                          shuffle=False,
+                          drop_last=self.drop_last)
 
     def test_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
                           batch_size=self.test_batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
-                          shuffle=False)
+                          shuffle=False,
+                          drop_last=self.drop_last)
 
     def predict_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
                           batch_size=self.test_batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
-                          shuffle=False)
+                          shuffle=False,
+                          drop_last=self.drop_last)
 
     def read_csv_sample_file(self, file_path):
         image_files = []

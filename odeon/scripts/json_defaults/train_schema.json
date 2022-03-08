@@ -14,7 +14,25 @@
                 "image_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "class_labels": {"type": "array", "items": {"type": "string"}},
-                "resolution": {"type": ["number", "array"]}
+                "resolution": {"type": ["number", "array"]},
+                "compute_normalization_weights": {"type": "boolean", "default": false},
+                "normalization_weights": {
+                    "type": "object",
+                    "properties": {
+                        "train": {
+                            "mean": {"type": "array", "items": {"type": "number"}},
+                            "std": {"type": "array", "items": {"type": "number"}}
+                        },
+                        "val": {
+                            "mean": {"type": "array", "items": {"type": "number"}},
+                            "std": {"type": "array", "items": {"type": "number"}}
+                        },
+                        "test":{
+                            "mean": {"type": "array", "items": {"type": "number"}},
+                            "std": {"type": "array", "items": {"type": "number"}}
+                        }
+                    }
+                }
             },
             "oneOf": [{
                 "required": [
@@ -96,7 +114,14 @@
                 },
                 "lr": {"type": "number", "default": 0.01},
                 "num_workers": {"type": "integer", "default": 4},
-                "data_augmentation": {"type": ["string", "array"], "default": ["rotation90"]},
+                "data_augmentation": {
+                    "type": "object",
+                    "properties": {
+                        "train": {"type": ["string", "array"], "default": ["rotation90"]},
+                        "val": {"type": ["string", "array"]},
+                        "test": {"type": ["string", "array"]}
+                    }
+                },
                 "device": {"type": ["string", "array", "integer"]},
                 "accelerator": {"type": "string", "enum":["auto", "gpu", "ipu", "tpu", "cpu"], "default": "gpu"},
                 "num_nodes": {"type": "integer", "default": 1},

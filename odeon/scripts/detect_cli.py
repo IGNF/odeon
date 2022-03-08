@@ -1,13 +1,12 @@
 import os
 import yaml
 import torch
-from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
+from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning import (
     Trainer,
     seed_everything
 )
-from zmq import device
 from odeon.callbacks.utils_callbacks import (
     CustomPredictionWriter,
     HistorySaver
@@ -17,8 +16,6 @@ from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.rasterio import get_number_of_band
-from odeon.nn.job import ZoneDetectionJob, ZoneDetectionJobNoDalle
 from odeon.modules.datamodule import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
 from odeon.nn.transforms import Compose, ToDoubleTensor
@@ -245,11 +242,11 @@ class DetectCLI(BaseTool):
             self.callbacks.append(HistorySaver())
 
         if self.progress_rate <= 0 :
-            enable_progress_bar = False
+            self.enable_progress_bar = False
         else :
             progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
             self.callbacks.append(progress_bar)
-            enable_progress_bar = True
+            self.enable_progress_bar = True
 
         self.trainer = Trainer(devices=self.device,
                                accelerator=self.accelerator,
@@ -259,4 +256,4 @@ class DetectCLI(BaseTool):
                                strategy=self.strategy,
                                num_nodes=self.num_nodes,
                                num_processes=self.num_processes,
-                               enable_progress_bar=enable_progress_bar)
+                               enable_progress_bar=self.enable_progress_bar)

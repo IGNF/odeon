@@ -1,5 +1,3 @@
-from json import load
-from sklearn.datasets import load_files
 import torch
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric

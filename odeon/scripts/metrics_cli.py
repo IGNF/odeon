@@ -16,6 +16,7 @@ from odeon.commons.metric.metrics_factory import MetricsFactory
 from odeon.commons.metric.metrics import DEFAULTS_VARS
 from odeon.commons.guard import check_raster_bands
 
+
 class MetricsCLI(BaseTool):
     """
     Class to check variables coming from the CLI and create an instance of the class Metrics.

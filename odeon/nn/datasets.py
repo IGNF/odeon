@@ -142,15 +142,16 @@ class PatchDataset(Dataset):
                                     )
 
         sample = {"image": img, "mask": msk}
-
         # apply transforms
         if self.transform_function is None:
             self.transform_function = ToDoubleTensor()
+
         sample = self.transform_function(**sample)
 
         if self.get_sample_info:
             sample["filename"] = os.path.basename(image_file)
             sample["affine"] = affine_to_ndarray(meta["transform"])
+
         return sample
 
 

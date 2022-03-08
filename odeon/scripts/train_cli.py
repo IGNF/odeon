@@ -1,5 +1,7 @@
 import os
+import albumentations as A
 import numpy as np
+import pandas as pd
 from datetime import date
 from time import gmtime, strftime
 import torch
@@ -38,6 +40,7 @@ from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist, file_exist
 from odeon.modules.datamodule import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
+from odeon.modules.stats_module import Stats
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
 from odeon.nn.models import model_list
 
@@ -85,6 +88,8 @@ class TrainCLI(BaseTool):
         model_filename=None,
         model_out_ext=None,
         init_weights=None,
+        compute_normalization_weights=False,
+        normalization_weights=None,
         epochs=NUM_EPOCHS,
         batch_size=BATCH_SIZE,
         patience=PATIENCE,
@@ -172,6 +177,10 @@ class TrainCLI(BaseTool):
         self.testing = testing
         self.progress_rate = progress
 
+        # Computations of data stats (mean and std) in order to do normalization
+        self.compute_normalization_weights = compute_normalization_weights
+        self.normalization_weights = normalization_weights
+
         if name_exp_log is None:
             self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
         else:
@@ -204,33 +213,81 @@ class TrainCLI(BaseTool):
             os.system("wandb login")
             # os.system("wandb offline")
 
+        # Parameters for device definition in the trainer
+        self.accelerator = accelerator
+        self.num_nodes = num_nodes
+        self.num_processes = num_processes
+        self.device = device
+
         # if strategy == "ddp":
         #     strategy = DDPStrategy(find_unused_parameters=False)
         # else:
         #     self.strategy = strategy
         self.strategy = strategy
 
+        def parse_data_augmentation(list_tfm):
+            tfm_dict = {"rotation90": Rotation90(),
+                        "radiometry": Radiometry()}
+            list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
+            return [tfm_dict[tfm] for tfm in list_tfm]
+
         if data_augmentation is None:
-            self.transformation_functions = [ToDoubleTensor()]
+            self.train_tfm_func = []
+            self.val_tfm_func = []
+            self.test_tfm_func = []
         else:
-            transformation_dict = {"rotation90": Rotation90(),
-                                   "radiometry": Radiometry()}
-            transformation_conf = data_augmentation
-            transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
-            self.transformation_functions = list({
-                value for key, value in transformation_dict.items() if key in transformation_keys
-            })
-            self.transformation_functions.append(ToDoubleTensor())
+            self.train_tfm_func = parse_data_augmentation(data_augmentation["train"])
+            self.val_tfm_func = parse_data_augmentation(data_augmentation["val"])
+            self.test_tfm_func = parse_data_augmentation(data_augmentation["test"])
 
-        self.transforms = {'train': Compose(self.transformation_functions),
-                           'val': Compose(self.transformation_functions),
-                           'test': Compose(self.transformation_functions)}
+        if self.compute_normalization_weights is True:
+            stats = Stats(train_file=self.train_file,
+                          val_file=self.val_file,
+                          test_file=self.test_file,
+                          image_bands=self.image_bands,
+                          mask_bands=self.mask_bands,
+                          batch_size=self.batch_size,
+                          num_workers=self.num_workers,
+                          percentage_val=self.percentage_val,
+                          deterministic=self.deterministic,
+                          resolution=self.resolution,
+                          subset=self.testing,
+                          device=self.device,
+                          accelerator=self.accelerator,
+                          num_nodes=self.num_nodes,
+                          num_processes=self.num_processes,
+                          strategy=self.strategy)
 
-        # Parameters for device definition in the trainer
-        self.accelerator = accelerator
-        self.num_nodes = num_nodes
-        self.num_processes = num_processes
-        self.device = device
+            self.normalization_weights = stats()
+            self.normalization_weights.to_csv(os.path.join(self.output_folder, self.name_exp_log, "normalization_weights.csv"))
+
+        if self.normalization_weights is not None:
+
+            if isinstance(self.normalization_weights, dict):
+                self.normalization_weights = pd.DataFrame(self.normalization_weights).T
+
+            self.train_tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc["train", "mean"],
+                                                    std=self.normalization_weights.loc["train", "std"]),
+                                                    ToDoubleTensor()])
+            self.val_tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc["val", "mean"],
+                                                  std=self.normalization_weights.loc["val", "std"]),
+                                      ToDoubleTensor()])
+           
+            if self.test_file is not None:
+                self.test_tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc["test", "mean"],
+                                                       std=self.normalization_weights.loc["test", "std"]),
+                                           ToDoubleTensor()])
+            else:
+                self.test_tfm_func.append(ToDoubleTensor())
+ 
+        else:
+            self.train_tfm_func.append(ToDoubleTensor())
+            self.val_tfm_func.append(ToDoubleTensor())
+            self.test_tfm_func.append(ToDoubleTensor())
+    
+        self.transforms = {'train': Compose(self.train_tfm_func),
+                           'val': Compose(self.val_tfm_func),
+                           'test': Compose(self.test_tfm_func)}
 
         self.data_module = SegDataModule(train_file=self.train_file,
                                          val_file=self.val_file,
@@ -251,7 +308,6 @@ class TrainCLI(BaseTool):
 
         self.callbacks = None
         self.resume_checkpoint = None
-        self.train_files = None
 
         if class_labels is not None:
             if len(class_labels) == self.data_module.num_classes:
@@ -376,6 +432,7 @@ class TrainCLI(BaseTool):
                                                          save_top_k=self.save_top_k,
                                                          mode="min",
                                                          save_last=True)
+
             self.callbacks.extend([checkpoint_miou_callback, checkpoint_loss_callback])
   
         elif self.model_out_ext == ".pth":
@@ -474,14 +531,13 @@ class TrainCLI(BaseTool):
 
         if self.test_file is not None:
             try:
-
                 best_val_loss_ckpt_path = None
                 if self.model_out_ext == ".ckpt":
                     ckpt_val_loss_folder = os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt", self.version_name)
                     best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
                                                                         monitor="val_loss",
                                                                         mode="min")
-
+ 
                 elif self.model_out_ext == ".pth":
                     # Load model weights into the model of the seg module
                     best_model_state_dict = torch.load(os.path.join(self.output_folder, self.model_filename))
