@@ -1,13 +1,13 @@
+from curses.panel import version
+from genericpath import isdir
 import os
 import albumentations as A
 import numpy as np
 import pandas as pd
 from datetime import date
-from time import gmtime, strftime
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger, WandbLogger
-# from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import LearningRateMonitor, EarlyStopping
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning import (
@@ -30,7 +30,6 @@ from odeon.callbacks.utils_callbacks import (
 )
 from odeon.callbacks.wandb_callbacks import (
     LogConfusionMatrix,
-    LogF1PrecRecHeatmap,
     MetricsWandb, 
     UploadCodeAsArtifact
 )
@@ -193,36 +192,34 @@ class TrainCLI(BaseTool):
             self.output_tensorboard_logs = output_tensorboard_logs
 
         if version_name is None:
-            self.version_name = "_".join(["version",
-                                          self.model_name,
-                                          f"LR{str(self.learning_rate)}",
-                                          strftime("%Y-%m-%d_%H-%M-%S", gmtime())])
+            self.version_name = self.get_version_name()
         else:
             self.version_name = version_name
 
         if reproducible is True:
             self.random_seed = RANDOM_SEED
             seed_everything(self.random_seed, workers=True)
-            # Devrait être à True mais problème avec le calcul de cm dans torchmetrics
-            self.deterministic = False
+            self.deterministic = False  # Should be true but problem with confusion matrix calculation in torchmetrics
         else:
             self.random_seed = None
             self.deterministic = False
 
         if self.use_wandb:
-            os.system("wandb login")
-            # os.system("wandb offline")
+            try:
+                os.system("wandb login")
+                # os.system("wandb offline")  # To save wandb logs in offline mode (save code and metrics)
+
+            except OdeonError as error:
+                LOGGER.error("ERROR: WANDB function have been called but wandb package is not working")
+                raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
+                                "something went wrong during training configuration",
+                                stack_trace=error)
 
         # Parameters for device definition in the trainer
         self.accelerator = accelerator
         self.num_nodes = num_nodes
         self.num_processes = num_processes
         self.device = device
-
-        # if strategy == "ddp":
-        #     strategy = DDPStrategy(find_unused_parameters=False)
-        # else:
-        #     self.strategy = strategy
         self.strategy = strategy
 
         def parse_data_augmentation(list_tfm):
@@ -412,7 +409,6 @@ class TrainCLI(BaseTool):
 
             self.callbacks.extend([MetricsWandb(),
                                    LogConfusionMatrix(),
-                                   LogF1PrecRecHeatmap(),
                                    UploadCodeAsArtifact(code_dir=code_dir,
                                                         use_git=True)])
 
@@ -558,6 +554,24 @@ class TrainCLI(BaseTool):
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                     "ERROR: Something went wrong during the test step of the training",
                                     stack_trace=error)
+
+    def get_version_name(self):
+        version_idx = None
+        path = os.path.join(self.output_folder, self.name_exp_log)
+        if not os.path.exists(path):
+            version_idx = 0
+        else:
+            ckpt_path = os.path.join(path, "odeon_val_loss_ckpt")
+            if "odeon_val_loss_ckpt" not in os.listdir(path):
+                version_idx = 0
+                os.makedirs(ckpt_path)
+            else:
+                list_ckpt_dir = [x for x in os.listdir(ckpt_path) if os.path.isdir(os.path.join(ckpt_path, x))]
+                found_idx = [int(name_dir.split("_")[-1]) for name_dir in list_ckpt_dir if "version_" in name_dir]
+                version_idx = max(found_idx) + 1 if found_idx is not None else 0
+
+        version_name = f"version_{str(version_idx)}"
+        return version_name
 
     def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
         best_ckpt_path = None

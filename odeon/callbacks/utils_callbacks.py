@@ -1,5 +1,5 @@
 import os
-from time import gmtime, strftime
+from time import gmtime, strftime 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import BasePredictionWriter, ModelCheckpoint
 from pytorch_lightning.utilities import rank_zero_only
@@ -35,7 +35,7 @@ class LightningCheckpoint(ModelCheckpoint):
         dirpath = self.check_path_ckpt(dirpath)
         super().__init__(monitor=monitor, dirpath=dirpath, filename=filename, save_top_k=save_top_k, **kwargs)
 
-    def check_path_ckpt(self, path): 
+    def check_path_ckpt(self, path):
         if not os.path.exists(path):
             path_ckpt = path if self.version is None else os.path.join(path, self.version)
         else:
@@ -65,7 +65,7 @@ class HistorySaver(pl.Callback):
             idx_csv_loggers = [idx for idx, logger in enumerate(pl_module.logger.experiment)\
                 if isinstance(logger, pl.loggers.csv_logs.ExperimentWriter)]
             if idx_csv_loggers :
-                self.idx_loggers = {'val': idx_csv_loggers[0], 'test': idx_csv_loggers[-1], "predict": idx_csv_loggers[-1]}
+                self.idx_loggers = {'val': idx_csv_loggers[0], 'test': idx_csv_loggers[-1]}
             else:
                 self.idx_loggers = {'val': None, 'test': None}
 
@@ -73,11 +73,6 @@ class HistorySaver(pl.Callback):
         if self.idx_loggers is None:
             self.on_fit_start(trainer, pl_module)
         return super().on_test_start(trainer, pl_module)
-
-    def on_predict_start(self, trainer, pl_module):
-        if self.idx_loggers is None:
-            self.on_fit_start(trainer, pl_module)
-        return super().on_predict_end(trainer, pl_module)
 
     @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
@@ -93,14 +88,6 @@ class HistorySaver(pl.Callback):
         logger_idx = self.idx_loggers['test']
         metric_collection = {key: value.cpu().numpy() for key, value in pl_module.test_epoch_metrics.items()}
         metric_collection['loss'] = pl_module.test_epoch_loss.cpu().numpy()
-        pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
-        pl_module.logger[logger_idx].experiment.save()
-
-    @rank_zero_only
-    def on_predict_end(self, trainer, pl_module):
-        logger_idx = self.idx_loggers['predict']
-        metric_collection = {key: value.cpu().numpy() for key, value in pl_module.predict_epoch_metrics.items()}
-        metric_collection['loss'] = pl_module.predict_epoch_loss.cpu().numpy()
         pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
         pl_module.logger[logger_idx].experiment.save()
 

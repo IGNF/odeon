@@ -93,6 +93,7 @@ class SegDataModule(LightningDataModule):
                                                 mask_bands=self.mask_bands,
                                                 width=self.width,
                                                 height=self.height)
+                                                
                 if self.subset is True:
                     self.train_dataset = Subset(self.train_dataset, range(0, 20))
                     self.val_dataset = Subset(self.val_dataset, range(0, 10))

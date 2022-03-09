@@ -112,6 +112,10 @@ class SegmentationTask(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         loss, preds, targets = self.step(batch)
+        return {"loss": loss, "preds": preds, "targets": targets}
+
+    def training_step_end(self, step_output):
+        loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
         self.train_loss.update(loss)
         self.train_metrics(preds=preds, target=targets)
         return loss
@@ -126,6 +130,10 @@ class SegmentationTask(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss, preds, targets = self.step(batch)
+        return {"loss": loss, "preds": preds, "targets": targets}
+
+    def validation_step_end(self, step_output):
+        loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
         self.val_loss.update(loss)
         self.val_metrics(preds=preds, target=targets)
         return loss
@@ -143,6 +151,10 @@ class SegmentationTask(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         loss, preds, targets = self.step(batch)
+        return {"loss": loss, "preds": preds, "targets": targets}
+
+    def test_step_end(self, step_output):
+        loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
         self.test_loss.update(loss)
         self.test_metrics(preds=preds, target=targets)
         return loss
@@ -154,34 +166,17 @@ class SegmentationTask(pl.LightningModule):
         self.test_metrics.reset()
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        images, targets, filenames, affines = batch["image"], batch["mask"], batch["filename"], batch["affine"]
+        images, filenames, affines = batch["image"], batch["filename"], batch["affine"]
         logits = self.model(images)
-
-        loss = self.criterion(logits, targets)
         proba = torch.softmax(logits, dim=1)
-
-        preds = torch.argmax(proba, dim=1)
-        preds = preds.flatten(start_dim=1)
-
-        targets = torch.argmax(targets, dim=1)
-        targets = targets.flatten(start_dim=1).type(torch.int32)
-
-        self.predict_loss.update(loss)
-        self.predict_metrics(preds=preds, target=targets)
-
         return {"proba": proba, "filename": filenames, "affine": affines}
-
-    def on_predict_epoch_end(self, results):
-        self.predict_epoch_loss = self.predict_loss.compute()
-        self.predict_epoch_metrics = self.predict_metrics.compute()
-        self.predict_loss.reset()
-        self.predict_metrics.reset()
 
     def configure_optimizers(self):
         if self.optimizer is None:
             self.optimizer = build_optimizer(params=self.model.parameters(),
                                              learning_rate=self.hparams.learning_rate,
                                              optimizer_config=self.hparams.optimizer_config)
+
         if self.scheduler is None:
             self.scheduler = build_scheduler(optimizer=self.optimizer,
                                              scheduler_config=self.hparams.scheduler_config,

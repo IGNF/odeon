@@ -125,7 +125,7 @@
                 "device": {"type": ["string", "array", "integer"]},
                 "accelerator": {"type": "string", "enum":["auto", "gpu", "ipu", "tpu", "cpu"], "default": "gpu"},
                 "num_nodes": {"type": "integer", "default": 1},
-                "num_processes": {"type": "integer"},
+                "num_processes": {"type": "integer", "default": 1},
                 "reproducible": {"type": "boolean", "default": false},
                 "log_histogram": {"type": "boolean", "default": false},
                 "log_graph": {"type": "boolean", "default": false},

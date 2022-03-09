@@ -13,6 +13,7 @@ NUM_WORKERS = 4
 PERCENTAGE_VAL = 0.3
 ACCELERATOR = "gpu"
 NUM_NODES = 1
+STATS_STRATEGY = "ddp"
 
 
 class StatsModule(pl.LightningModule):
@@ -111,7 +112,7 @@ class Stats:
         self.accelerator = accelerator
         self.num_nodes = num_nodes
         self.num_processes = num_processes
-        self.strategy = strategy
+        self.strategy = STATS_STRATEGY if strategy is not None else strategy
 
         self.transforms = {phase: ToDoubleTensor() for phase in ["train", "val", "test"]}
 
@@ -160,7 +161,6 @@ class Stats:
             if self.data_module.test_file is not None:
                 self.trainer.test(self.stats_module,
                                   datamodule=self.data_module)
-
             return self.stats_module.report
 
         except OdeonError as error:
