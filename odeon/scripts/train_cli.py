@@ -28,11 +28,6 @@ from odeon.callbacks.utils_callbacks import (
     HistorySaver,
     LightningCheckpoint
 )
-from odeon.callbacks.wandb_callbacks import (
-    LogConfusionMatrix,
-    MetricsWandb, 
-    UploadCodeAsArtifact
-)
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
@@ -405,6 +400,12 @@ class TrainCLI(BaseTool):
         self.callbacks = [tensorboard_metrics]
 
         if self.use_wandb:
+            from odeon.callbacks.wandb_callbacks import (
+                LogConfusionMatrix,
+                MetricsWandb, 
+                UploadCodeAsArtifact
+            )
+
             code_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
             self.callbacks.extend([MetricsWandb(),

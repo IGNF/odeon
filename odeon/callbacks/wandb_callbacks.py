@@ -2,7 +2,6 @@ import subprocess
 from pathlib import Path
 from typing import List
 import matplotlib.pyplot as plt
-import torch
 from pytorch_lightning import Callback, Trainer
 from pytorch_lightning.loggers import LoggerCollection, WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
@@ -12,11 +11,11 @@ from odeon.commons.metric.plots import plot_confusion_matrix
 
 try:
     import wandb
-except OdeonError as error:
+except ModuleNotFoundError as error:
     LOGGER.error("ERROR: WANDB callbacks have been called but wandb package is not installed")
     raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
-                        "something went wrong with WANDB calbacks",
-                        stack_trace=error)
+                     "something went wrong with WANDB calbacks",
+                     stack_trace=error)
 
 
 def get_wandb_logger(trainer: Trainer) -> WandbLogger:
