@@ -175,12 +175,19 @@ class TrainCLI(BaseTool):
         self.compute_normalization_weights = compute_normalization_weights
         self.normalization_weights = normalization_weights
 
+        self.output_folder = output_folder  
+
         if name_exp_log is None:
             self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
         else:
             self.name_exp_log = name_exp_log
 
-        self.output_folder = output_folder   
+        if not os.path.exists(os.path.join(self.output_folder, self.name_exp_log)):
+            os.makedirs(os.path.join(self.output_folder, self.name_exp_log))
+            LOGGER.info(f"INFO: Creation folder: {os.path.join(self.output_folder, self.name_exp_log)}")
+        else:
+            LOGGER.info(f"INFO: Folder {os.path.join(self.output_folder, self.name_exp_log)} already exists.")
+ 
         if output_tensorboard_logs is None:
             self.output_tensorboard_logs = output_folder
         else: 
