@@ -1,4 +1,4 @@
-name: odeon
+name: odeon-lightning
 channels:
   - pytorch
   - conda-forge
@@ -20,3 +20,4 @@ dependencies:
   - albumentations>=1.0.3
   - pytorch-lightning>=1.5.8
   - torchmetrics>=0.7.0
+  - hydra-core>=1.1.1
