@@ -12,21 +12,31 @@ from odeon.modules.datamodule import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
 from odeon.nn.models import model_list
 from odeon.configs.seg_config import OCSGEConfig
+import pydantic
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_training")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
 
-
 cs = ConfigStore.instance()
 cs.store(name="ocsge_config", node=OCSGEConfig)
 
-@hydra.main(config_path="../configs", config_name="conf")
-def main(cfg):
+@hydra.main(config_path="../configs", config_name="seg_config")
+def main(cfg: OCSGEConfig):
+    cfg = OCSGEConfig(**cfg)
 
-    print(cfg)
-
+    try:
+        print(20  * "#" + "files" + 20  * "#")
+        print(cfg.files)
+        print(20  * "#" + "datamodule" + 20  * "#")
+        print(cfg.datamodule)
+        print(20  * "#" + "model" + 20  * "#")
+        print(cfg.model)
+        print(20  * "#" + "trainer" + 20  * "#")
+        print(cfg.trainer)
+    except pydantic.ValidationError as e:
+        print(e)
     return
 
     data_module = SegDataModule(cfg.datamodule)

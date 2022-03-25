@@ -1,5 +1,3 @@
-from dataclasses import dataclass, fields
-
 from typing import (
     Dict,
     Tuple,
@@ -7,6 +5,9 @@ from typing import (
     Union,
     List
 )
+import pydantic
+from pydantic.dataclasses import dataclass
+
 
 @dataclass
 class Files:
@@ -32,7 +33,6 @@ class DataModule:
     mask_bands: Optional[List[int]]
     width: Optional[int]
     height: Optional[int]
-    data_augmentation: Optional[Dict[str]]
     get_sample_info: Optional[bool]
     percentage_val: Optional[float]
     deterministic: Optional[bool]
