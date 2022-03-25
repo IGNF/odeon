@@ -108,6 +108,7 @@ class Params:
 
 @dataclass
 class Trainer:
+    files: Files
     device: Device
     params: Params
     loggers: Loggers
@@ -116,7 +117,6 @@ class Trainer:
 
 @dataclass
 class OCSGEConfig:
-    files: Files
     datamodule: DataModule
     model: Model
     trainer: Trainer

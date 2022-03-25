@@ -27,8 +27,6 @@ def main(cfg: OCSGEConfig):
     cfg = OCSGEConfig(**cfg)
 
     try:
-        print(20  * "#" + "files" + 20  * "#")
-        print(cfg.files)
         print(20  * "#" + "datamodule" + 20  * "#")
         print(cfg.datamodule)
         print(20  * "#" + "model" + 20  * "#")
@@ -40,7 +38,7 @@ def main(cfg: OCSGEConfig):
     return
 
     data_module = SegDataModule(cfg.datamodule)
-    seg_module = SegmentationTask(cfg.taskmodule)
+    seg_module = SegmentationTask(cfg.model)
     trainer = Trainer(cfg.trainer)
 
     try:
