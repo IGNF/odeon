@@ -198,8 +198,7 @@ class SegmentationTask(pl.LightningModule):
                                "name": 'LR Scheduler'}
 
         config = {"optimizer": self.optimizer,
-                  "lr_scheduler": lr_scheduler_config,
-                  "monitor": "val_loss"
+                  "lr_scheduler": lr_scheduler_config
                  }
 
         return config

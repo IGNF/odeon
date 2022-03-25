@@ -80,8 +80,7 @@ def build_scheduler(optimizer, scheduler_config=None, patience=None, resume_file
                                           factor=scheduler_config["factor"],
                                           patience=scheduler_config["patience"],
                                           cooldown=scheduler_config["cooldown"],
-                                          min_lr=scheduler_config["min_lr"],
-                                          verbose=True)
+                                          min_lr=scheduler_config["min_lr"])
 
         elif scheduler_config["scheduler"].lower() == 'cycliclr':
             scheduler = CyclicLR(optimizer=optimizer,
