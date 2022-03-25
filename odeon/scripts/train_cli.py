@@ -473,7 +473,7 @@ class TrainCLI(BaseTool):
                 mode = 'min' if self.early_stopping.lower().endswith('loss') else 'max'
                 early_stop_callback = EarlyStopping(monitor=self.early_stopping, min_delta=0.00, patience=self.patience, verbose=False, mode=mode)
             else:
-                early_stop_callback = EarlyStopping(monitor="val_miou", min_delta=0.00, patience=self.patience, verbose=False, mode="max")
+                early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=self.patience, verbose=False, mode="min")
             self.callbacks.append(early_stop_callback)
 
         if self.continue_training:
