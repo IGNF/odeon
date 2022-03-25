@@ -146,6 +146,7 @@ class SegmentationTask(pl.LightningModule):
                     on_step=False, on_epoch=True, prog_bar=True, logger=False)
         self.log('val_miou', self.val_epoch_metrics["Average/IoU"],
                     on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        # self.scheduler_step(self.val_epoch_loss)
         self.val_loss.reset()
         self.val_metrics.reset()
 
@@ -171,6 +172,13 @@ class SegmentationTask(pl.LightningModule):
         proba = torch.softmax(logits, dim=1)
         return {"proba": proba, "filename": filenames, "affine": affines}
 
+    def scheduler_step(self, monitored_metric=None):
+        sch = self.lr_schedulers()
+        if isinstance(sch, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            sch.step(monitored_metric)
+        else:
+            sch.step()
+
     def configure_optimizers(self):
         if self.optimizer is None:
             self.optimizer = build_optimizer(params=self.model.parameters(),
@@ -182,9 +190,18 @@ class SegmentationTask(pl.LightningModule):
                                              scheduler_config=self.hparams.scheduler_config,
                                              patience=self.hparams.patience)
 
+        lr_scheduler_config = {"scheduler": self.scheduler,
+                               "interval": "epoch",
+                               "monitor": "val_loss",
+                               "frequency": 1,
+                               "strict": True,
+                               "name": 'LR Scheduler'}
+
         config = {"optimizer": self.optimizer,
-                  "lr_scheduler": self.scheduler,
-                  "monitor": "val_loss"}
+                  "lr_scheduler": lr_scheduler_config,
+                  "monitor": "val_loss"
+                 }
+
         return config
 
     def on_save_checkpoint(self, checkpoint):

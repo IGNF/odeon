@@ -8,9 +8,9 @@ from torch.optim.lr_scheduler import (
     ReduceLROnPlateau
 )
 
-PATIENCE = 30
+PATIENCE = 2
 FACTOR = 0.5
-COOLDOWN = 4
+COOLDOWN = 2
 MIN_LR = 1e-7
 
 
@@ -80,7 +80,8 @@ def build_scheduler(optimizer, scheduler_config=None, patience=None, resume_file
                                           factor=scheduler_config["factor"],
                                           patience=scheduler_config["patience"],
                                           cooldown=scheduler_config["cooldown"],
-                                          min_lr=scheduler_config["min_lr"])
+                                          min_lr=scheduler_config["min_lr"],
+                                          verbose=True)
 
         elif scheduler_config["scheduler"].lower() == 'cycliclr':
             scheduler = CyclicLR(optimizer=optimizer,

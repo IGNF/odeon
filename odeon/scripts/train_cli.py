@@ -182,11 +182,11 @@ class TrainCLI(BaseTool):
         else:
             self.name_exp_log = name_exp_log
 
-        if not os.path.exists(os.path.join(self.output_folder, self.name_exp_log)):
-            os.makedirs(os.path.join(self.output_folder, self.name_exp_log))
-            LOGGER.info(f"INFO: Creation folder: {os.path.join(self.output_folder, self.name_exp_log)}")
-        else:
-            LOGGER.info(f"INFO: Folder {os.path.join(self.output_folder, self.name_exp_log)} already exists.")
+        # if not os.path.exists(os.path.join(self.output_folder, self.name_exp_log)):
+        #     os.makedirs(os.path.join(self.output_folder, self.name_exp_log))
+        #     LOGGER.info(f"INFO: Creation folder: {os.path.join(self.output_folder, self.name_exp_log)}")
+        # else:
+        #     LOGGER.info(f"INFO: Folder {os.path.join(self.output_folder, self.name_exp_log)} already exists.")
  
         if output_tensorboard_logs is None:
             self.output_tensorboard_logs = output_folder
@@ -462,7 +462,7 @@ class TrainCLI(BaseTool):
             self.callbacks.append(PredictionsAdder())
 
         if self.log_learning_rate:
-            lr_monitor_callback = LearningRateMonitor(logging_interval="step", log_momentum=True)
+            lr_monitor_callback = LearningRateMonitor(logging_interval="epoch", log_momentum=True)
             self.callbacks.append(lr_monitor_callback)
 
         if self.log_hparams:
@@ -502,7 +502,7 @@ class TrainCLI(BaseTool):
 
         if self.progress_rate <= 0 :
             enable_progress_bar = False
-        else :
+        else:
             progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
             self.callbacks.append(progress_bar)
             enable_progress_bar = True
@@ -539,8 +539,8 @@ class TrainCLI(BaseTool):
                 if self.model_out_ext == ".ckpt":
                     ckpt_val_loss_folder = os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt", self.version_name)
                     best_val_loss_ckpt_path = self.get_path_best_ckpt(ckpt_folder=ckpt_val_loss_folder,
-                                                                        monitor="val_loss",
-                                                                        mode="min")
+                                                                      monitor="val_loss",
+                                                                      mode="min")
  
                 elif self.model_out_ext == ".pth":
                     # Load model weights into the model of the seg module
