@@ -225,20 +225,20 @@ class UNet(nn.Module):
 
     Parameters
     ----------
-    n_channels : int
+    in_channels : int
         number of input channels
-    n_classes : int
+    classes : int
         number of output classes
     """
 
-    def __init__(self, n_channels, n_classes):
+    def __init__(self, in_channels, classes):
 
         super(UNet, self).__init__()
 
-        self.n_classes = n_classes
+        self.classes = classes
 
         # encoder
-        self.inc = InputConv(n_channels, 64, batch_norm=True)
+        self.inc = InputConv(in_channels, 64, batch_norm=True)
         self.down1 = EncoderConv(64, 128, batch_norm=True)
         self.down2 = EncoderConv(128, 256, batch_norm=True)
         self.down3 = EncoderConv(256, 512, batch_norm=True)
@@ -249,7 +249,7 @@ class UNet(nn.Module):
         self.up3 = DecoderConv(256, 128, batch_norm=True)
         self.up4 = DecoderConv(128, 64, batch_norm=True)
 
-        self.outc = OutputConv(64, n_classes)
+        self.outc = OutputConv(64, classes)
 
     def forward(self, x):
         x1 = self.inc(x)
@@ -271,20 +271,20 @@ class LightUNet(nn.Module):
 
     Parameters
     ----------
-    n_channels : int
+    in_channels : int
         number of input channels
-    n_classes : int
+    classes : int
         number of output classes
     """
 
-    def __init__(self, n_channels, n_classes):
+    def __init__(self, in_channels, classes):
 
         super(LightUNet, self).__init__()
 
-        self.n_classes = n_classes
+        self.classes = classes
 
         # encoder
-        self.inc = InputConv(n_channels, 8)
+        self.inc = InputConv(in_channels, 8)
         self.down1 = EncoderConv(8, 16)
         self.down2 = EncoderConv(16, 32)
         self.down3 = EncoderConv(32, 64)
@@ -296,7 +296,7 @@ class LightUNet(nn.Module):
         self.up4 = DecoderConv(16, 8)
 
         # last layer
-        self.outc = OutputConv(8, n_classes)
+        self.outc = OutputConv(8, classes)
 
     def forward(self, x):
 
@@ -316,7 +316,7 @@ class LightUNet(nn.Module):
 
 class UNetResNet(nn.Module):
 
-    def __init__(self, encoder_depth, n_classes, n_channels, num_filters=32, dropout_2d=0.2,
+    def __init__(self, encoder_depth, classes, in_channels, num_filters=32, dropout_2d=0.2,
                  pretrained=False, is_deconv=False):
         """ U-Net model using ResNet(18, 34, 50, 101 or 152) encoder.
         UNet: https://arxiv.org/abs/1505.04597
@@ -327,9 +327,9 @@ class UNetResNet(nn.Module):
         ----------
         encoder_depth : int
             depth of a ResNet encoder (18, 34, 50, 101 or 152).
-        n_channels : int
+        in_channels : int
             number of input channels
-        n_classes : int
+        classes : int
             number of output classes
         num_filters : int, optional
             Number of filters in the last layer of decoder, by default 32
@@ -350,28 +350,28 @@ class UNetResNet(nn.Module):
             [description]
         """
         super().__init__()
-        self.n_classes = n_classes
+        self.classes = classes
         self.dropout_2d = dropout_2d
 
         if encoder_depth == 18:
-            self.encoder = torchvision.models.resnet18(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet18(pretrained=pretrained, num_classes=classes)
             bottom_channel_nr = 512
         elif encoder_depth == 34:
-            self.encoder = torchvision.models.resnet34(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet34(pretrained=pretrained, num_classes=classes)
             bottom_channel_nr = 512
         elif encoder_depth == 50:
-            self.encoder = torchvision.models.resnet50(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet50(pretrained=pretrained, num_classes=classes)
             bottom_channel_nr = 512
         elif encoder_depth == 101:
-            self.encoder = torchvision.models.resnet101(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet101(pretrained=pretrained, num_classes=classes)
             bottom_channel_nr = 2048
         elif encoder_depth == 152:
-            self.encoder = torchvision.models.resnet152(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet152(pretrained=pretrained, num_classes=classes)
             bottom_channel_nr = 2048
         else:
             raise NotImplementedError('only 18, 34, 50, 101, 152 version of Resnet are implemented')
 
-        self.encoder.conv1 = nn.Conv2d(n_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.encoder.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
         self.pool = nn.MaxPool2d(2, 2)
 
@@ -397,7 +397,7 @@ class UNetResNet(nn.Module):
                                    is_deconv)
         self.dec1 = DecoderBlockV2(num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv)
         self.dec0 = ConvRelu(num_filters, num_filters)
-        self.final = nn.Conv2d(num_filters, n_classes, kernel_size=1)
+        self.final = nn.Conv2d(num_filters, classes, kernel_size=1)
 
     def forward(self, x):
 

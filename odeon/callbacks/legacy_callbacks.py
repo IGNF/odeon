@@ -56,9 +56,9 @@ class ContinueTraining(pl.Callback):
 
 class ExoticCheckPoint(pl.Callback):
 
-    def __init__(self, out_folder, out_filename, model_out_ext):
+    def __init__(self, out_dir, out_filename, model_out_ext):
         super().__init__()
-        self.out_folder = out_folder
+        self.out_dir = out_dir
         self.model_out_ext = model_out_ext
         if os.path.splitext(out_filename)[-1] != self.model_out_ext:
             self.out_filename = os.path.splitext(out_filename)[0] + self.model_out_ext
@@ -99,14 +99,14 @@ class ExoticCheckPoint(pl.Callback):
             self. best_val_loss = pl_module.val_epoch_loss
 
             if self.model_out_ext == ".pth":
-                model_filepath = save_model(out_dir=self.out_folder,
+                model_filepath = save_model(out_dir=self.out_dir,
                                             out_filename=self.out_filename,
                                             model=pl_module.model, 
                                             optimizer=pl_module.optimizer,
                                             scheduler=pl_module.scheduler)
 
             # elif self.model_out_ext == ".onnx":
-            #     model_filepath = os.path.join(self.out_folder, self.out_filename)
+            #     model_filepath = os.path.join(self.out_dir, self.out_filename)
             #     model_device = next(iter(pl_module.model.parameters())).device
             #     self.input_sample = self.input_sample.to(model_device)
             #     torch.onnx.export(pl_module.model,

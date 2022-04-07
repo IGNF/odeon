@@ -207,7 +207,7 @@ class GraphAdder(TensorboardCallback):
             self.samples = next(iter(trainer.datamodule.val_dataloader()))["image"]
         self.samples = self.samples.to(device=pl_module.device)
         if len(self.tensorboard_logger_idx) == 1:
-            logger_idx = [0]
+            logger_idx = 0
             trainer.logger[logger_idx].experiment.add_graph(pl_module.model, self.samples)
         elif len(self.tensorboard_logger_idx) > 1:
             for logger_idx in self.tensorboard_logger_idx:

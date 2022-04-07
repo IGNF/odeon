@@ -1,0 +1,6 @@
+gpus: 1
+num_nodes: 1
+num_processes: 4
+deterministic: False
+max_epochs: 5
+val_check_interval: 0.5

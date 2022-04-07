@@ -6,6 +6,8 @@ import rasterio
 import fiona
 from odeon.commons.exception import ErrorCodes, OdeonError
 from fiona import supported_drivers
+from typing import List
+from omegaconf.listconfig import ListConfig
 import os
 from odeon import LOGGER
 
@@ -303,7 +305,7 @@ def check_raster_bands(raster_band, proposed_bands):
     proposed_bands : list
         Bands proposed in the configuration file.
     """
-    if isinstance(proposed_bands, list) and len(proposed_bands) >= 1:
+    if isinstance(proposed_bands, (List, ListConfig)) and len(proposed_bands) >= 1:
         if not all((band in raster_band for band in proposed_bands)):
             LOGGER.error('ERROR: the bands in the configuration file do not correspond\
             to the available bands in the image.')

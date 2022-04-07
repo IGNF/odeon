@@ -1,0 +1,16 @@
+defaults:
+  - datamodule
+
+train_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/train_4_fold_2-fold_3-fold_4.csv
+val_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/val_4_fold_1.csv
+test_file : /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/test_4_fold_5.csv
+image_bands: [1, 2, 3]
+mask_bands: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+class_labels: [batiment,zone_impermeable,zone_permeable,piscine,sol_nu,surface_eau,neige,coupe,peuplement_feuillus,peuplement_coniferes,lande_ligneuse,vigne,culture,terre_arable,autre]
+resolution: 0.2
+deterministic: True
+batch_size: 4
+num_workers: 4
+percentage_val: 0.8
+pin_memory: False
+subset: True

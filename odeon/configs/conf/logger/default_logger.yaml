@@ -1,0 +1,9 @@
+tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+
+csv:
+    _target_: pytorch_lightning.loggers.CSVLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test

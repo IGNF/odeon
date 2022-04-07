@@ -1,0 +1,5 @@
+output_folder: /home/dl/speillet/lightning/outputs_lightning/
+name_exp_log: ocsge_test_32
+version_name: version_test
+model_filename: continue_training.ckpt
+model_out_ext: .ckpt

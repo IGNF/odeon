@@ -1,0 +1,37 @@
+early_stop:
+  _target_: pytorch_lightning.callbacks.EarlyStopping
+  monitor: 'val_loss'
+  mode: min
+  patience: 30
+
+custom_ckpt:
+  _target_: odeon.callbacks.utils_callbacks.LightningCheckpoint
+  dirpath: name_exp
+  filename: version_name
+  monitor: val_loss
+  save_top_k: 3
+
+history_saver:
+  _target_: odeon.callbacks.utils_callbacks.HistorySaver
+
+tensorboard_metrics:
+  _target_: odeon.callbacks.tensorboard_callbacks.MetricsAdder
+
+tensorboard_hparams:
+  _target_: odeon.callbacks.tensorboard_callbacks.HParamsAdder
+
+tensorboard_graph:
+  _target_: odeon.callbacks.tensorboard_callbacks.GraphAdder
+
+tensorboard_histogram:
+  _target_: odeon.callbacks.tensorboard_callbacks.HistogramAdder
+
+tensorboard_predictions:
+  _target_: odeon.callbacks.tensorboard_callbacks.PredictionsAdder
+  display_bands: [1, 2, 3]
+
+pred_writer:
+  _target_: odeon.callbacks.utils_callbacks.CustomPredictionWriter
+  output_dir: name_exp/prediction
+  output_type: .tif
+  write_interval: epoch

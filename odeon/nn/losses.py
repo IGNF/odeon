@@ -193,8 +193,15 @@ class DiceLoss(nn.Module):
 
 class JaccardLoss(nn.Module):
 
-    def __init__(self, weight=None, size_average=True, per_image=False, non_empty=False, apply_sigmoid=False,
-                 min_pixels=5):
+    def __init__(
+        self,
+        weight=None,
+        size_average=True,
+        per_image=False,
+        non_empty=False,
+        apply_sigmoid=False,
+        min_pixels=5
+        ):
         super().__init__()
         self.size_average = size_average
         self.register_buffer('weight', weight)

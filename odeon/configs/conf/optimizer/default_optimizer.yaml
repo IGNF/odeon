@@ -1,0 +1,4 @@
+defaults:
+  - sgd
+
+lr: 0.001

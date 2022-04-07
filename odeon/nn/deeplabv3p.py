@@ -72,16 +72,16 @@ class DeeplabV3p(nn.Module):
         output stride, by default 8
     """
 
-    def __init__(self, n_channels, n_classes, output_stride=8):
+    def __init__(self, in_channels, classes, output_stride=8):
         super(DeeplabV3p, self).__init__()
-        self.n_classes = n_classes
-        self.backbone = MobileNetV2(n_classes=n_classes, n_channels=n_channels)
+        self.n_classes = classes
+        self.backbone = MobileNetV2(n_classes=classes, n_channels=in_channels)
         if output_stride == 16:
             dilatations = [6, 12, 18]
         elif output_stride == 8:
             dilatations = [12, 24, 36]
         self.aspp = ASPP(320, dilatations)
-        self.decoder = Decoder(n_classes, type(self.backbone).__name__)
+        self.decoder = Decoder(classes, type(self.backbone).__name__)
 
     def forward(self, input):
         x, low_level_feat = self.backbone(input)

@@ -1,58 +1,47 @@
-import os
-import hydra
-from hydra.core.config_store import ConfigStore
-from omegaconf import OmegaConf
-import torch
-from pytorch_lightning import Trainer
-from odeon import LOGGER
+import warnings
+warnings.filterwarnings("ignore")
+import pytorch_lightning as pl
+from odeon import LOGGER, configs
+from typing import Optional
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.guard import dirs_exist, file_exist
-from odeon.modules.datamodule import SegDataModule
-from odeon.modules.seg_module import SegmentationTask
-from odeon.nn.models import model_list
-from odeon.configs.seg_config import OCSGEConfig
-import pydantic
+from odeon.configs.core import TrainConfig
+import hydra
+from omegaconf import OmegaConf 
+from odeon.utils.print import print_config
+from odeon.utils.instantiate import (
+    instantiate_datamodule,
+    instantiate_module,
+    instantiate_trainer
+)
+from omegaconf import OmegaConf
+import hydra
 
-" A logger for big message "
-STD_OUT_LOGGER = get_new_logger("stdout_training")
-ch = get_simple_handler()
-STD_OUT_LOGGER.addHandler(ch)
+CONFIG_PATH = "../configs/conf"  # Path of the directory where the config files are stored
+CONFIG_NAME = "config" # basename of the file used for the config (here config.yaml which is in ../configs/conf/)
 
-cs = ConfigStore.instance()
-cs.store(name="ocsge_config", node=OCSGEConfig)
 
-@hydra.main(config_path="../configs", config_name="seg_config")
-def main(cfg: OCSGEConfig):
-    cfg = OCSGEConfig(**cfg)
-
-    try:
-        print(20  * "#" + "datamodule" + 20  * "#")
-        print(cfg.datamodule)
-        print(20  * "#" + "model" + 20  * "#")
-        print(cfg.model)
-        print(20  * "#" + "trainer" + 20  * "#")
-        print(cfg.trainer)
-    except pydantic.ValidationError as e:
-        print(e)
-    return
-
-    data_module = SegDataModule(cfg.datamodule)
-    seg_module = SegmentationTask(cfg.model)
-    trainer = Trainer(cfg.trainer)
+@hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME)
+def main(config: TrainConfig)-> None:
 
     try:
-        STD_OUT_LOGGER.info(
-            f"Training : \n" 
-            f"device: {cfg.trainer.device} \n"
-            f"model: {cfg.task_module.model_name} \n"
-            f"model file: {cfg.task_module.model_filename} \n"
-            f"number of classes: {cfg.data_module.num_classes} \n"
-            f"number of samples: {len(cfg.data_module.train_image_files) + len(cfg.data_module.val_image_files)}  "
-            f"(train: {len(cfg.data_module.train_image_files)}, val: {len(cfg.data_module.val_image_files)})"
-            )
-        trainer.fit(model=seg_module,
-                    datamodule=data_module)
+
+        if config.print_config is True:
+            print_config(config)
+
+        if config.deterministic is True:
+            pl.seed_everything(config.seed, workers=True)
+
+        datamodule = instantiate_datamodule(config.datamodule, config.transforms)
+
+        module = instantiate_module(config, datamodule=datamodule)
+
+        trainer = instantiate_trainer(config)
+
+        trainer.fit(model=module, datamodule=datamodule)
+
+        if config.run_test is True:
+            trainer.test()
 
     except OdeonError as error:
         raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
@@ -63,6 +52,4 @@ def main(cfg: OCSGEConfig):
 
 
 if __name__ == "__main__":
-    print("begining main ...")
     main()
-    # trainer = TrainCLI()

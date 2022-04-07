@@ -1,0 +1,3 @@
+defaults:
+  - reduce_lr_on_plateau
+patience: 20

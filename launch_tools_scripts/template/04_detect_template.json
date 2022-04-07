@@ -1,0 +1,26 @@
+{
+    "image": {"img_size_pixel": 512, "resolution": 0.25},
+    "model": {
+        "model_name": "unet",
+        "file_name": "{{file_name}}"
+    },
+    "output_param": {
+        "output_path": "{{output_path}}",
+        "output_type": "uint8",
+        "threshold": 0.5,
+        "sparse_mode": true,
+        "n_classes":15
+    },
+    "detect_param": {
+        "batch_size": 1,
+        "use_gpu": true,
+        "interruption_recovery": false,
+        "mutual_exclusion": true,
+        "num_worker": 8,
+        "num_thread": 8
+    },
+    "dataset": {
+      "path": "/home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/test_4_fold_5.csv",
+      "image_bands": [1,2,3]
+    }
+}
