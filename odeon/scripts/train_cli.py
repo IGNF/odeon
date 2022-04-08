@@ -15,11 +15,14 @@ from odeon.utils.instantiate import (
     instantiate_trainer
 )
 from omegaconf import OmegaConf
+from odeon.configs import database_lib
 import hydra
 
 CONFIG_PATH = "../configs/conf"  # Path of the directory where the config files are stored
 CONFIG_NAME = "config" # basename of the file used for the config (here config.yaml which is in ../configs/conf/)
 
+
+database_lib.register_configs()
 
 @hydra.main(config_path=CONFIG_PATH, config_name=CONFIG_NAME)
 def main(config: TrainConfig)-> None:
@@ -32,9 +35,9 @@ def main(config: TrainConfig)-> None:
         if config.deterministic is True:
             pl.seed_everything(config.seed, workers=True)
 
-        datamodule = instantiate_datamodule(config.datamodule, config.transforms)
+        datamodule = instantiate_datamodule(config=config.datamodule, transform_config=config.transforms)
 
-        module = instantiate_module(config, datamodule=datamodule)
+        module = instantiate_module(config=config, datamodule=datamodule)
 
         trainer = instantiate_trainer(config)
 

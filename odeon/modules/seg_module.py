@@ -19,7 +19,7 @@ from odeon.configs.core import TrainConfig
 def instantiate_loss(config:dict)-> torch.nn.modules.Module:
     if isinstance(config, DictConfig):
         config = OmegaConf.to_container(config)
-    if "weight" in config.keys():
+    if "weight" in config.keys() and config["weight"] is not None:
         config["weight"] = torch.Tensor(config["weight"])
     return instantiate(config)
 

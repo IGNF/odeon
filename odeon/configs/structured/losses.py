@@ -53,13 +53,13 @@ class JaccardLossConf:
 
 @dataclass
 class LovaszLossConf:
-    _target_: str = "odeon.losses.segmentation.LovaszLoss"
+    _target_: str = "odeon.nn.losses.LovaszLoss"
     ignore_index: Optional[int] = None
     per_image: Optional[bool] = False
 
 
 @dataclass
 class FocalLoss2dConf:
-    _target_: str = "odeon.losses.segmentation.FocalLoss2d"
+    _target_: str = "odeon.nn.losses.FocalLoss2d"
     gamma: Optional[float] = 2.0
     ignore_index: Optional[int] = None

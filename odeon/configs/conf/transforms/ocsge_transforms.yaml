@@ -1,0 +1,19 @@
+train:
+  - _target_: albumentations.RandomRotate90
+    p: 1
+  - _target_: albumentations.Normalize
+    mean: [0.37676471, 0.40151765, 0.33988235]
+    std: [0.19101569, 0.15573725, 0.14893725]
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+
+val:
+  - _target_: albumentations.Normalize
+    mean: [0.38225882, 0.41056471, 0.34547843]
+    std: [0.18321961, 0.14801569, 0.13912549]
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+
+test:
+  - _target_: albumentations.Normalize
+    mean: [0.18321961, 0.14801569, 0.13912549]
+    std: [0.17422353, 0.14218431, 0.13687843]
+  - _target_: odeon.nn.transforms.ToDoubleTensor
