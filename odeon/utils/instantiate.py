@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
 from hydra.utils import instantiate
 from omegaconf import DictConfig, ListConfig, OmegaConf
-from albumentations import Compose
+import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import LightningLoggerBase
@@ -30,9 +30,13 @@ def instantiate_module(
         Instantiate pytorch lightning module from Hydra config.
     """
     OmegaConf.set_struct(config, False)
+    
     config.model.in_channels = datamodule.num_channels
     config.model.classes = datamodule.num_classes
-    config.class_labels = datamodule.config.class_labels
+    config.class_labels = datamodule.class_labels
+    if config.optimizer.lr is None:
+        config.optimizer = config.lr
+
     OmegaConf.set_struct(config, True)
 
     return SegmentationTask(config)
@@ -59,6 +63,7 @@ def instantiate_trainer(config: TrainConfig)-> Trainer:
         logger=_instantiate_logger(config.logger),
         profiler=_instantiate_profiler(config.profiler),
         callbacks=_instantiate_callbacks(config.callbacks),
-        **OmegaConf.to_container(config.trainer),
+        **config.trainer,
     )
+
     return trainer

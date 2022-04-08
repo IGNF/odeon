@@ -1,4 +1,3 @@
-import sched
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import pytorch_lightning as pl
@@ -15,7 +14,14 @@ from typing import Dict
 from odeon import LOGGER
 from odeon.modules.metrics_module import OdeonMetrics
 from odeon.configs.core import TrainConfig
-from odeon.nn.unet import UNet
+
+
+def instantiate_loss(config:dict)-> torch.nn.modules.Module:
+    if isinstance(config, DictConfig):
+        config = OmegaConf.to_container(config)
+    if "weight" in config.keys():
+        config["weight"] = torch.Tensor(config["weight"])
+    return instantiate(config)
 
 
 class SegmentationTask(pl.LightningModule):
@@ -38,10 +44,11 @@ class SegmentationTask(pl.LightningModule):
         self.test_metrics: OdeonMetrics = None
 
         # Init model
-        self.model: torch.nn.Module = UNet(in_channels=3, classes=15) #instantiate(config.model)
+        self.model: torch.nn.Module = instantiate(self.hparams.model)
     
         # Variables not stocked in hparams dict
-        self.criterion: torch.nn.modules.loss = None
+        self.criterion: torch.nn.modules.loss = instantiate_loss(self.hparams.loss)
+
         self.optimizer: torch.optim.optimizer = None
         self.scheduler: torch.optim.lr_scheduler = None
         self.samples: List[torch.Tensor] = None
@@ -96,7 +103,7 @@ class SegmentationTask(pl.LightningModule):
                 "preds": preds, 
                 "targets": targets}
 
-    def step_end(step_output:Dict[str, torch.Tensor], loss_meter:MeanMetric, metrics:OdeonMetrics)-> torch.Tensor:
+    def step_end(self, step_output:Dict[str, torch.Tensor], loss_meter:MeanMetric, metrics:OdeonMetrics)-> torch.Tensor:
         loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
         loss_meter.update(loss)
         metrics.update(preds=preds, target=targets)

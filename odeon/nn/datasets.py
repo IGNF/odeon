@@ -142,6 +142,7 @@ class PatchDataset(Dataset):
                                     )
 
         sample = {"image": img, "mask": msk}
+
         # apply transforms
         if self.transform_function is None:
             self.transform_function = ToDoubleTensor()

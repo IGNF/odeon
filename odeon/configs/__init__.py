@@ -71,26 +71,26 @@ from odeon.configs.structured.loggers import (
     TensorBoardLoggerConf,
     WandbLoggerConf
 )
-from odeon.configs.structured.metrics import (
-    AccuracyConf,
-    AUCConf,
-    AUROCConf,
-    AveragePrecisionConf,
-    ConfusionMatrixConf,
-    F1Conf,
-    FBetaConf,
-    HammingDistanceConf,
-    IoUConf,
-    PrecisionConf,
-    PrecisionRecallCurveConf,
-    RecallConf,
-    ROCConf,
-    StatScoresConf,
-    OdeonMetricsConf,
-    MeanVectorConf,
-    IncrementalVarianceConf,
-    WellfordVarianceConf
-)
+# from odeon.configs.structured.metrics import (
+#     AccuracyConf,
+#     AUCConf,
+#     AUROCConf,
+#     AveragePrecisionConf,
+#     ConfusionMatrixConf,
+#     F1Conf,
+#     FBetaConf,
+#     HammingDistanceConf,
+#     IoUConf,
+#     PrecisionConf,
+#     PrecisionRecallCurveConf,
+#     RecallConf,
+#     ROCConf,
+#     StatScoresConf,
+#     OdeonMetricsConf,
+#     MeanVectorConf,
+#     IncrementalVarianceConf,
+#     WellfordVarianceConf
+# )
 from odeon.configs.structured.model import (
     UnetConf,
     LightUnetOdeonConf,

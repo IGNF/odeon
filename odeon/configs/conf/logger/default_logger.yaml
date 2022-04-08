@@ -1,7 +1,29 @@
-tensorboard:
+train_tensorboard:
     _target_: pytorch_lightning.loggers.TensorBoardLogger
     save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
     version: version_test
+    name: tensorboard_logs
+    default_hp_metric: False
+    sub_dir: Train
+    filename_suffix: _train
+
+val_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+    name: tensorboard_logs
+    default_hp_metric: False
+    sub_dir: Val
+    filename_suffix: _val
+
+test_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+    name: tensorboard_logs
+    default_hp_metric: False
+    sub_dir: test
+    filename_suffix: _test
 
 csv:
     _target_: pytorch_lightning.loggers.CSVLogger

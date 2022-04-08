@@ -1,5 +1,3 @@
-from distutils.log import debug
-from sched import scheduler
 from typing import (
     Dict,
     Tuple,
@@ -73,6 +71,7 @@ class TrainConfig:
     logger: Optional[Any] = None
     optimizer: Any = MISSING
     loss: Any = MISSING
+    lr: float = 0.001
     scheduler: Optional[Any] = None
     profiler: Optional[Any] = None
     trainer: LightningTrainerConf = LightningTrainerConf()

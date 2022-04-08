@@ -13,6 +13,7 @@ defaults:
   - trainer: default_gpu
   - _self_
 
+lr: 0.001
 seed: 23
 deterministic: true
 print_config: true

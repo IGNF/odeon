@@ -26,13 +26,13 @@ class SegDataModule(LightningDataModule):
         )-> None:
         
         super().__init__()
-        self.config = config
+        self.__dict__.update(**config)  # save_hyperparameters() coul be used instead, not sure it will be more useful
 
-        if self.config.deterministic:
+        if self.deterministic:
             self.random_seed = None
             self.shuffle = False
         else:
-            self.random_seed = RANDOM_SEED if self.config.seed is None else self.config.seed
+            self.random_seed = RANDOM_SEED if self.seed is None else self.seed
             self.shuffle = True
 
         self.train_image_files, self.val_image_files, self.test_image_files = None, None, None
@@ -43,12 +43,12 @@ class SegDataModule(LightningDataModule):
 
         self.get_split_files()
         self.sample_dims = self.get_dims_and_meta()
-        if self.config.resolution is not None:
-            self.get_resolution(self.config.resolution)
-        self.image_bands, self.mask_bands = self.get_bands(self.config.image_bands, self.config.mask_bands)
+        if self.resolution is not None:
+            self.get_resolution(self.resolution)
+        self.image_bands, self.mask_bands = self.get_bands(self.image_bands, self.mask_bands)
         self.num_classes = len(self.mask_bands)
         self.num_channels = len(self.image_bands)
-        self.get_batch_size(self.config.batch_size)
+        self.get_batch_size(self.batch_size)
 
         # Init transformations sequences
         self.train_tfm = self.instantiate_transforms(transform_config.train)
@@ -69,18 +69,18 @@ class SegDataModule(LightningDataModule):
                                                   transform=self.train_tfm,
                                                   image_bands=self.image_bands,
                                                   mask_bands=self.mask_bands,
-                                                  width=self.config.width,
-                                                  height=self.config.height)
+                                                  width=self.width,
+                                                  height=self.height)
 
                 self.val_dataset = PatchDataset(image_files=self.val_image_files,
                                                 mask_files=self.val_mask_files,
                                                 transform=self.val_tfm,
                                                 image_bands=self.image_bands,
                                                 mask_bands=self.mask_bands,
-                                                width=self.config.width,
-                                                height=self.config.height)
-                                                
-                if self.config.subset is True:
+                                                width=self.width,
+                                                height=self.height)
+
+                if self.subset is True:
                     self.train_dataset = Subset(self.train_dataset, range(0, 20))
                     self.val_dataset = Subset(self.val_dataset, range(0, 10))
 
@@ -91,43 +91,43 @@ class SegDataModule(LightningDataModule):
                                                  transform=self.test_tfm,
                                                  image_bands=self.image_bands,
                                                  mask_bands=self.mask_bands,
-                                                 width=self.config.width,
-                                                 height=self.config.height,
-                                                 get_sample_info=self.config.get_sample_info)
-                if self.config.subset is True:
+                                                 width=self.width,
+                                                 height=self.height,
+                                                 get_sample_info=self.get_sample_info)
+                if self.subset is True:
                     self.test_dataset = Subset(self.test_dataset, range(0, 10))
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_dataset,
                           batch_size=self.train_batch_size,
-                          num_workers=self.config.num_workers,
-                          pin_memory=self.config.pin_memory,
+                          num_workers=self.num_workers,
+                          pin_memory=self.pin_memory,
                           shuffle=self.shuffle,
-                          drop_last=self.config.drop_last)
+                          drop_last=self.drop_last)
 
     def val_dataloader(self):
         return DataLoader(dataset=self.val_dataset,
                           batch_size=self.val_batch_size,
-                          num_workers=self.config.num_workers,
-                          pin_memory=self.config.pin_memory,
+                          num_workers=self.num_workers,
+                          pin_memory=self.pin_memory,
                           shuffle=False,
-                          drop_last=self.config.drop_last)
+                          drop_last=self.drop_last)
 
     def test_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
                           batch_size=self.test_batch_size,
-                          num_workers=self.config.num_workers,
-                          pin_memory=self.config.pin_memory,
+                          num_workers=self.num_workers,
+                          pin_memory=self.pin_memory,
                           shuffle=False,
-                          drop_last=self.config.drop_last)
+                          drop_last=self.drop_last)
 
     def predict_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
                           batch_size=self.test_batch_size,
-                          num_workers=self.config.num_workers,
-                          pin_memory=self.config.pin_memory,
+                          num_workers=self.num_workers,
+                          pin_memory=self.pin_memory,
                           shuffle=False,
-                          drop_last=self.config.drop_last)
+                          drop_last=self.drop_last)
 
     def read_csv_sample_file(self, file_path):
         image_files = []
@@ -144,23 +144,23 @@ class SegDataModule(LightningDataModule):
 
     def get_split_files(self):
         # Read csv file with columns: image, mask
-        if self.config.train_file:
-            train_image_files, train_mask_files = self.read_csv_sample_file(self.config.train_file)
-            if self.config.val_file is not None:
-                val_image_files, val_mask_files = self.read_csv_sample_file(self.config.val_file)
+        if self.train_file:
+            train_image_files, train_mask_files = self.read_csv_sample_file(self.train_file)
+            if self.val_file is not None:
+                val_image_files, val_mask_files = self.read_csv_sample_file(self.val_file)
             else:
                 train_image_files, val_image_files, train_mask_files, val_mask_files = \
                     train_test_split(train_image_files,
                                      train_mask_files,
-                                     test_size=self.config.percentage_val,
-                                     random_state=self.config.random_seed)
+                                     test_size=self.percentage_val,
+                                     random_state=self.random_seed)
             for list_files in [train_image_files, val_image_files, train_mask_files, val_mask_files]:
                 check_files(list_files)
             self.train_image_files, self.train_mask_files = train_image_files, train_mask_files
             self.val_image_files, self.val_mask_files = val_image_files, val_mask_files
 
-        if self.config.test_file:
-            test_image_files, test_mask_files = self.read_csv_sample_file(self.config.test_file)
+        if self.test_file:
+            test_image_files, test_mask_files = self.read_csv_sample_file(self.test_file)
             for list_files in [test_image_files, test_mask_files]:
                 check_files(list_files)
             self.test_image_files, self.test_mask_files = test_image_files, test_mask_files
@@ -185,7 +185,7 @@ class SegDataModule(LightningDataModule):
                              "Detections and masks have different width/height.")
 
     def get_dims_and_meta(self):
-        if self.config.train_file:
+        if self.train_file:
             train_sample = self.get_samples(self.train_image_files,
                                             self.train_mask_files)
             val_sample = self.get_samples(self.val_image_files,
@@ -204,7 +204,7 @@ class SegDataModule(LightningDataModule):
             self.meta["train"] = train_sample["meta"]
             self.meta["val"] = val_sample["meta"]
 
-        if self.config.test_file:
+        if self.test_file:
             test_sample = self.get_samples(self.test_image_files,
                                            self.test_mask_files)
             self.check_sample(test_sample)
@@ -214,9 +214,9 @@ class SegDataModule(LightningDataModule):
             self.resolution["test"] = self.resolution["val"]
             self.meta["test"] = self.meta["val"]
 
-        if self.config.train_file:
+        if self.train_file:
             dims = {'image': train_sample['image'].shape, 'mask': train_sample['mask'].shape}
-        elif self.config.test_file:
+        elif self.test_file:
             dims = {'image': test_sample['image'].shape, 'mask': test_sample['mask'].shape}
         else:
             LOGGER.error("ERROR: SegDataModule need at least a train file or a test file to be instantiate.")
@@ -250,13 +250,13 @@ class SegDataModule(LightningDataModule):
             LOGGER.error("ERROR: Parameter batch_size should a list/tuple of length one, two or three.")
             raise ValueError('Parameter batch_size is not correct.')
 
-        if self.config.train_file:
+        if self.train_file:
             assert train_batch_size <= len(self.train_image_files),\
                 "batch_size must be lower than the number of files in the dataset"
             assert val_batch_size <= len(self.val_image_files),\
             "batch_size must be lower than the number of files in the dataset"
 
-        if self.config.test_file is not None:
+        if self.test_file is not None:
             assert test_batch_size <= len(self.test_image_files),\
             "batch_size must be lower than the number of files in the dataset"
 
