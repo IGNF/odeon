@@ -1,0 +1,259 @@
+files:
+  output_folder: /home/dl/speillet/lightning/outputs_lightning/
+  name_exp_log: ocsge_test_32
+  version_name: version_test
+  model_filename: continue_training.ckpt
+  model_out_ext: .ckpt
+datamodule:
+  train_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/train_4_fold_2-fold_3-fold_4.csv
+  val_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/val_4_fold_1.csv
+  test_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/test_4_fold_5.csv
+  resolution: 0.2
+  class_labels:
+  - batiment
+  - zone_impermeable
+  - zone_permeable
+  - piscine
+  - sol_nu
+  - surface_eau
+  - neige
+  - coupe
+  - peuplement_feuillus
+  - peuplement_coniferes
+  - lande_ligneuse
+  - vigne
+  - culture
+  - terre_arable
+  - autre
+  image_bands:
+  - 1
+  - 2
+  - 3
+  mask_bands:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  width: null
+  height: null
+  percentage_val: 0.8
+  deterministic: true
+  batch_size: 4
+  num_workers: 4
+  pin_memory: false
+  subset: true
+  seed: 42
+  drop_last: false
+transforms:
+  train:
+  - _target_: albumentations.Normalize
+    mean:
+    - 0.37676471
+    - 0.40151765
+    - 0.33988235
+    std:
+    - 0.19101569
+    - 0.15573725
+    - 0.14893725
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+  val:
+  - _target_: albumentations.Normalize
+    mean:
+    - 0.38225882
+    - 0.41056471
+    - 0.34547843
+    std:
+    - 0.18321961
+    - 0.14801569
+    - 0.13912549
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+  test:
+  - _target_: albumentations.Normalize
+    mean:
+    - 0.18321961
+    - 0.14801569
+    - 0.13912549
+    std:
+    - 0.17422353
+    - 0.14218431
+    - 0.13687843
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+model:
+  _target_: odeon.nn.unet.UNet
+  in_channels: 4
+  classes: 4
+callbacks:
+  early_stop:
+    _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: val_loss
+    mode: min
+    patience: 30
+  custom_ckpt:
+    _target_: odeon.callbacks.utils_callbacks.LightningCheckpoint
+    dirpath: name_exp
+    filename: version_name
+    monitor: val_loss
+    save_top_k: 3
+  history_saver:
+    _target_: odeon.callbacks.utils_callbacks.HistorySaver
+  tensorboard_metrics:
+    _target_: odeon.callbacks.tensorboard_callbacks.MetricsAdder
+  tensorboard_hparams:
+    _target_: odeon.callbacks.tensorboard_callbacks.HParamsAdder
+  tensorboard_graph:
+    _target_: odeon.callbacks.tensorboard_callbacks.GraphAdder
+  tensorboard_histogram:
+    _target_: odeon.callbacks.tensorboard_callbacks.HistogramAdder
+  tensorboard_predictions:
+    _target_: odeon.callbacks.tensorboard_callbacks.PredictionsAdder
+    display_bands:
+    - 1
+    - 2
+    - 3
+  pred_writer:
+    _target_: odeon.callbacks.utils_callbacks.CustomPredictionWriter
+    output_dir: name_exp/prediction
+    output_type: .tif
+    write_interval: epoch
+logger:
+  train_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+    name: tensorboard_logs
+    default_hp_metric: false
+    sub_dir: Train
+    filename_suffix: _train
+  val_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+    name: tensorboard_logs
+    default_hp_metric: false
+    sub_dir: Val
+    filename_suffix: _val
+  test_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+    name: tensorboard_logs
+    default_hp_metric: false
+    sub_dir: test
+    filename_suffix: _test
+  csv:
+    _target_: pytorch_lightning.loggers.CSVLogger
+    save_dir: /home/dl/speillet/lightning/outputs_lightning/ocsge_test_32
+    version: version_test
+optimizer:
+  _target_: torch.optim.SGD
+  lr: 0.001
+  momentum: 0
+  dampening: 0
+  weight_decay: 0
+  nesterov: false
+loss:
+  _target_: odeon.nn.losses.CrossEntropyWithLogitsLoss
+  weight:
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 1
+  - 0
+  reduction: mean
+lr: 0.001
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  mode: min
+  factor: 0.1
+  patience: 20
+  threshold: 0.0001
+  threshold_mode: rel
+  cooldown: 0
+  min_lr: 0
+  eps: 1.0e-08
+  verbose: false
+profiler:
+  _target_: pytorch_lightning.profiler.SimpleProfiler
+  dirpath: null
+  extended: true
+trainer:
+  enable_checkpointing: true
+  default_root_dir: null
+  gradient_clip_val: 0.0
+  gradient_clip_algorithm: norm
+  process_position: 0
+  num_nodes: 1
+  num_processes: 4
+  devices: null
+  gpus: 1
+  auto_select_gpus: false
+  tpu_cores: null
+  ipus: null
+  log_gpu_memory: null
+  enable_progress_bar: true
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 1
+  fast_dev_run: false
+  accumulate_grad_batches: 1
+  max_epochs: 5
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  limit_predict_batches: 1.0
+  val_check_interval: 0.5
+  log_every_n_steps: 50
+  accelerator: null
+  strategy: null
+  sync_batchnorm: false
+  precision: 32
+  enable_model_summary: true
+  weights_summary: top
+  weights_save_path: null
+  num_sanity_val_steps: 2
+  resume_from_checkpoint: null
+  benchmark: false
+  deterministic: false
+  reload_dataloaders_every_n_epochs: 0
+  auto_lr_find: false
+  replace_sampler_ddp: true
+  detect_anomaly: false
+  auto_scale_batch_size: false
+  plugins: null
+  amp_backend: native
+  amp_level: null
+  move_metrics_to_cpu: false
+  multiple_trainloader_mode: max_size_cycle
+  terminate_on_nan: null
+seed: 23
+run_test: false
+run_pred: false
+print_config: true
+debug: true
+ignore_warnings: true
+deterministic: true

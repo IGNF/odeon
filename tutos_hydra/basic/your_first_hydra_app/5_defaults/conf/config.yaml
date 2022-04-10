@@ -1,0 +1,7 @@
+defaults:
+  - db: mysql
+  - _self_
+
+db:
+  user: stephane
+

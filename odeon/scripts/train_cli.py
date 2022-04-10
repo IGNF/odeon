@@ -45,6 +45,8 @@ def main(config: TrainConfig)-> None:
 
         if config.run_test is True:
             trainer.test()
+        elif config.run_pred is True:
+            trainer.pred()
 
     except OdeonError as error:
         raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,

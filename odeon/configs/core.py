@@ -77,6 +77,7 @@ class TrainConfig:
     trainer: LightningTrainerConf = LightningTrainerConf()
     seed: Optional[int] = 42
     run_test: Optional[bool] = False
+    run_pred: Optional[bool] = False
     print_config: Optional[bool] = False
     debug: Optional[bool] = False
     ignore_warnings: Optional[bool] = True
