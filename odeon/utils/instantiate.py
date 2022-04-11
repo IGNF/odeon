@@ -6,7 +6,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.profiler import BaseProfiler
-from odeon.configs.core import TrainConfig
+from odeon.configs.core import Config
 from odeon.modules.datamodule import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
 from odeon.configs.core import DataModuleConf, TransformsConf
@@ -23,7 +23,7 @@ def instantiate_datamodule(
 
 
 def instantiate_module(
-    config: TrainConfig,
+    config: Config,
     datamodule: SegDataModule
     ) -> SegmentationTask:
     """
@@ -34,15 +34,13 @@ def instantiate_module(
     config.model.in_channels = datamodule.num_channels
     config.model.classes = datamodule.num_classes
     config.class_labels = datamodule.class_labels
-    if config.optimizer.lr is None:
-        config.optimizer = config.lr
 
     OmegaConf.set_struct(config, True)
 
     return SegmentationTask(config)
 
 
-def instantiate_trainer(config: TrainConfig)-> Trainer:
+def instantiate_trainer(config: Config)-> Trainer:
     """Instantiate pytorch lightning trainer from Hydra config."""
 
     def _instantiate_callbacks(callbacks_config: Optional[DictConfig]=None) -> List[Callback]:

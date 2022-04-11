@@ -1,5 +1,5 @@
 defaults:
-  - train_config
+  - base_config
   - files: default
   - datamodule: default
   - transforms: default
@@ -19,3 +19,4 @@ deterministic: true
 print_config: true
 debug: true
 ignore_warnings: true
+task: TRAIN

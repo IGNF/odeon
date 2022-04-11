@@ -13,7 +13,7 @@ from hydra.utils import instantiate
 from typing import Dict
 from odeon import LOGGER
 from odeon.modules.metrics_module import OdeonMetrics
-from odeon.configs.core import TrainConfig
+from odeon.configs.core import Config
 
 
 def instantiate_loss(config:dict)-> torch.nn.modules.Module:
@@ -27,7 +27,7 @@ def instantiate_loss(config:dict)-> torch.nn.modules.Module:
 class SegmentationTask(pl.LightningModule):
     def __init__(
         self,
-        config:TrainConfig,
+        config:Config,
     )-> None: 
         super().__init__()
 

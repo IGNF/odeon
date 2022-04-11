@@ -3,7 +3,7 @@ from odeon.configs.core import (
     Files,
     DataModuleConf,
     TransformsConf,
-    TrainConfig
+    Config
 )
 from odeon.configs.structured.optimizers import (
     AdadeltaConf,
@@ -94,7 +94,7 @@ def register_configs()-> None:
     config_store = ConfigStore.instance()
 
     # Stores main config into the repository
-    config_store.store(name='train_config', node=TrainConfig)
+    config_store.store(name='base_config', node=Config)
 
     # Store core classes structured schema
     config_store.store(group='files', name='default', node=Files)

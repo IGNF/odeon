@@ -7,8 +7,9 @@ from typing import (
 )
 from dataclasses import field
 from pydantic.dataclasses import dataclass
-from odeon.configs.trainer import LightningTrainerConf
 from omegaconf import MISSING
+from odeon.configs.trainer import LightningTrainerConf
+from odeon.constants.enums import TaskType
 
 
 @dataclass
@@ -62,7 +63,7 @@ class TransformsConf:
 
 
 @dataclass
-class TrainConfig:
+class Config:
     files: Files = MISSING
     datamodule: DataModuleConf = MISSING
     transforms: TransformsConf = TransformsConf()
@@ -82,3 +83,4 @@ class TrainConfig:
     debug: Optional[bool] = False
     ignore_warnings: Optional[bool] = True
     deterministic: Optional[bool] = True
+    task: TaskType = MISSING
