@@ -1,0 +1,31 @@
+train_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: ${files.output_folder}/${files.name_exp_log}
+    version: ${files.version_name}
+    name: tensorboard_logs
+    default_hp_metric: False
+    sub_dir: Train
+    filename_suffix: _train
+
+val_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: ${files.output_folder}/${files.name_exp_log}
+    version: ${files.version_name}
+    name: tensorboard_logs
+    default_hp_metric: False
+    sub_dir: Val
+    filename_suffix: _val
+
+test_tensorboard:
+    _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: ${files.output_folder}/${files.name_exp_log}
+    version: ${files.version_name}
+    name: tensorboard_logs
+    default_hp_metric: False
+    sub_dir: test
+    filename_suffix: _test
+
+csv:
+    _target_: pytorch_lightning.loggers.CSVLogger
+    save_dir: ${files.output_folder}/${files.name_exp_log}
+    version: ${files.version_name}

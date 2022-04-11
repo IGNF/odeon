@@ -1,0 +1,15 @@
+defaults:
+  - datamodule
+
+train_file: ???
+val_file: ???
+test_file : ???
+image_bands: ???
+mask_bands: ???
+class_labels: ???
+deterministic: True
+batch_size: 4
+num_workers: 4
+percentage_val: 0.8
+pin_memory: False
+subset: True

@@ -1,0 +1,11 @@
+defaults:
+  - transforms
+
+train:
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+
+val:
+  - _target_: odeon.nn.transforms.ToDoubleTensor
+
+test:
+  - _target_: odeon.nn.transforms.ToDoubleTensor

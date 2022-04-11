@@ -1,6 +1,3 @@
-defaults:
-  - datamodule
-
 train_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/train_4_fold_2-fold_3-fold_4.csv
 val_file: /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/val_4_fold_1.csv
 test_file : /home/dl/speillet/test_odeon_ocsng_32/dataset_ocsng_gers_naf_fold/test_4_fold_5.csv

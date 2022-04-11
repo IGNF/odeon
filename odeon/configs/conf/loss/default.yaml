@@ -1,0 +1,2 @@
+defaults:
+    - ce_with_logits

@@ -1,15 +1,15 @@
 defaults:
   - train_config
-  - files: default_files
-  - datamodule: default_datamodule
-  - transforms: default_transforms
-  - optimizer: default_optimizer
-  - callbacks: default_callbacks
-  - model: default_model
-  - logger: default_logger
-  - scheduler: default_scheduler
-  - profiler: default_profiler
-  - loss: default_loss
+  - files: default
+  - datamodule: default
+  - transforms: default
+  - optimizer: default
+  - callbacks: default
+  - model: default
+  - logger: default
+  - scheduler: default
+  - profiler: default
+  - loss: default
   - trainer: default_gpu
   - _self_
 

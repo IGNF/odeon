@@ -1,0 +1,4 @@
+output_folder:  ${hydra:runtime.cwd}
+name_exp_log: ${now:%Y-%m-%d}
+version_name: ${now:%H-%M-%S}
+model_filename: ${hydra:job.name}.ckpt
