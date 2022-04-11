@@ -1,4 +1,4 @@
 defaults:
   - sgd
 
-lr: 0.001
+lr: ${lr}
