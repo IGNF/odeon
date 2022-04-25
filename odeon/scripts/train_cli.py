@@ -37,6 +37,7 @@ from odeon.modules.seg_module import SegmentationTask
 from odeon.modules.stats_module import Stats
 from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
 from odeon.nn.models import model_list
+from odeon.loggers.json_logs import JSONLogger
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_training")
@@ -182,12 +183,6 @@ class TrainCLI(BaseTool):
         else:
             self.name_exp_log = name_exp_log
 
-        # if not os.path.exists(os.path.join(self.output_folder, self.name_exp_log)):
-        #     os.makedirs(os.path.join(self.output_folder, self.name_exp_log))
-        #     LOGGER.info(f"INFO: Creation folder: {os.path.join(self.output_folder, self.name_exp_log)}")
-        # else:
-        #     LOGGER.info(f"INFO: Folder {os.path.join(self.output_folder, self.name_exp_log)} already exists.")
- 
         if output_tensorboard_logs is None:
             self.output_tensorboard_logs = output_folder
         else: 
@@ -381,10 +376,10 @@ class TrainCLI(BaseTool):
             loggers.append(wandb_logger)
 
         if self.save_history:
-            csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
-                                   version=self.version_name,
-                                   name="history_csv")
-            loggers.append(csv_logger)
+            json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                    version=self.version_name,
+                                    name="history_json")
+            loggers.append(json_logger)
 
         if self.test_file:
             # Logger will be use for test or predict phase
@@ -397,10 +392,10 @@ class TrainCLI(BaseTool):
             loggers.append(test_logger)
 
             if self.save_history:
-                test_csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
-                                            version=self.version_name,
-                                            name="test_csv")
-                loggers.append(test_csv_logger)
+                test_json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                              version=self.version_name,
+                                              name="test_json")
+                loggers.append(test_json_logger)
 
         # Callbacks definition
         tensorboard_metrics = MetricsAdder()

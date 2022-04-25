@@ -1,12 +1,17 @@
 import os
 from time import gmtime, strftime 
 import pytorch_lightning as pl
+from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import LoggerCollection
 from pytorch_lightning.callbacks import BasePredictionWriter, ModelCheckpoint
 from pytorch_lightning.utilities import rank_zero_only
 import rasterio
 from rasterio.warp import aligned_target
 from odeon.commons.image import TypeConverter
 from odeon.commons.rasterio import ndarray_to_affine
+from odeon.loggers.json_logs import JSONLogger
+from odeon import LOGGER
+from odeon.commons.exception import OdeonError, ErrorCodes
 
 THRESHOLD = 0.5
 
@@ -58,38 +63,53 @@ class HistorySaver(pl.Callback):
     
     def __init__(self):
         super().__init__()
-        self.idx_loggers = None
+        self.idx_json_loggers = None
+        self.phase_dict = {'val': 0,
+                           'test': 1}
 
-    def on_fit_start(self, trainer, pl_module):
-        if pl_module.logger is not None:
-            idx_csv_loggers = [idx for idx, logger in enumerate(pl_module.logger.experiment)\
-                if isinstance(logger, pl.loggers.csv_logs.ExperimentWriter)]
-            if idx_csv_loggers :
-                self.idx_loggers = {'val': idx_csv_loggers[0], 'test': idx_csv_loggers[-1]}
+    def get_json_logger(self, trainer: Trainer, phase: str) -> JSONLogger:
+        """
+            Safely get JSONlogger from Trainer attributes according to the current phase.
+        """
+        if self.idx_json_loggers is None:
+            self.idx_json_loggers = []
+
+            if isinstance(trainer.logger, JSONLogger):
+                self.idx_json_loggers = 0
+
+            elif isinstance(trainer.logger, LoggerCollection):
+                for idx, logger in enumerate(trainer.logger):
+                    if isinstance(logger, JSONLogger):
+                        self.idx_json_loggers.append(idx)
+
+        if self.idx_json_loggers:
+            if self.idx_json_loggers == 0:
+                return trainer.logger
             else:
-                self.idx_loggers = {'val': None, 'test': None}
-
-    def on_test_start(self, trainer, pl_module):
-        if self.idx_loggers is None:
-            self.on_fit_start(trainer, pl_module)
-        return super().on_test_start(trainer, pl_module)
+                phase_idx = self.phase_dict[phase]
+                logger_idx = self.idx_json_loggers[phase_idx]
+                return trainer.logger[logger_idx]
+        else:
+            LOGGER.error("ERROR: the callback HistogramAdder won't work if there is any logger of type JSONLogger.")
+            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
+                             "HistogramAdder callback is not use properly.")
 
     @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
-        logger_idx = self.idx_loggers['val']
+        logger = self.get_json_logger(trainer=trainer, phase='val')
         metric_collection = {key: value.cpu().numpy() for key, value in pl_module.val_epoch_metrics.items()}
         metric_collection['loss'] = pl_module.val_epoch_loss.cpu().numpy()
         metric_collection['learning rate'] = pl_module.hparams.learning_rate  # Add learning rate logging  
-        pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
-        pl_module.logger[logger_idx].experiment.save()
+        logger.experiment.log_metrics(metric_collection, pl_module.current_epoch)
+        logger.experiment.save()
 
     @rank_zero_only
     def on_test_epoch_end(self, trainer, pl_module):
-        logger_idx = self.idx_loggers['test']
+        logger = self.get_json_logger(trainer=trainer, phase='test')
         metric_collection = {key: value.cpu().numpy() for key, value in pl_module.test_epoch_metrics.items()}
         metric_collection['loss'] = pl_module.test_epoch_loss.cpu().numpy()
-        pl_module.logger[logger_idx].experiment.log_metrics(metric_collection, pl_module.current_epoch)
-        pl_module.logger[logger_idx].experiment.save()
+        logger.experiment.log_metrics(metric_collection, pl_module.current_epoch)
+        logger.experiment.save()
 
 
 class CustomPredictionWriter(BasePredictionWriter):

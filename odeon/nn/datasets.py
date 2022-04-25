@@ -104,9 +104,17 @@ class PatchDataset(Dataset):
         list of band indices to keep in sample generation, by default None
     """
 
-    def __init__(self, image_files, mask_files, transform=None, width=None, height=None, image_bands=None,
-                 mask_bands=None, get_sample_info=False):
-
+    def __init__(
+    self,
+    image_files, 
+    mask_files, 
+    transform=None, 
+    width=None, 
+    height=None, 
+    image_bands=None,             
+    mask_bands=None,
+    get_sample_info=False
+    ):
         self.image_files = image_files
         self.image_bands = image_bands
         self.mask_files = mask_files
@@ -130,18 +138,20 @@ class PatchDataset(Dataset):
                                     resolution=None,
                                     band_indices=self.image_bands
                                     )
+        sample = {"image": img}
 
-        # load mask file
-        mask_file = self.mask_files[index]
-        msk, _ = raster_to_ndarray(
-                                    mask_file,
-                                    width=self.width,
-                                    height=self.height,
-                                    resolution=None,
-                                    band_indices=self.mask_bands
-                                    )
+        # Load mask file
+        if self.mask_files is not  None:
+            mask_file = self.mask_files[index]
+            msk, _ = raster_to_ndarray(
+                                        mask_file,
+                                        width=self.width,
+                                        height=self.height,
+                                        resolution=None,
+                                        band_indices=self.mask_bands
+                                        )
+            sample["mask"] = msk
 
-        sample = {"image": img, "mask": msk}
         # apply transforms
         if self.transform_function is None:
             self.transform_function = ToDoubleTensor()
@@ -157,14 +167,17 @@ class PatchDataset(Dataset):
 
 class PatchDetectionDataset(Dataset):
 
-    def __init__(self,
-                 job,
-                 resolution,
-                 width,
-                 height,
-                 transform=None,
-                 image_bands=None):
+    def __init__(
+        self,
+        job,
+        resolution,
+        width,
+        height,
+        transform=None,
+        image_bands=None
+        ):
 
+        get_sample_info=False
         self.job = job
         self.job.keep_only_todo_list()
         self.width = width

@@ -3,6 +3,8 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid, draw_segmentation_masks
 import pytorch_lightning as pl
+from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import LoggerCollection, TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
@@ -32,66 +34,87 @@ OCSGE_LUT = [
 
 class TensorboardCallback(pl.Callback):
 
-    @rank_zero_only
-    def on_fit_start(self, trainer, pl_module):
-        self.tensorboard_logger_idx = self.get_tensorboard_logger_idx(trainer=trainer)
+    def __init__(self) -> None:
+        super().__init__()
+        self.idx_loggers = None
+        self.phase_dict = {"train": 0,
+                           "val": 1,
+                           "test": 2}
 
-    @staticmethod
-    def get_tensorboard_logger_idx(trainer):
-        tensorboard_logger_idx = []
-        for idx, logger in enumerate(trainer.logger.experiment):
-            if isinstance(logger, torch.utils.tensorboard.writer.SummaryWriter):
-                tensorboard_logger_idx.append(idx)
-        return tensorboard_logger_idx
+    def get_tensorboard_logger(self, trainer: Trainer, phase: str) -> TensorBoardLogger:
+        """
+            Safely get TensorBoardLogger from Trainer attributes according to the current phase.
+        """
 
-    @staticmethod
-    def map_phase_logger_idx(phase):
-        phase_table = {"train": 0,
-                       "val": 1,
-                       "test": 2}
-        assert phase in phase_table.keys(), "Phases are train/val/test and predict."
-        return phase_table[phase]
+        if phase not in self.phase_dict.keys(): 
+            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
+                             "The possible phases are train, val, test or predict.")
+
+        if self.idx_loggers is None:
+            self.idx_loggers = []
+
+            if isinstance(trainer.logger, TensorBoardLogger):
+                self.idx_loggers = 0
+
+            elif isinstance(trainer.logger, LoggerCollection):
+                for idx, logger in enumerate(trainer.logger):
+                    if isinstance(logger, TensorBoardLogger):
+                        self.idx_loggers.append(idx)
+
+        if self.idx_loggers:
+            if self.idx_loggers == 0:
+                return trainer.logger
+            else:
+                phase_idx = self.phase_dict[phase]
+                logger_idx = self.idx_loggers[phase_idx]
+                return trainer.logger[logger_idx]
+        else:
+            LOGGER.error("ERROR: the callback TensorboardCallback won't work if there is any logger of type TensorBoardLogger.")
+            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
+                             "TensorboardCallback callback is not use properly.")
 
 
 class MetricsAdder(TensorboardCallback):
 
     @rank_zero_only
     def add_metrics(self, trainer, pl_module, metric_collection, loss, phase):
-        # For tensorboards loggers
-        logger_idx = self.tensorboard_logger_idx[self.map_phase_logger_idx(phase)]
-
-        trainer.logger[logger_idx].experiment.add_scalar(f"Loss",
-                                                            loss,
-                                                            global_step=pl_module.current_epoch)
+        # Get logger for the current phase
+        logger = self.get_tensorboard_logger(trainer=trainer, phase=phase)
+        # Add the loss value to the experiment
+        logger.experiment.add_scalar(f"Loss",
+                                     loss,
+                                     global_step=pl_module.current_epoch)
+        # Add every value computed to the experiment
         for key_metric in metric_collection.keys():
             if key_metric != "cm_macro" and key_metric != "cm_micro":
-                trainer.logger[logger_idx].experiment.add_scalar(key_metric,
-                                                                 metric_collection[key_metric],
-                                                                 global_step=pl_module.current_epoch)
+                logger.experiment.add_scalar(key_metric,
+                                             metric_collection[key_metric],
+                                             global_step=pl_module.current_epoch)
             elif key_metric == "cm_micro":
                 fig_cm_micro = plot_confusion_matrix(metric_collection[key_metric].cpu().numpy(),
                                                      ['Positive', 'Negative'],
                                                      output_path=None,
                                                      cmap="YlGn")
-                trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/Micro",
-                                                                 fig_cm_micro,
-                                                                 pl_module.current_epoch)
+                logger.experiment.add_figure("Metrics/ConfusionMatrix/Micro",
+                                             fig_cm_micro,
+                                             pl_module.current_epoch)
+
             elif key_metric == "cm_macro":
                 fig_cm_macro = plot_confusion_matrix(metric_collection[key_metric].cpu().numpy(),
                                                      pl_module.hparams.class_labels,
                                                      output_path=None,
                                                      cmap="YlGn")
-                trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/Macro",
-                                                                 fig_cm_macro,
-                                                                 pl_module.current_epoch)
+                logger.experiment.add_figure("Metrics/ConfusionMatrix/Macro",
+                                             fig_cm_macro,
+                                             pl_module.current_epoch)
                 fig_cm_macro_norm = plot_confusion_matrix(metric_collection[key_metric].cpu().numpy(),
                                                           pl_module.hparams.class_labels,
                                                           output_path=None,
                                                           per_class_norm=True,
                                                           cmap="YlGn")
-                trainer.logger[logger_idx].experiment.add_figure("Metrics/ConfusionMatrix/MacroNormalized",
-                                                                 fig_cm_macro_norm,
-                                                                 pl_module.current_epoch)
+                logger.experiment.add_figure("Metrics/ConfusionMatrix/MacroNormalized",
+                                             fig_cm_macro_norm,
+                                             pl_module.current_epoch)
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
@@ -130,15 +153,9 @@ class HParamsAdder(TensorboardCallback):
         for key, value in pl_module.hparams.items():
             if isinstance(value, (int, float, str, bool, torch.Tensor)):
                 hparams[key] = value  # Tensorboard expect a dict and not AttributeDict()
-        if len(self.tensorboard_logger_idx) == 1:
-            trainer.logger.experiment.add_hparams(hparams, metric_dict)
-        elif len(self.tensorboard_logger_idx) > 1:
-            phase_index = self.tensorboard_logger_idx[self.map_phase_logger_idx(phase)]
-            trainer.logger[phase_index].experiment.add_hparams(hparams, metric_dict)
-        else:
-            LOGGER.error("ERROR: the callback HParamsAdder won't work if there is any Tensorboard logger.")
-            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
-                             "HParamsAdder callback is not use properly.")
+    
+        logger = self.get_tensorboard_logger(trainer=trainer, phase=phase)
+        logger.experiment.add_hparams(hparams, metric_dict)
 
     @rank_zero_only
     def update_best_metrics(self, input_metric_dict, used_metric_dict):
@@ -197,48 +214,36 @@ class GraphAdder(TensorboardCallback):
     def __init__(self, samples=None):
         super().__init__()
         self.samples = samples
-        self.tensorboard_logger_idx = None
-        self.samples = samples
 
     @rank_zero_only
-    def on_fit_start(self, trainer, pl_module):
-        self.tensorboard_logger_idx = self.get_tensorboard_logger_idx(trainer=trainer)
+    def add_graph(self, trainer, pl_module, phase, dataloader):
         if self.samples is None:
-            self.samples = next(iter(trainer.datamodule.val_dataloader()))["image"]
+            self.samples = next(iter(dataloader()))["image"]
         self.samples = self.samples.to(device=pl_module.device)
-        if len(self.tensorboard_logger_idx) == 1:
-            logger_idx = [0]
-            trainer.logger[logger_idx].experiment.add_graph(pl_module.model, self.samples)
-        elif len(self.tensorboard_logger_idx) > 1:
-            for logger_idx in self.tensorboard_logger_idx:
-                trainer.logger[logger_idx].experiment.add_graph(pl_module.model, self.samples)
-        else:
-            LOGGER.error("ERROR: the callback GraphAdder won't work if there is any Tensorboard logger.")
-            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
-                             "GraphAdder callback is not use properly.")
-        # Detach samples from device
-        self.samples = self.samples.detach()
+        logger = self.get_tensorboard_logger(trainer=trainer, phase=phase)
+        logger.experiment.add_graph(pl_module.model, self.samples)
+        self.samples = self.samples.detach()  # Detach samples from device
+
+    @rank_zero_only
+    def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        self.add_graph(trainer=trainer, pl_module=pl_module, phase="train", dataloader=trainer.datamodule.train_dataloader)
+        self.add_graph(trainer=trainer, pl_module=pl_module, phase="val", dataloader=trainer.datamodule.val_dataloader)
+
+    @rank_zero_only
+    def on_test_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        self.add_graph(trainer=trainer, pl_module=pl_module, phase="test", dataloader=trainer.datamodule.test_dataloader)
 
 
 class HistogramAdder(TensorboardCallback):
 
     def __init__(self):
         super().__init__()
-        self.tensorboard_logger_idx = None
 
     @rank_zero_only
     def add_histogram(self, trainer, pl_module, phase):
-        if len(self.tensorboard_logger_idx) == 1: 
-            for name, params in pl_module.named_parameters():
-                trainer.logger.experiment.add_histogram(name, params, pl_module.current_epoch)
-        elif len(self.tensorboard_logger_idx) > 1:
-            phase_index = self.tensorboard_logger_idx[self.map_phase_logger_idx(phase)]
-            for name, params in pl_module.named_parameters():
-                trainer.logger.experiment[phase_index].add_histogram(name, params, pl_module.current_epoch)
-        else:
-            LOGGER.error("ERROR: the callback HistogramAdder won't work if there is any Tensorboard logger.")
-            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
-                             "HistogramAdder callback is not use properly.")
+        logger = self.get_tensorboard_logger(trainer=trainer, phase=phase)
+        for name, params in pl_module.named_parameters():
+            logger.experiment.add_histogram(name, params, pl_module.current_epoch)
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
@@ -256,7 +261,8 @@ class HistogramAdder(TensorboardCallback):
 class PredictionsAdder(TensorboardCallback):
     
     def __init__(
-        self, train_samples=None,
+        self, 
+        train_samples=None,
         val_samples=None,
         test_samples=None,
         num_predictions=NUM_PREDICTIONS,
@@ -274,7 +280,6 @@ class PredictionsAdder(TensorboardCallback):
 
     @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
-        self.tensorboard_logger_idx = self.get_tensorboard_logger_idx(trainer=trainer)
         if self.train_samples is None:
             self.train_sample_dataset = PatchDataset(image_files=trainer.datamodule.train_image_files,
                                                      mask_files=trainer.datamodule.train_mask_files,
@@ -324,6 +329,7 @@ class PredictionsAdder(TensorboardCallback):
 
     @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
+
         if phase == "train":
             samples = self.train_samples
         elif phase == "val":
@@ -342,6 +348,7 @@ class PredictionsAdder(TensorboardCallback):
         preds = preds.cpu()
         grids = []
         images = torch.stack([images[:, band_i, :, :] for band_i in self.display_bands], 1)
+
         for image, target, pred in zip(images, targets, preds):
             pred_bands = torch.zeros_like(target)
             for class_i in np.arange(trainer.datamodule.num_classes):
@@ -353,15 +360,8 @@ class PredictionsAdder(TensorboardCallback):
             grids.append(make_grid([image, target_overlay, pred_overlay]))
         image_grid = torch.cat(grids, 1)
 
-        if len(self.tensorboard_logger_idx) == 1:
-            trainer.logger.experiment.add_image("Images - Masks - Predictions", image_grid, pl_module.current_epoch)
-        elif len(self.tensorboard_logger_idx) > 1:
-            phase_index = self.tensorboard_logger_idx[self.map_phase_logger_idx(phase)]
-            trainer.logger[phase_index].experiment.add_image("Images/Masks - Predictions", image_grid, pl_module.current_epoch)
-        else:
-            LOGGER.error("ERROR: the callback PredictionsAdder won't work if there is any Tensorboard logger.")
-            raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
-                             "PredictionsAdder callback is not use properly.")
+        logger = self.get_tensorboard_logger(trainer=trainer, phase=phase)
+        logger.experiment.add_image("Images - Masks - Predictions", image_grid, pl_module.current_epoch)
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):

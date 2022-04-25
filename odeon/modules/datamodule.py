@@ -68,9 +68,9 @@ class SegDataModule(LightningDataModule):
         self.image_bands, self.mask_bands = self.get_bands(image_bands, mask_bands)
         self.num_classes = len(self.mask_bands)
         self.num_channels = len(self.image_bands)
-        self.train_batch_size, self.val_batch_size, self.test_batch_size = None, None, None
+        self.train_batch_size, self.val_batch_size, self.test_batch_size, self.pred_batch_size = None, None, None, None
         self.get_batch_size(batch_size)
-        self.train_dataset, self.val_dataset, self.test_dataset = None, None, None
+        self.train_dataset, self.val_dataset, self.test_dataset, self.pred_dataset = None, None, None, None
 
     def prepare_data(self):
         pass
@@ -93,13 +93,26 @@ class SegDataModule(LightningDataModule):
                                                 mask_bands=self.mask_bands,
                                                 width=self.width,
                                                 height=self.height)
-                                                
+
                 if self.subset is True:
                     self.train_dataset = Subset(self.train_dataset, range(0, 20))
                     self.val_dataset = Subset(self.val_dataset, range(0, 10))
 
-        elif stage == "test" or stage == "predict":
+        elif stage == "test":
             if not self.test_dataset:
+                self.test_dataset = PatchDataset(image_files=self.test_image_files,
+                                                 mask_files=self.test_mask_files,
+                                                 transform=self.transforms['test'],
+                                                 image_bands=self.image_bands,
+                                                 mask_bands=self.mask_bands,
+                                                 width=self.width,
+                                                 height=self.height,
+                                                 get_sample_info=self.get_sample_info)
+                if self.subset is True:
+                    self.test_dataset = Subset(self.test_dataset, range(0, 10))
+
+        elif stage == "predict":            
+            if not self.pred_dataset:
                 self.test_dataset = PatchDataset(image_files=self.test_image_files,
                                                  mask_files=self.test_mask_files,
                                                  transform=self.transforms['test'],
@@ -291,3 +304,11 @@ class SegDataModule(LightningDataModule):
     def teardown(self, stage=None):
         # Used to clean-up when the run is finished
         pass
+
+    def generate_dataset(self, dataset_info):
+        dataset_info = {"img_size_pixel"}
+        
+    
+
+
+

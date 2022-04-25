@@ -113,8 +113,6 @@ class DetectCLI(BaseTool):
             self.deterministic = False
 
         self.model_ext = os.path.splitext(self.model_filename)[-1]
-
-        # implement TTA?
         self.transforms = {"test": Compose([ToDoubleTensor()])}
 
         if zone is not None:
@@ -124,7 +122,7 @@ class DetectCLI(BaseTool):
 
         else:
             self.mode = "dataset"
-            self.dataset =dataset
+            self.dataset = dataset
 
             self.data_module = SegDataModule(test_file=self.dataset["path"],
                                              image_bands=self.dataset["image_bands"],
@@ -253,7 +251,9 @@ class DetectCLI(BaseTool):
                                callbacks=self.callbacks,
                                logger=loggers,
                                deterministic=self.deterministic,
+                               max_epochs=-1,
                                strategy=self.strategy,
                                num_nodes=self.num_nodes,
                                num_processes=self.num_processes,
                                enable_progress_bar=self.enable_progress_bar)
+
