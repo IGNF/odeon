@@ -154,6 +154,7 @@ class PatchDataset(Dataset):
 
         # apply transforms
         if self.transform_function is None:
+            sample["image"] = img_as_float(sample["image"])  # pixels are normalized to [0, 1]
             self.transform_function = ToDoubleTensor()
 
         sample = self.transform_function(**sample)

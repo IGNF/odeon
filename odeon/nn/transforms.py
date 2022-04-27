@@ -7,13 +7,17 @@ from skimage.color import hsv2rgb
 from skimage.color import rgb2hsv
 from skimage.transform import rotate
 from skimage.util import random_noise
+from skimage.util import img_as_float
 
-# TODO :
-#   - normalisation sur les canaux RGB Irc ?
-#       https://pytorch.org/tutorials/beginner/data_loading_tutorial.html
-#       transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-#   - investiguer les fonctions pytorch et la bibliothèque albumentation
-#       https://albumentations.readthedocs.io/en/latest/index.html
+
+class NormalizeImgAsFloat(object):
+    """
+        Normalization with scikit-learn function img_as_float which normalize uint/int between 0 - 255 to float in the range 0 -1. 
+    """
+    def __call__(self, **sample):
+        image = sample['image']
+        sample['image'] = img_as_float(image)
+        return sample
 
 
 class Rotation90(object):

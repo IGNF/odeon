@@ -35,7 +35,14 @@ from odeon.commons.guard import dirs_exist, file_exist
 from odeon.modules.datamodule import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
 from odeon.modules.stats_module import Stats
-from odeon.nn.transforms import Compose, Rotation90, Radiometry, ToDoubleTensor
+from odeon.nn.transforms import (
+    Compose, 
+    Rotation90, 
+    Radiometry, 
+    ToDoubleTensor,
+    NormalizeImgAsFloat
+)
+
 from odeon.nn.models import model_list
 from odeon.loggers.json_logs import JSONLogger
 
@@ -275,10 +282,10 @@ class TrainCLI(BaseTool):
                 self.test_tfm_func.append(ToDoubleTensor())
  
         else:
-            self.train_tfm_func.append(ToDoubleTensor())
-            self.val_tfm_func.append(ToDoubleTensor())
-            self.test_tfm_func.append(ToDoubleTensor())
-    
+            self.train_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
+            self.val_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
+            self.test_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
+
         self.transforms = {'train': Compose(self.train_tfm_func),
                            'val': Compose(self.val_tfm_func),
                            'test': Compose(self.test_tfm_func)}
