@@ -282,8 +282,8 @@ class TrainCLI(BaseTool):
                 self.test_tfm_func.append(ToDoubleTensor())
  
         else:
-            self.train_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
-            self.val_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
+            self.train_tfm_func.extend([NormalizeImgAsFloat(), Rotation90(), ToDoubleTensor()])
+            self.val_tfm_func.extend([NormalizeImgAsFloat(), Rotation90(), ToDoubleTensor()])
             self.test_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
 
         self.transforms = {'train': Compose(self.train_tfm_func),
