@@ -1,8 +1,8 @@
 import os
 import torch
 from pathlib import Path
-from odeon.nn.unet import UNet, UNetResNet, LightUNet
-from odeon.nn.deeplabv3p import DeeplabV3p
+from odeon.models.unet import UNet, UNetResNet, LightUNet
+from odeon.models.deeplabv3p import DeeplabV3p
 
 model_list = [
     "unet", "lightunet",

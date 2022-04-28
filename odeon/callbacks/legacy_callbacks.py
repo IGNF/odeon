@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_only
 from odeon import LOGGER
 from odeon.commons.guard import files_exist
-from odeon.nn.models import get_train_filenames, save_model
+from odeon.models.base import get_train_filenames, save_model
 from odeon.commons.exception import OdeonError, ErrorCodes
 
 
@@ -26,7 +26,6 @@ class ContinueTraining(pl.Callback):
         files_exist(check_train_files)
         self.history_dict = None
 
-    @rank_zero_only
     def on_fit_start(self, trainer, pl_module):
         current_device = next(iter(pl_module.model.parameters())).device
         model_state_dict = torch.load(self.train_files["model"],

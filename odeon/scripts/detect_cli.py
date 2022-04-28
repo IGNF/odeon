@@ -16,9 +16,10 @@ from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.modules.datamodule import SegDataModule
+from odeon.data.datamodules.patch_segmentation import SegDataModule
+from odeon.data.datamodules.zone_segmentation import ZoneDataModule
 from odeon.modules.seg_module import SegmentationTask
-from odeon.nn.transforms import Compose, ToDoubleTensor
+from odeon.data.transforms.utils import Compose, ToDoubleTensor
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
@@ -65,10 +66,8 @@ class DetectCLI(BaseTool):
         testing=False,
         get_metrics=True,
         progress=PROGRESS,
-        # Dataset
-        dataset=None,
-        # Zone
-        zone=None,
+        dataset=None,  # Dataset
+        zone=None,  # Zone
         ):
 
         self.verbosity = verbosity
@@ -118,25 +117,40 @@ class DetectCLI(BaseTool):
         if zone is not None:
             self.mode = "zone"
             self.zone = zone
-            print("In zone part, will be implemented soon...")
-
+            self.data_module = \
+                ZoneDataModule(
+                    zone=self.zone,
+                    img_size_pixel=self.img_size_pixel,
+                    transforms=self.transforms,
+                    width=None,
+                    height=None,
+                    batch_size=self.batch_size,
+                    num_workers=self.num_workers,
+                    pin_memory=True,
+                    deterministic=False,
+                    resolution=self.resolution,
+                    get_sample_info=True,
+                    subset=self.testing
+                    )
         else:
             self.mode = "dataset"
             self.dataset = dataset
-
-            self.data_module = SegDataModule(test_file=self.dataset["path"],
-                                             image_bands=self.dataset["image_bands"],
-                                             mask_bands=self.dataset["mask_bands"],
-                                             transforms=self.transforms,
-                                             width=None,
-                                             height=None,
-                                             batch_size=self.batch_size,
-                                             num_workers=self.num_workers,
-                                             pin_memory=True,
-                                             deterministic=False,
-                                             resolution=self.resolution,
-                                             get_sample_info=True,
-                                             subset=self.testing)
+            self.data_module = \
+                SegDataModule(
+                    test_file=self.dataset["path"],
+                    image_bands=self.dataset["image_bands"],
+                    mask_bands=self.dataset["mask_bands"],
+                    transforms=self.transforms,
+                    width=None,
+                    height=None,
+                    batch_size=self.batch_size,
+                    num_workers=self.num_workers,
+                    pin_memory=True,
+                    deterministic=False,
+                    resolution=self.resolution,
+                    get_sample_info=True,
+                    subset=self.testing
+                    )
 
         if class_labels is not None:
             if len(class_labels) == self.data_module.num_classes:
@@ -233,7 +247,8 @@ class DetectCLI(BaseTool):
         path_detections = os.path.join(self.output_folder, "detections")
         custom_pred_writer = CustomPredictionWriter(output_dir=path_detections,
                                                     output_type=self.output_type,
-                                                    write_interval="batch")
+                                                    write_interval="batch",
+                                                    img_size_pixel=self.img_size_pixel)
         self.callbacks = [custom_pred_writer]
 
         if self.get_metrics:
@@ -256,4 +271,3 @@ class DetectCLI(BaseTool):
                                num_nodes=self.num_nodes,
                                num_processes=self.num_processes,
                                enable_progress_bar=self.enable_progress_bar)
-

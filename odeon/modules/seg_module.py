@@ -3,8 +3,8 @@ import pytorch_lightning as pl
 from torchmetrics import MeanMetric
 
 from odeon import LOGGER
-from odeon.modules.metrics_module import OdeonMetrics
-from odeon.nn.models import build_model
+from odeon.metrics.metrics_module import OdeonMetrics
+from odeon.models.base import build_model
 from odeon.nn.losses import build_loss_function
 from odeon.nn.optim import build_optimizer, build_scheduler
 

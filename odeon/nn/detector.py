@@ -13,8 +13,8 @@ from rasterio.features import geometry_window
 from rasterio.windows import transform
 from rasterio.plot import reshape_as_raster
 from rasterio.warp import aligned_target
-from odeon.nn.datasets import PatchDetectionDataset, ZoneDetectionDataset
-from odeon.nn.models import build_model, model_list
+from odeon.data.datasets.patches import PatchDetectionDataset, ZoneDetectionDataset
+from odeon.models.base import build_model, model_list
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon import LOGGER
 from odeon.commons.rasterio import ndarray_to_affine, RIODatasetCollection

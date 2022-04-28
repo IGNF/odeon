@@ -2,6 +2,7 @@ from math import isclose
 import numpy as np
 import rasterio
 from rasterio import features
+from rasterio.windows import Window
 from odeon import LOGGER
 
 IMAGE_TYPE = {
@@ -404,6 +405,36 @@ def affine_to_tuple(affine):
     return (affine.a, affine.b, affine.c, affine.d, affine.e, affine.f)
 
 
+def geoimage_simple_load(img_path, band_indices):
+    """
+    load a geo image in numpy array of shape C * W * H
+
+    """
+
+    with rasterio.open(img_path) as src:
+        img_array = src.read(indexes=band_indices)
+
+    if img_array.ndim == 2:
+        img_array = img_array[np.newaxis, ...]
+
+    return img_array
+
+
+def geoimage_load_tile(img_path, band_indices, window):
+    """
+
+    windows : tuple with col_off, row_off, width, height
+    """
+
+    with rasterio.open(img_path) as src:
+        img_array = src.read(window=Window(*window), indexes=band_indices)
+
+    if img_array.ndim == 2:
+        img_array = img_array[np.newaxis, ...]
+
+    return img_array
+
+
 class RIODatasetCollection:
 
     def __init__(self):
@@ -434,3 +465,4 @@ class RIODatasetCollection:
 
             self.collection[key].close()
             del self.collection[key]
+

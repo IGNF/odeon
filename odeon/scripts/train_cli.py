@@ -1,5 +1,4 @@
-from curses.panel import version
-from genericpath import isdir
+
 import os
 import albumentations as A
 import numpy as np
@@ -7,7 +6,7 @@ import pandas as pd
 from datetime import date
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger, WandbLogger
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.callbacks import LearningRateMonitor, EarlyStopping
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning import (
@@ -32,18 +31,18 @@ from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist, file_exist
-from odeon.modules.datamodule import SegDataModule
+from odeon.data.datamodules.patch_segmentation import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
-from odeon.modules.stats_module import Stats
-from odeon.nn.transforms import (
+from odeon.metrics.stats_module import Stats
+from odeon.data.transforms.utils import (
     Compose, 
     Rotation90, 
     Radiometry, 
     ToDoubleTensor,
     NormalizeImgAsFloat
 )
+from odeon.models.base import model_list
 
-from odeon.nn.models import model_list
 from odeon.loggers.json_logs import JSONLogger
 
 " A logger for big message "
@@ -133,6 +132,7 @@ class TrainCLI(BaseTool):
         self.train_file = train_file
         self.val_file = val_file
         self.test_file = test_file
+
         self.percentage_val = percentage_val
         self.verbosity = verbosity
         self.model_filename = model_filename
@@ -182,7 +182,6 @@ class TrainCLI(BaseTool):
         # Computations of data stats (mean and std) in order to do normalization
         self.compute_normalization_weights = compute_normalization_weights
         self.normalization_weights = normalization_weights
-
         self.output_folder = output_folder  
 
         if name_exp_log is None:
@@ -212,12 +211,11 @@ class TrainCLI(BaseTool):
             try:
                 os.system("wandb login")
                 # os.system("wandb offline")  # To save wandb logs in offline mode (save code and metrics)
-
             except OdeonError as error:
                 LOGGER.error("ERROR: WANDB function have been called but wandb package is not working")
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
-                                "something went wrong during training configuration",
-                                stack_trace=error)
+                                 "something went wrong during training configuration",
+                                 stack_trace=error)
 
         # Parameters for device definition in the trainer
         self.accelerator = accelerator
@@ -226,69 +224,7 @@ class TrainCLI(BaseTool):
         self.device = device
         self.strategy = strategy
 
-        def parse_data_augmentation(list_tfm):
-            tfm_dict = {"rotation90": Rotation90(),
-                        "radiometry": Radiometry()}
-            list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
-            return [tfm_dict[tfm] for tfm in list_tfm]
-
-        if data_augmentation is None:
-            self.train_tfm_func = []
-            self.val_tfm_func = []
-            self.test_tfm_func = []
-        else:
-            self.train_tfm_func = parse_data_augmentation(data_augmentation["train"])
-            self.val_tfm_func = parse_data_augmentation(data_augmentation["val"])
-            self.test_tfm_func = parse_data_augmentation(data_augmentation["test"])
-
-        if self.compute_normalization_weights is True:
-            stats = Stats(train_file=self.train_file,
-                          val_file=self.val_file,
-                          test_file=self.test_file,
-                          image_bands=self.image_bands,
-                          mask_bands=self.mask_bands,
-                          batch_size=self.batch_size,
-                          num_workers=self.num_workers,
-                          percentage_val=self.percentage_val,
-                          deterministic=self.deterministic,
-                          resolution=self.resolution,
-                          subset=self.testing,
-                          device=self.device,
-                          accelerator=self.accelerator,
-                          num_nodes=self.num_nodes,
-                          num_processes=self.num_processes,
-                          strategy=self.strategy)
-
-            self.normalization_weights = stats()
-            self.normalization_weights.to_csv(os.path.join(self.output_folder, self.name_exp_log, "normalization_weights.csv"))
-
-        if self.normalization_weights is not None:
-
-            if isinstance(self.normalization_weights, dict):
-                self.normalization_weights = pd.DataFrame(self.normalization_weights).T
-
-            self.train_tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc["train", "mean"],
-                                                    std=self.normalization_weights.loc["train", "std"]),
-                                                    ToDoubleTensor()])
-            self.val_tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc["val", "mean"],
-                                                  std=self.normalization_weights.loc["val", "std"]),
-                                      ToDoubleTensor()])
-           
-            if self.test_file is not None:
-                self.test_tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc["test", "mean"],
-                                                       std=self.normalization_weights.loc["test", "std"]),
-                                           ToDoubleTensor()])
-            else:
-                self.test_tfm_func.append(ToDoubleTensor())
- 
-        else:
-            self.train_tfm_func.extend([NormalizeImgAsFloat(), Rotation90(), ToDoubleTensor()])
-            self.val_tfm_func.extend([NormalizeImgAsFloat(), Rotation90(), ToDoubleTensor()])
-            self.test_tfm_func.extend([NormalizeImgAsFloat(), ToDoubleTensor()])
-
-        self.transforms = {'train': Compose(self.train_tfm_func),
-                           'val': Compose(self.val_tfm_func),
-                           'test': Compose(self.test_tfm_func)}
+        self.transforms = self.get_transforms(data_augmentation)
 
         self.data_module = SegDataModule(train_file=self.train_file,
                                          val_file=self.val_file,
@@ -597,3 +533,48 @@ class TrainCLI(BaseTool):
             else:
                 best_ckpt_path = list_ckpt[np.argmax(value_ckpt)]
         return os.path.join(ckpt_folder, best_ckpt_path)
+
+    def get_transforms(self, data_aug):
+
+        def parse_data_augmentation(list_tfm):
+            tfm_dict = {"rotation90": Rotation90(), "radiometry": Radiometry()}
+            list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
+            tfm_func = [tfm_dict[tfm] for tfm in list_tfm]
+            return tfm_func
+
+        if self.compute_normalization_weights is True:
+            stats = Stats(train_file=self.train_file,
+                          val_file=self.val_file,
+                          test_file=self.test_file,
+                          image_bands=self.image_bands,
+                          mask_bands=self.mask_bands,
+                          batch_size=self.batch_size,
+                          num_workers=self.num_workers,
+                          percentage_val=self.percentage_val,
+                          deterministic=self.deterministic,
+                          resolution=self.resolution,
+                          subset=self.testing,
+                          device=self.device,
+                          accelerator=self.accelerator,
+                          num_nodes=self.num_nodes,
+                          num_processes=self.num_processes,
+                          strategy=self.strategy)
+
+            self.normalization_weights = stats()
+            self.normalization_weights.to_csv(os.path.join(self.output_folder, self.name_exp_log, "normalization_weights.csv"))
+
+        transforms= {}
+        for split_name in ["train", "val", "test"]:
+            tfm_func = [] if data_aug is None else parse_data_augmentation(data_aug[split_name])
+            # Part to define how to normalize the data
+            if self.normalization_weights is not None:
+                if isinstance(self.normalization_weights, dict):
+                    self.normalization_weights = pd.DataFrame(self.normalization_weights).T
+                if  split_name != "test" or (split_name == "test" and self.test_file is not None):
+                    tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc[split_name, "mean"],
+                                                 std=self.normalization_weights.loc[split_name, "std"])])
+            else:
+                tfm_func.append(NormalizeImgAsFloat())
+            tfm_func.append(ToDoubleTensor())  # To transform float type arrays to double type tensors
+            transforms[split_name] = Compose(tfm_func)
+        return transforms

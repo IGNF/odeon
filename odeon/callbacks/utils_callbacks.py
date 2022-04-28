@@ -114,7 +114,15 @@ class HistorySaver(pl.Callback):
 
 class CustomPredictionWriter(BasePredictionWriter):
 
-    def __init__(self, output_dir, output_type, write_interval, threshold=THRESHOLD, img_size_pixel=None, sparse_mode=False):
+    def __init__(self,
+        output_dir,
+        output_type, 
+        write_interval,
+        threshold=THRESHOLD,
+        img_size_pixel=None,
+        sparse_mode=False
+        ):
+        
         super().__init__(write_interval)
         self.output_dir = output_dir
         self.output_type = output_type
@@ -146,7 +154,17 @@ class CustomPredictionWriter(BasePredictionWriter):
             self.gdal_options["bit"] = 1
         return super().on_predict_start(trainer, pl_module)  
 
-    def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
+    def write_on_batch_end(
+        self,
+        trainer,
+        pl_module,
+        prediction,
+        batch_indices,
+        batch,
+        batch_idx,
+        dataloader_idx
+        ):
+
         probas, filenames, affines = prediction["proba"], prediction["filename"], prediction["affine"]
     
         # Pass prediction and their transformations on CPU
@@ -167,11 +185,27 @@ class CustomPredictionWriter(BasePredictionWriter):
                                                                                         threshold=self.threshold)
                 src.write(pred)
 
-    def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+    def on_predict_batch_end(
+        self,
+        trainer, 
+        pl_module, 
+        outputs, 
+        batch, 
+        batch_idx,
+        dataloader_idx
+        ):
+
         if not self.interval.on_batch:
             return
+    
         batch_indices = trainer.predict_loop.epoch_loop.current_batch_indices
-        self.write_on_batch_end(trainer, pl_module, outputs, batch_indices, batch, batch_idx, dataloader_idx)
+        self.write_on_batch_end(trainer, 
+                                pl_module, 
+                                outputs, 
+                                batch_indices, 
+                                batch, 
+                                batch_idx, 
+                                dataloader_idx)
 
 
 # Check size of tensors in forward pass

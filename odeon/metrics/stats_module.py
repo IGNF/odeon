@@ -3,9 +3,9 @@ import pandas as pd
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.modules.datamodule import SegDataModule
-from odeon.nn.transforms import ToDoubleTensor
-from odeon.modules.metrics_module import MeanVector, IncrementalVariance
+from odeon.data.datamodules.patch_segmentation import SegDataModule
+from odeon.data.transforms.utils import ToDoubleTensor
+from odeon.metrics.metrics_module import MeanVector, IncrementalVariance
 
 RANDOM_SEED = 42
 BATCH_SIZE = 5

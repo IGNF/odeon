@@ -117,7 +117,7 @@
                 "data_augmentation": {
                     "type": "object",
                     "properties": {
-                        "train": {"type": ["string", "array"], "default": ["rotation90"]},
+                        "train": {"type": ["string", "array"]},
                         "val": {"type": ["string", "array"]},
                         "test": {"type": ["string", "array"]}
                     }

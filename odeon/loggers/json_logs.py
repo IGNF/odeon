@@ -16,7 +16,6 @@ from pytorch_lightning.core.saving import save_hparams_to_yaml
 from pytorch_lightning.loggers.base import LightningLoggerBase, rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_warn
 from pytorch_lightning.utilities.distributed import rank_zero_only
-from pytorch_lightning.utilities.logger import _add_prefix, _convert_params
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +64,8 @@ class ExperimentWriter:
 
         metrics = {k: _handle_value(v) for k, v in metrics_dict.items()}
 
+        # TODO: have to correct a lag on the step/epoch where the LR monitor values are stored.
+        # Change the method for obtaining the step value (in LR case) to make it work also when step != epoch.
         if "LR Scheduler" in metrics_dict.keys() and len(self.metrics) > 0:
             step = len(self.metrics) - 1
             metrics.update(self.metrics[step])
@@ -172,12 +173,12 @@ class JSONLogger(LightningLoggerBase):
 
     @rank_zero_only
     def log_hyperparams(self, params: Union[Dict[str, Any], Namespace]) -> None:
-        params = _convert_params(params)
+        params = self._convert_params(params)
         self.experiment.log_hparams(params)
 
     @rank_zero_only
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
-        metrics = _add_prefix(metrics, self._prefix, self.LOGGER_JOIN_CHAR)
+        metrics = self._add_prefix(metrics)
         self.experiment.log_metrics(metrics, step)
         if step is not None and (step + 1) % self._flush_logs_every_n_steps == 0:
             self.save()

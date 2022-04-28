@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from odeon.nn.mobilenetv2 import MobileNetV2
+from odeon.models.mobilenetv2 import MobileNetV2
 from torchvision.models.segmentation.deeplabv3 import ASPP
 
 

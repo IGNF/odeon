@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from pytorch_lightning import LightningDataModule
 from odeon import LOGGER
-from odeon.nn.datasets import PatchDataset
+from odeon.data.datasets.patch_dataset import PatchDataset
 from odeon.commons.guard import check_files, check_raster_bands
 from odeon.commons.exception import OdeonError, ErrorCodes
 

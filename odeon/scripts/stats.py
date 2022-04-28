@@ -16,8 +16,8 @@ from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.statistics import Statistics
-from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
-from odeon.nn.datasets import PatchDataset
+from odeon.data.transforms.utils import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
+from odeon.data.datasets.patch_dataset import PatchDataset
 
 BATCH_SIZE = 1
 NUM_WORKERS = 1
@@ -27,7 +27,8 @@ GET_RADIO_STATS = True
 
 
 class Stats(BaseTool):
-    """Class Stats to create dataset and use the commons.statistics module.
+    """
+        Class Stats to create dataset and use the commons.statistics module.
     """
     def __init__(self,
                  input_path,
@@ -47,7 +48,8 @@ class Stats(BaseTool):
                  get_radio_stats=GET_RADIO_STATS,
                  plot_stacked=False):
 
-        """Init function of Stats class.
+        """
+            Init function of Stats class.
 
         Parameters
         ----------

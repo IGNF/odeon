@@ -1,8 +1,12 @@
 import os.path as osp
 import json
 from odeon.commons.reports.report import Report
-from odeon.commons.metric.plots import plot_norm_and_value_cms, plot_confusion_matrix,\
-     plot_calibration_curves, plot_roc_pr_curves
+from odeon.commons.metric.plots import (
+    plot_norm_and_value_cms, 
+    plot_confusion_matrix,
+    plot_calibration_curves, 
+    plot_roc_pr_curves
+)
 
 
 class Report_Multiclass(Report):
