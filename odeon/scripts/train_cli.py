@@ -136,15 +136,6 @@ class TrainCLI(BaseTool):
         self.percentage_val = percentage_val
         self.verbosity = verbosity
         self.model_filename = model_filename
-
-        if model_out_ext is None:
-            if self.model_filename is None:
-                self.model_out_ext = MODEL_OUT_EXT
-            else:
-                self.model_out_ext = os.path.splitext(self.model_filename)[-1]
-        else:
-            self.model_out_ext = model_out_ext
-
         self.model_out_ext = model_out_ext
         self.model_name = model_name
         self.reproducible = reproducible
@@ -178,53 +169,40 @@ class TrainCLI(BaseTool):
         self.prediction_output_type = prediction_output_type
         self.testing = testing
         self.progress_rate = progress
+        self.enable_progress_bar = None
 
         # Computations of data stats (mean and std) in order to do normalization
+        self.data_augmentation= data_augmentation
         self.compute_normalization_weights = compute_normalization_weights
         self.normalization_weights = normalization_weights
-        self.output_folder = output_folder  
+        self.output_folder = output_folder
+        self.name_exp_log = name_exp_log
+        self.output_tensorboard_logs = output_tensorboard_logs
+        self.version_name = version_name
+        self.reproducible= reproducible
 
-        if name_exp_log is None:
-            self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
-        else:
-            self.name_exp_log = name_exp_log
-
-        if output_tensorboard_logs is None:
-            self.output_tensorboard_logs = output_folder
-        else: 
-            self.output_tensorboard_logs = output_tensorboard_logs
-
-        if version_name is None:
-            self.version_name = self.get_version_name()
-        else:
-            self.version_name = version_name
-
-        if reproducible is True:
-            self.random_seed = RANDOM_SEED
-            seed_everything(self.random_seed, workers=True)
-            self.deterministic = False  # Should be true but problem with confusion matrix calculation in torchmetrics
-        else:
-            self.random_seed = None
-            self.deterministic = False
-
-        if self.use_wandb:
-            try:
-                os.system("wandb login")
-                # os.system("wandb offline")  # To save wandb logs in offline mode (save code and metrics)
-            except OdeonError as error:
-                LOGGER.error("ERROR: WANDB function have been called but wandb package is not working")
-                raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
-                                 "something went wrong during training configuration",
-                                 stack_trace=error)
-
-        # Parameters for device definition in the trainer
+        # Parameters for device definition
         self.accelerator = accelerator
         self.num_nodes = num_nodes
         self.num_processes = num_processes
         self.device = device
         self.strategy = strategy
 
-        self.transforms = self.get_transforms(data_augmentation)
+        # Deifintion training main modules 
+        self.callbacks = None
+        self.resume_checkpoint = None
+        self.class_labels = class_labels
+        self.transforms = None 
+        self.data_module = None
+        self.seg_module = None
+        self.loggers = None
+        self.callbacks = None
+        self.trainer = None
+        self.setup()  # Define output paths (exp, logs, version name)
+        self.check()  # Check model name and if output folders exist.
+
+    def configure(self):
+        self.transforms = self.configure_transforms(self.data_augmentation)
 
         self.data_module = SegDataModule(train_file=self.train_file,
                                          val_file=self.val_file,
@@ -243,18 +221,39 @@ class TrainCLI(BaseTool):
                                          resolution=self.resolution,
                                          subset=self.testing)
 
-        self.callbacks = None
-        self.resume_checkpoint = None
+        self.seg_module = SegmentationTask(model_name=self.model_name,
+                                           num_classes=self.data_module.num_classes,
+                                           num_channels=self.data_module.num_channels,
+                                           class_labels=self.data_module.class_labels,
+                                           criterion_name=self.loss_name,
+                                           learning_rate= self.learning_rate,
+                                           optimizer_config=self.optimizer_config,
+                                           scheduler_config=self.scheduler_config,
+                                           patience=self.patience,
+                                           load_pretrained_weights=self.load_pretrained_weights,
+                                           init_model_weights=self.init_model_weights,
+                                           loss_classes_weights=self.class_imbalance)
 
-        if class_labels is not None:
-            if len(class_labels) == self.data_module.num_classes:
-                self.class_labels = class_labels
-            else:
-                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                    "The input parameter labels is incorrect.")
-        else:
-            self.class_labels = [f'class {i + 1}' for i in range(self.data_module.num_classes)]
+        self.loggers = self.configure_loggers()
+        self.callbacks = self.configure_callbacks()
+
+        self.trainer = Trainer(val_check_interval=self.val_check_interval,
+                               devices=self.device,
+                               accelerator=self.accelerator,
+                               callbacks=self.callbacks,
+                               max_epochs=self.epochs,
+                               logger=self.loggers,
+                               deterministic=self.deterministic,
+                               strategy=self.strategy,
+                               num_nodes=self.num_nodes,
+                               num_processes=self.num_processes,
+                               enable_progress_bar=self.enable_progress_bar)
+
+    def __call__(self):
+        """
+            Call the Trainer
+        """
+        self.configure()
 
         STD_OUT_LOGGER.info(
             f"Training : \n" 
@@ -265,202 +264,7 @@ class TrainCLI(BaseTool):
             f"number of samples: {len(self.data_module.train_image_files) + len(self.data_module.val_image_files)}  "
             f"(train: {len(self.data_module.train_image_files)}, val: {len(self.data_module.val_image_files)})"
             )
-        self.check()
-        self.configure()
 
-    def check(self):
-        if self.model_name not in model_list:
-            raise OdeonError(message=f"the model name {self.model_name} does not exist",
-                             error_code=ErrorCodes.ERR_MODEL_ERROR)
-        try:
-            dirs_exist([self.output_folder])
-            if self.continue_training:
-                file_exist(os.path.join(self.output_folder, self.model_filename))
-        except OdeonError as error:
-            raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
-                             "something went wrong during training configuration",
-                             stack_trace=error)
-
-    def configure(self):
-
-        self.seg_module = SegmentationTask(model_name=self.model_name,
-                                           num_classes=self.data_module.num_classes,
-                                           num_channels=self.data_module.num_channels,
-                                           class_labels=self.class_labels,
-                                           criterion_name=self.loss_name,
-                                           learning_rate= self.learning_rate,
-                                           optimizer_config=self.optimizer_config,
-                                           scheduler_config=self.scheduler_config,
-                                           patience=self.patience,
-                                           load_pretrained_weights=self.load_pretrained_weights,
-                                           init_model_weights=self.init_model_weights,
-                                           loss_classes_weights=self.class_imbalance)
-
-        # Loggers definition
-        train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                        name="tensorboard_logs",
-                                        version=self.version_name,
-                                        default_hp_metric=False,
-                                        sub_dir='Train',
-                                        filename_suffix='_train')
-
-        valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                        name="tensorboard_logs",
-                                        version=self.version_name,
-                                        default_hp_metric=False,
-                                        sub_dir='Validation',
-                                        filename_suffix='_val')
-
-        loggers = [train_logger, valid_logger]
-
-        if self.use_wandb:
-            wandb_logger = WandbLogger(project=self.name_exp_log,
-                                       save_dir=os.path.join(self.output_folder, self.name_exp_log))
-            loggers.append(wandb_logger)
-
-        if self.save_history:
-            json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
-                                    version=self.version_name,
-                                    name="history_json")
-            loggers.append(json_logger)
-
-        if self.test_file:
-            # Logger will be use for test or predict phase
-            test_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                            name="tensorboard_logs",
-                                            version=self.version_name,
-                                            default_hp_metric=False,
-                                            sub_dir='Test',
-                                            filename_suffix='_test')
-            loggers.append(test_logger)
-
-            if self.save_history:
-                test_json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
-                                              version=self.version_name,
-                                              name="test_json")
-                loggers.append(test_json_logger)
-
-        # Callbacks definition
-        tensorboard_metrics = MetricsAdder()
-        self.callbacks = [tensorboard_metrics]
-
-        if self.use_wandb:
-            from odeon.callbacks.wandb_callbacks import (
-                LogConfusionMatrix,
-                MetricsWandb, 
-                UploadCodeAsArtifact
-            )
-
-            code_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-
-            self.callbacks.extend([MetricsWandb(),
-                                   LogConfusionMatrix(),
-                                   UploadCodeAsArtifact(code_dir=code_dir,
-                                                        use_git=True)])
-
-        if self.model_out_ext == ".ckpt":
-            checkpoint_miou_callback = LightningCheckpoint(monitor="val_miou",
-                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
-                                                         version=self.version_name,
-                                                         filename=self.model_filename,
-                                                         save_top_k=self.save_top_k,
-                                                         mode="max",
-                                                         save_last=True)
-
-            checkpoint_loss_callback = LightningCheckpoint(monitor="val_loss",
-                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
-                                                         version=self.version_name,
-                                                         filename=self.model_filename,
-                                                         save_top_k=self.save_top_k,
-                                                         mode="min",
-                                                         save_last=True)
-
-            self.callbacks.extend([checkpoint_miou_callback, checkpoint_loss_callback])
-  
-        elif self.model_out_ext == ".pth":
-            checkpoint_pth = ExoticCheckPoint(out_folder=self.output_folder,
-                                              out_filename=self.model_filename,
-                                              model_out_ext=self.model_out_ext)
-            self.callbacks.append(checkpoint_pth)
-        else:
-            LOGGER.error('ERROR: parameter model_out_ext could only be .ckpt or  .pth ...')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                "The input parameter model_out_ext is incorrect.")
-
-        if self.save_history:
-            self.callbacks.append(HistorySaver())
-
-        if self.log_graph:
-            self.callbacks.append(GraphAdder())
-
-        if self.log_histogram:
-            self.callbacks.append(HistogramAdder())
-
-        if self.log_predictions:
-            self.callbacks.append(PredictionsAdder())
-
-        if self.log_learning_rate:
-            lr_monitor_callback = LearningRateMonitor(logging_interval="epoch", log_momentum=True)
-            self.callbacks.append(lr_monitor_callback)
-
-        if self.log_hparams:
-            self.callbacks.append(HParamsAdder())            
-
-        if self.early_stopping:
-            if isinstance(self.early_stopping, str):
-                mode = 'min' if self.early_stopping.lower().endswith('loss') else 'max'
-                early_stop_callback = EarlyStopping(monitor=self.early_stopping, min_delta=0.00, patience=self.patience, verbose=False, mode=mode)
-            else:
-                early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=self.patience, verbose=False, mode="min")
-            self.callbacks.append(early_stop_callback)
-
-        if self.continue_training:
-            file_exist(os.path.join(self.output_folder, self.model_filename))
-            resume_file_ext = os.path.splitext(os.path.join(self.output_folder, self.model_filename))[-1]
-            if resume_file_ext == ".pth":
-                continue_training_callback = ContinueTraining(out_dir=self.output_folder,
-                                                              out_filename=self.model_filename,
-                                                              save_history=self.save_history)
-                self.callbacks.append(continue_training_callback)
-
-            elif resume_file_ext == ".ckpt":
-                self.resume_checkpoint = os.path.join(self.output_folder, self.model_filename)
-
-            else:
-                LOGGER.error("ERROR: Odeon only handles files of type .pth or .ckpt for the continue training feature.")
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
-                                 "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
-
-        if self.get_prediction:
-            path_predictions = os.path.join(self.output_folder, self.name_exp_log, "predictions", self.version_name)
-            custom_pred_writer = CustomPredictionWriter(output_dir=path_predictions,
-                                                        output_type=self.prediction_output_type,
-                                                        write_interval="batch")
-            self.callbacks.append(custom_pred_writer)
-
-        if self.progress_rate <= 0 :
-            enable_progress_bar = False
-        else:
-            progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
-            self.callbacks.append(progress_bar)
-            enable_progress_bar = True
-
-        self.trainer = Trainer(val_check_interval=self.val_check_interval,
-                               devices=self.device,
-                               accelerator=self.accelerator,
-                               callbacks=self.callbacks,
-                               max_epochs=self.epochs,
-                               logger=loggers,
-                               deterministic=self.deterministic,
-                               strategy=self.strategy,
-                               num_nodes=self.num_nodes,
-                               num_processes=self.num_processes,
-                               enable_progress_bar=enable_progress_bar)
-
-    def __call__(self):
-        """
-            Call the Trainer
-        """
         try:
             self.trainer.fit(self.seg_module,
                              datamodule=self.data_module,
@@ -501,40 +305,7 @@ class TrainCLI(BaseTool):
                                     "ERROR: Something went wrong during the test step of the training",
                                     stack_trace=error)
 
-    def get_version_name(self):
-        version_idx = None
-        path = os.path.join(self.output_folder, self.name_exp_log)
-        if not os.path.exists(path):
-            version_idx = 0
-        else:
-            ckpt_path = os.path.join(path, "odeon_val_loss_ckpt")
-            if "odeon_val_loss_ckpt" not in os.listdir(path):
-                version_idx = 0
-                os.makedirs(ckpt_path)
-            else:
-                list_ckpt_dir = [x for x in os.listdir(ckpt_path) if os.path.isdir(os.path.join(ckpt_path, x))]
-                found_idx = [int(name_dir.split("_")[-1]) for name_dir in list_ckpt_dir if "version_" in name_dir]
-                version_idx = max(found_idx) + 1 if found_idx is not None else 0
-
-        version_name = f"version_{str(version_idx)}"
-        return version_name
-
-    def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
-        best_ckpt_path = None
-        list_ckpt = os.listdir(ckpt_folder)
-        if len(list_ckpt) == 1:
-            best_ckpt_path = list_ckpt[0]
-        else:
-            list_ckpt = [x for x in list_ckpt if monitor in x]
-            get_value_monitor = lambda x : float(x.split(monitor)[-1][1: 5])
-            value_ckpt = np.array([get_value_monitor(x) for x in list_ckpt ])
-            if mode == "min":
-                best_ckpt_path = list_ckpt[np.argmin(value_ckpt)]
-            else:
-                best_ckpt_path = list_ckpt[np.argmax(value_ckpt)]
-        return os.path.join(ckpt_folder, best_ckpt_path)
-
-    def get_transforms(self, data_aug):
+    def configure_transforms(self, data_aug):
 
         def parse_data_augmentation(list_tfm):
             tfm_dict = {"rotation90": Rotation90(), "radiometry": Radiometry()}
@@ -578,3 +349,228 @@ class TrainCLI(BaseTool):
             tfm_func.append(ToDoubleTensor())  # To transform float type arrays to double type tensors
             transforms[split_name] = Compose(tfm_func)
         return transforms
+
+    def configure_loggers(self):
+        # Loggers definition
+        train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
+                                        name="tensorboard_logs",
+                                        version=self.version_name,
+                                        default_hp_metric=False,
+                                        sub_dir='Train',
+                                        filename_suffix='_train')
+
+        valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
+                                        name="tensorboard_logs",
+                                        version=self.version_name,
+                                        default_hp_metric=False,
+                                        sub_dir='Validation',
+                                        filename_suffix='_val')
+
+        loggers = [train_logger, valid_logger]
+
+        if self.use_wandb:
+            wandb_logger = WandbLogger(project=self.name_exp_log,
+                                       save_dir=os.path.join(self.output_folder, self.name_exp_log))
+            loggers.append(wandb_logger)
+
+        if self.save_history:
+            json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                    version=self.version_name,
+                                    name="history_json")
+            loggers.append(json_logger)
+
+        if self.test_file:
+            # Logger will be use for test or predict phase
+            test_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
+                                            name="tensorboard_logs",
+                                            version=self.version_name,
+                                            default_hp_metric=False,
+                                            sub_dir='Test',
+                                            filename_suffix='_test')
+            loggers.append(test_logger)
+
+            if self.save_history:
+                test_json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                              version=self.version_name,
+                                              name="test_json")
+                loggers.append(test_json_logger)
+        return loggers
+
+    def configure_callbacks(self):
+        # Callbacks definition
+        tensorboard_metrics = MetricsAdder()
+        callbacks = [tensorboard_metrics]
+
+        if self.use_wandb:
+            from odeon.callbacks.wandb_callbacks import (
+                LogConfusionMatrix,
+                MetricsWandb, 
+                UploadCodeAsArtifact
+            )
+            code_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            callbacks.extend([MetricsWandb(),
+                                   LogConfusionMatrix(),
+                                   UploadCodeAsArtifact(code_dir=code_dir,
+                                                        use_git=True)])
+        if self.model_out_ext == ".ckpt":
+            checkpoint_miou_callback = LightningCheckpoint(monitor="val_miou",
+                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
+                                                         version=self.version_name,
+                                                         filename=self.model_filename,
+                                                         save_top_k=self.save_top_k,
+                                                         mode="max",
+                                                         save_last=True)
+
+            checkpoint_loss_callback = LightningCheckpoint(monitor="val_loss",
+                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
+                                                         version=self.version_name,
+                                                         filename=self.model_filename,
+                                                         save_top_k=self.save_top_k,
+                                                         mode="min",
+                                                         save_last=True)
+            callbacks.extend([checkpoint_miou_callback, checkpoint_loss_callback])
+        elif self.model_out_ext == ".pth":
+            checkpoint_pth = ExoticCheckPoint(out_folder=self.output_folder,
+                                              out_filename=self.model_filename,
+                                              model_out_ext=self.model_out_ext)
+            callbacks.append(checkpoint_pth)
+        else:
+            LOGGER.error('ERROR: parameter model_out_ext could only be .ckpt or  .pth ...')
+            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                "The input parameter model_out_ext is incorrect.")
+        if self.save_history:
+            callbacks.append(HistorySaver())
+        if self.log_graph:
+            callbacks.append(GraphAdder())
+        if self.log_histogram:
+            callbacks.append(HistogramAdder())
+        if self.log_predictions:
+            callbacks.append(PredictionsAdder())
+        if self.log_learning_rate:
+            lr_monitor_callback = LearningRateMonitor(logging_interval="epoch", log_momentum=True)
+            callbacks.append(lr_monitor_callback)
+        if self.log_hparams:
+            callbacks.append(HParamsAdder())            
+        if self.early_stopping:
+            if isinstance(self.early_stopping, str):
+                mode = 'min' if self.early_stopping.lower().endswith('loss') else 'max'
+                early_stop_callback = EarlyStopping(monitor=self.early_stopping, min_delta=0.00, patience=self.patience, verbose=False, mode=mode)
+            else:
+                early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=self.patience, verbose=False, mode="min")
+            callbacks.append(early_stop_callback)
+        if self.continue_training:
+            file_exist(os.path.join(self.output_folder, self.model_filename))
+            resume_file_ext = os.path.splitext(os.path.join(self.output_folder, self.model_filename))[-1]
+            if resume_file_ext == ".pth":
+                continue_training_callback = ContinueTraining(out_dir=self.output_folder,
+                                                              out_filename=self.model_filename,
+                                                              save_history=self.save_history)
+                callbacks.append(continue_training_callback)
+            elif resume_file_ext == ".ckpt":
+                self.resume_checkpoint = os.path.join(self.output_folder, self.model_filename)
+            else:
+                LOGGER.error("ERROR: Odeon only handles files of type .pth or .ckpt for the continue training feature.")
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
+                                 "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
+        if self.get_prediction:
+            path_predictions = os.path.join(self.output_folder, self.name_exp_log, "predictions", self.version_name)
+            custom_pred_writer = CustomPredictionWriter(output_dir=path_predictions,
+                                                        output_type=self.prediction_output_type,
+                                                        write_interval="batch")
+            callbacks.append(custom_pred_writer)
+        if self.progress_rate <= 0 :
+            self.enable_progress_bar = False
+        else:
+            progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
+            callbacks.append(progress_bar)
+            self.enable_progress_bar = True
+    
+        return callbacks
+    
+    def setup(self):
+        if self.model_out_ext is None:
+            if self.model_filename is None:
+                self.model_out_ext = MODEL_OUT_EXT
+            else:
+                self.model_out_ext = os.path.splitext(self.model_filename)[-1]
+        else:
+            self.model_out_ext = self.model_out_ext
+
+        if self.name_exp_log is None:
+            self.name_exp_log = self.model_name + "_" + date.today().strftime("%b_%d_%Y")
+        else:
+            self.name_exp_log = self.name_exp_log
+
+        if self.output_tensorboard_logs is None:
+            self.output_tensorboard_logs = self.output_folder
+        else: 
+            self.output_tensorboard_logs = self.output_tensorboard_logs
+
+        if self.version_name is None:
+            self.version_name = self.get_version_name()
+        else:
+            self.version_name = self.version_name
+
+        if self.reproducible is True:
+            self.random_seed = RANDOM_SEED
+            seed_everything(self.random_seed, workers=True)
+            self.deterministic = False  # Should be true but problem with confusion matrix calculation in torchmetrics
+        else:
+            self.random_seed = None
+            self.deterministic = False
+
+        if self.use_wandb:
+            try:
+                os.system("wandb login")
+                # os.system("wandb offline")  # To save wandb logs in offline mode (save code and metrics)
+            except OdeonError as error:
+                LOGGER.error("ERROR: WANDB function have been called but wandb package is not working")
+                raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
+                                 "something went wrong during training configuration",
+                                 stack_trace=error)
+
+    def check(self):
+        if self.model_name not in model_list:
+            raise OdeonError(message=f"the model name {self.model_name} does not exist",
+                             error_code=ErrorCodes.ERR_MODEL_ERROR)
+        try:
+            dirs_exist([self.output_folder])
+            if self.continue_training:
+                file_exist(os.path.join(self.output_folder, self.model_filename))
+        except OdeonError as error:
+            raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
+                             "something went wrong during training configuration",
+                             stack_trace=error)
+
+    def get_version_name(self):
+        version_idx = None
+        path = os.path.join(self.output_folder, self.name_exp_log)
+        if not os.path.exists(path):
+            version_idx = 0
+        else:
+            ckpt_path = os.path.join(path, "odeon_val_loss_ckpt")
+            if "odeon_val_loss_ckpt" not in os.listdir(path):
+                version_idx = 0
+                os.makedirs(ckpt_path)
+            else:
+                list_ckpt_dir = [x for x in os.listdir(ckpt_path) if os.path.isdir(os.path.join(ckpt_path, x))]
+                found_idx = [int(name_dir.split("_")[-1]) for name_dir in list_ckpt_dir if "version_" in name_dir]
+                version_idx = max(found_idx) + 1 if found_idx is not None else 0
+
+        version_name = f"version_{str(version_idx)}"
+        return version_name
+
+    def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
+        best_ckpt_path = None
+        list_ckpt = os.listdir(ckpt_folder)
+        if len(list_ckpt) == 1:
+            best_ckpt_path = list_ckpt[0]
+        else:
+            list_ckpt = [x for x in list_ckpt if monitor in x]
+            get_value_monitor = lambda x : float(x.split(monitor)[-1][1: 5])
+            value_ckpt = np.array([get_value_monitor(x) for x in list_ckpt ])
+            if mode == "min":
+                best_ckpt_path = list_ckpt[np.argmin(value_ckpt)]
+            else:
+                best_ckpt_path = list_ckpt[np.argmax(value_ckpt)]
+        return os.path.join(ckpt_folder, best_ckpt_path)

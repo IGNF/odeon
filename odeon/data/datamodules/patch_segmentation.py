@@ -24,6 +24,7 @@ class SegDataModule(LightningDataModule):
                 test_file=None,
                 image_bands=None,
                 mask_bands=None,
+                class_labels=None,
                 transforms=None,
                 width=None,
                 height=None,
@@ -68,9 +69,11 @@ class SegDataModule(LightningDataModule):
         self.image_bands, self.mask_bands = self.get_bands(image_bands, mask_bands)
         self.num_classes = len(self.mask_bands)
         self.num_channels = len(self.image_bands)
+        self.class_labels = self.configure_labels(class_labels)
         self.train_batch_size, self.val_batch_size, self.test_batch_size, self.pred_batch_size = None, None, None, None
         self.get_batch_size(batch_size)
         self.train_dataset, self.val_dataset, self.test_dataset, self.pred_dataset = None, None, None, None
+        
 
     def prepare_data(self):
         pass
@@ -300,6 +303,18 @@ class SegDataModule(LightningDataModule):
             self.resolution["train"]  = parameter_resolution[0]
             self.resolution["val"]  = parameter_resolution[1]
             self.resolution["test"]  = parameter_resolution[-1]
+
+    def configure_labels(self, class_labels):
+        if class_labels is not None:
+            if len(class_labels) == self.num_classes:
+                class_labels = class_labels
+            else:
+                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                                    "The input parameter labels is incorrect.")
+        else:
+            class_labels = [f'class {i + 1}' for i in range(self.num_classes)]
+        return class_labels
 
     def teardown(self, stage=None):
         # Used to clean-up when the run is finished
