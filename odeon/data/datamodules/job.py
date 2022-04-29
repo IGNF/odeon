@@ -242,26 +242,20 @@ class ZoneDetectionJob(PatchJobDetection):
         write_gdf = None
 
         for idx, df_row in gdf.iterrows():
-
             bounds = df_row["geometry"].bounds
-
             min_x, min_y = bounds[0], bounds[1]
             max_x, max_y = bounds[2], bounds[3]
             name = df_row["id"] if "id" in gdf.columns else idx
 
             if out_dalle_size is not None:
-
                 for i in np.arange(min_x, max_x, out_dalle_size):
-
                     for j in np.arange(min_y, max_y, out_dalle_size):
 
                         "handling case where the extent is not a multiple of step"
                         if i + out_dalle_size > max_x:
-
                             i = max_x - out_dalle_size
 
                         if j + out_dalle_size > max_y:
-
                             j = max_y - out_dalle_size
 
                         left = i
@@ -269,7 +263,8 @@ class ZoneDetectionJob(PatchJobDetection):
                         bottom = j
                         top = j + out_dalle_size
 
-                        col, row = int((j - min_y) // resolution[0]) + 1, int((i - min_x) // resolution[1]) + 1
+                        col = int((j - min_y) // resolution[0]) + 1
+                        row = int((i - min_x) // resolution[1]) + 1
 
                         row_d = {
                                     "id": f"{name}-{row}-{col}",
@@ -289,14 +284,11 @@ class ZoneDetectionJob(PatchJobDetection):
                 write_gdf = gpd.GeoDataFrame(tmp_list, crs=gdf.crs, geometry="geometry")
 
             else:
-
                 write_gdf = gdf
 
         tmp_list = []
         for idx, df_row in write_gdf.iterrows():
-
             bounds = df_row["geometry"].bounds
-            LOGGER.debug(bounds)
             min_x, min_y = bounds[0], bounds[1]
             max_x, max_y = bounds[2], bounds[3]
 
@@ -306,11 +298,9 @@ class ZoneDetectionJob(PatchJobDetection):
 
                     "handling case where the extent is not a multiple of step"
                     if i + output_size_u[0] > max_x + overlap_u[0]:
-
                         i = max_x + overlap_u[0] - output_size_u[0]
 
                     if j + output_size_u[1] > max_y + overlap_u[1]:
-
                         j = max_y + overlap_u[1] - output_size_u[1]
 
                     left = i + overlap_u[0]
@@ -353,7 +343,6 @@ class ZoneDetectionJob(PatchJobDetection):
                                 }
                     tmp_list.append(row_d)
                     if out_dalle_size is not None:
-
                         write_gdf.at[idx, "patch_count"] += 1
 
         gdf_output = gpd.GeoDataFrame(tmp_list, crs=gdf.crs, geometry="geometry")
@@ -386,25 +375,14 @@ class ZoneDetectionJobNoDalle(PatchJobDetection):
 
     @classmethod
     def read_file(cls, file_name):
-
         return gpd.read_file(file_name)
 
     def get_bounds_at(self, idx):
-        LOGGER.debug(f"index {idx}")
-        LOGGER.debug(f"indices:\n {self._df.index.values.tolist()}")
         return self.get_cell_at(idx, "geometry").bounds
 
     def save_job(self):
 
         out = self._df
-
         if self._job_done is not None:
-
             out = pd.concat([out, self._job_done])
-
-        LOGGER.debug(len(out))
-        LOGGER.debug(out)
-        LOGGER.debug(out.columns)
-        LOGGER.debug(out.dtypes)
-        LOGGER.debug(out["id"])
         out.to_file(self._job_file)

@@ -11,7 +11,7 @@ import rasterio
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon import LOGGER
-from odeon.data.datasets.patch_dataset import MetricsDataset
+from odeon.data.datasets.metrics import MetricsDataset
 from odeon.commons.metric.metrics_factory import MetricsFactory
 from odeon.commons.metric.metrics import DEFAULTS_VARS
 from odeon.commons.guard import check_raster_bands

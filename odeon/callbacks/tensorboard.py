@@ -8,7 +8,7 @@ from pytorch_lightning.loggers import LoggerCollection, TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.data.datasets.patch_dataset import PatchDataset
+from odeon.data.datasets.patch import PatchDataset
 from odeon.commons.metric.plots import plot_confusion_matrix
 
 ALPHA = 0.4
@@ -326,10 +326,9 @@ class PredictionsAdder(TensorboardCallback):
                                                  pin_memory=trainer.datamodule.pin_memory,
                                                  shuffle=True)
             self.test_samples = next(iter(self.test_sample_loader))
-
+    from odeon.data.transforms.utils import NormalizeImgAsFloat
     @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
-
         if phase == "train":
             samples = self.train_samples
         elif phase == "val":
@@ -338,6 +337,7 @@ class PredictionsAdder(TensorboardCallback):
             samples = self.test_samples
 
         images, targets = samples["image"].to(device=pl_module.device), samples["mask"].to(device=pl_module.device)
+        
         with torch.no_grad():
             logits = pl_module.forward(images)
             proba = torch.softmax(logits, dim=1)

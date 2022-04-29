@@ -25,7 +25,7 @@ def parse_arguments():
                         required=True)
     parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity", default=0)
     args = parser.parse_args()
-    schema_path = os.path.join(os.path.dirname(__file__), *["scripts", "json_defaults",
+    schema_path = os.path.join(os.path.dirname(__file__), *["cli", "json_defaults",
                                f"{args.tool}_schema.json"])
 
     with open(schema_path) as schema_file:
@@ -76,7 +76,7 @@ def main():
 
     if tool == "sample_grid":
 
-        from odeon.scripts.sample_grid import SampleGrid
+        from odeon.cli.sample_grid import SampleGrid
 
         with Timer("Sample Grid"):
 
@@ -88,7 +88,7 @@ def main():
 
     elif tool == "sample_sys":
 
-        from odeon.scripts.sample_sys import SampleSys
+        from odeon.cli.sample_sys import SampleSys
 
         with Timer("Systematic sampling"):
 
@@ -110,7 +110,7 @@ def main():
 
     elif tool == "generate":
 
-        from odeon.scripts.generate import Generator
+        from odeon.cli.generate import Generator
 
         with Timer("Generate data"):
 
@@ -131,7 +131,7 @@ def main():
 
     elif tool == "stats":
 
-        from odeon.scripts.stats import Stats
+        from odeon.cli.stats import Stats
 
         with Timer("Statistics"):
 
@@ -147,7 +147,7 @@ def main():
 
     elif tool == "train":
 
-        from odeon.scripts.train_cli import TrainCLI
+        from odeon.cli.train import TrainCLI
 
         with Timer("Train model"):
             try:
@@ -166,7 +166,7 @@ def main():
 
     elif tool == "detect":
 
-        from odeon.scripts.detect_cli import DetectCLI
+        from odeon.cli.detect import DetectCLI
 
         with Timer("Detecting"):
 
@@ -206,7 +206,7 @@ def main():
 
     elif tool == "metrics":
 
-        from odeon.scripts.metrics_cli import MetricsCLI
+        from odeon.cli.metrics import MetricsCLI
 
         with Timer("Metrics"):
 

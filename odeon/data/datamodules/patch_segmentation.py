@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from pytorch_lightning import LightningDataModule
 from odeon import LOGGER
-from odeon.data.datasets.patch_dataset import PatchDataset
+from odeon.data.datasets.patch import PatchDataset
 from odeon.commons.guard import check_files, check_raster_bands
 from odeon.commons.exception import OdeonError, ErrorCodes
 
@@ -73,7 +73,6 @@ class SegDataModule(LightningDataModule):
         self.train_batch_size, self.val_batch_size, self.test_batch_size, self.pred_batch_size = None, None, None, None
         self.get_batch_size(batch_size)
         self.train_dataset, self.val_dataset, self.test_dataset, self.pred_dataset = None, None, None, None
-        
 
     def prepare_data(self):
         pass
@@ -319,11 +318,3 @@ class SegDataModule(LightningDataModule):
     def teardown(self, stage=None):
         # Used to clean-up when the run is finished
         pass
-
-    def generate_dataset(self, dataset_info):
-        dataset_info = {"img_size_pixel"}
-        
-    
-
-
-

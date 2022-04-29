@@ -14,19 +14,16 @@ from pytorch_lightning import (
     seed_everything
 )
 from odeon import LOGGER
-from odeon.callbacks.legacy_callbacks import ContinueTraining, ExoticCheckPoint
-from odeon.callbacks.tensorboard_callbacks import (
+from odeon.callbacks.legacy import ContinueTraining, ExoticCheckPoint
+from odeon.callbacks.tensorboard import (
     MetricsAdder,
     GraphAdder,
     HistogramAdder,
     PredictionsAdder,
     HParamsAdder
 )
-from odeon.callbacks.utils_callbacks import (
-    CustomPredictionWriter,
-    HistorySaver,
-    LightningCheckpoint
-)
+from odeon.callbacks.utils import HistorySaver, LightningCheckpoint
+from odeon.callbacks.writer import PatchPredictionWriter
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
@@ -37,12 +34,11 @@ from odeon.metrics.stats_module import Stats
 from odeon.data.transforms.utils import (
     Compose, 
     Rotation90, 
-    Radiometry, 
+    Radiometry,
     ToDoubleTensor,
     NormalizeImgAsFloat
 )
 from odeon.models.base import model_list
-
 from odeon.loggers.json_logs import JSONLogger
 
 " A logger for big message "
@@ -129,57 +125,68 @@ class TrainCLI(BaseTool):
         progress=PROGRESS
         ):
     
+        self.verbosity = verbosity
+
+        # Parameters for outputs 
+        self.output_folder = output_folder
+        self.name_exp_log = name_exp_log
+        self.output_tensorboard_logs = output_tensorboard_logs
+        self.version_name = version_name
+        self.model_filename = model_filename
+        self.model_out_ext = model_out_ext
+
+        # Computations of data stats (mean and std) in order to do normalization
+        self.data_augmentation= data_augmentation
+        self.compute_normalization_weights = compute_normalization_weights
+        self.normalization_weights = normalization_weights
+
+        # Datamodule
         self.train_file = train_file
         self.val_file = val_file
         self.test_file = test_file
-
         self.percentage_val = percentage_val
-        self.verbosity = verbosity
-        self.model_filename = model_filename
-        self.model_out_ext = model_out_ext
-        self.model_name = model_name
-        self.reproducible = reproducible
-        self.epochs = epochs
         self.batch_size = batch_size
         self.image_bands = image_bands
         self.mask_bands = mask_bands
+        self.class_labels = class_labels
         self.resolution = resolution
-        self.patience = patience
-        self.load_pretrained_weights = load_pretrained_weights
-        self.init_model_weights = init_model_weights
-        self.save_history = save_history
-        self.continue_training = continue_training
+        self.num_workers = num_workers
+        self.testing = testing
+
+        # Segmentation Module
         self.loss_name = loss
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
         self.learning_rate = lr
         self.class_imbalance = class_imbalance
         self.init_weights = init_weights
-        self.num_workers = num_workers
-        self.val_check_interval = val_check_interval
+        self.init_model_weights = init_model_weights
+        self.model_name = model_name
+        self.load_pretrained_weights = load_pretrained_weights
+
+        # Loggers
         self.log_histogram = log_histogram
         self.log_graph = log_graph
         self.log_predictions = log_predictions
         self.log_learning_rate = log_learning_rate
         self.log_hparams = log_hparams
+
+        # Callbacks
+        self.patience = patience
+        self.get_prediction = get_prediction
+        self.prediction_output_type = prediction_output_type
+        self.save_history = save_history
+        self.continue_training = continue_training
         self.use_wandb = use_wandb
         self.early_stopping = early_stopping
         self.save_top_k = save_top_k
-        self.get_prediction = get_prediction
-        self.prediction_output_type = prediction_output_type
-        self.testing = testing
         self.progress_rate = progress
         self.enable_progress_bar = None
 
-        # Computations of data stats (mean and std) in order to do normalization
-        self.data_augmentation= data_augmentation
-        self.compute_normalization_weights = compute_normalization_weights
-        self.normalization_weights = normalization_weights
-        self.output_folder = output_folder
-        self.name_exp_log = name_exp_log
-        self.output_tensorboard_logs = output_tensorboard_logs
-        self.version_name = version_name
+        # Training parameters
+        self.epochs = epochs
         self.reproducible= reproducible
+        self.val_check_interval = val_check_interval
 
         # Parameters for device definition
         self.accelerator = accelerator
@@ -188,20 +195,21 @@ class TrainCLI(BaseTool):
         self.device = device
         self.strategy = strategy
 
-        # Deifintion training main modules 
+        # Definition training main modules
         self.callbacks = None
         self.resume_checkpoint = None
-        self.class_labels = class_labels
         self.transforms = None 
         self.data_module = None
         self.seg_module = None
         self.loggers = None
         self.callbacks = None
         self.trainer = None
+
         self.setup()  # Define output paths (exp, logs, version name)
         self.check()  # Check model name and if output folders exist.
 
     def configure(self):
+
         self.transforms = self.configure_transforms(self.data_augmentation)
 
         self.data_module = SegDataModule(train_file=self.train_file,
@@ -235,6 +243,7 @@ class TrainCLI(BaseTool):
                                            loss_classes_weights=self.class_imbalance)
 
         self.loggers = self.configure_loggers()
+
         self.callbacks = self.configure_callbacks()
 
         self.trainer = Trainer(val_check_interval=self.val_check_interval,
@@ -334,7 +343,7 @@ class TrainCLI(BaseTool):
             self.normalization_weights = stats()
             self.normalization_weights.to_csv(os.path.join(self.output_folder, self.name_exp_log, "normalization_weights.csv"))
 
-        transforms= {}
+        transforms = {}
         for split_name in ["train", "val", "test"]:
             tfm_func = [] if data_aug is None else parse_data_augmentation(data_aug[split_name])
             # Part to define how to normalize the data
@@ -402,7 +411,7 @@ class TrainCLI(BaseTool):
         callbacks = [tensorboard_metrics]
 
         if self.use_wandb:
-            from odeon.callbacks.wandb_callbacks import (
+            from odeon.callbacks.wandb import (
                 LogConfusionMatrix,
                 MetricsWandb, 
                 UploadCodeAsArtifact
@@ -450,7 +459,7 @@ class TrainCLI(BaseTool):
             lr_monitor_callback = LearningRateMonitor(logging_interval="epoch", log_momentum=True)
             callbacks.append(lr_monitor_callback)
         if self.log_hparams:
-            callbacks.append(HParamsAdder())            
+            callbacks.append(HParamsAdder())
         if self.early_stopping:
             if isinstance(self.early_stopping, str):
                 mode = 'min' if self.early_stopping.lower().endswith('loss') else 'max'
@@ -474,7 +483,7 @@ class TrainCLI(BaseTool):
                                  "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
         if self.get_prediction:
             path_predictions = os.path.join(self.output_folder, self.name_exp_log, "predictions", self.version_name)
-            custom_pred_writer = CustomPredictionWriter(output_dir=path_predictions,
+            custom_pred_writer = PatchPredictionWriter(output_dir=path_predictions,
                                                         output_type=self.prediction_output_type,
                                                         write_interval="batch")
             callbacks.append(custom_pred_writer)
@@ -488,6 +497,7 @@ class TrainCLI(BaseTool):
         return callbacks
     
     def setup(self):
+
         if self.model_out_ext is None:
             if self.model_filename is None:
                 self.model_out_ext = MODEL_OUT_EXT

@@ -7,10 +7,8 @@ from pytorch_lightning import (
     Trainer,
     seed_everything
 )
-from odeon.callbacks.utils_callbacks import (
-    CustomPredictionWriter,
-    HistorySaver
-)
+from odeon.callbacks.utils import HistorySaver
+from odeon.callbacks.writer import CustomPredictionWriter
 from odeon.commons.core import BaseTool
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
@@ -177,7 +175,6 @@ class DetectCLI(BaseTool):
 
         try:
             self.check()
-            self.configure()
         except OdeonError as error:
             raise error
 
@@ -188,7 +185,7 @@ class DetectCLI(BaseTool):
 
     def __call__(self):
         try:
-
+            self.configure()
             predict_ckpt = None
             if self.model_ext == ".ckpt":
                 predict_ckpt = self.model_filename
@@ -198,7 +195,7 @@ class DetectCLI(BaseTool):
                                  ckpt_path=predict_ckpt)
 
         except OdeonError as error:
-            raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
+            raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
                                 "ERROR: Something went wrong during the test step of the training",
                                 stack_trace=error)
 

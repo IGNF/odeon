@@ -4,19 +4,17 @@ import numpy as np
 import rasterio
 import geopandas as gpd
 from shapely import wkt
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from pytorch_lightning import LightningDataModule
+from rasterio.warp import aligned_target
 from odeon import LOGGER
-from odeon.data.datasets.patch_dataset import PatchDataset
 from odeon.data.datamodules.job import (
     ZoneDetectionJob,
     ZoneDetectionJobNoDalle
 )
-from odeon.commons.guard import check_files, check_raster_bands
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.commons.guard import file_exist
 from odeon.commons.rasterio import get_number_of_band
+from odeon.data.datasets.zone import ZoneDetectionDataset
 
 RANDOM_SEED = 42
 BATCH_SIZE = 5
@@ -47,6 +45,7 @@ class ZoneDataModule(LightningDataModule):
         super().__init__()
         
         self.output_path = output_path
+        self.n_classes = None
 
         # Extraction of the value contained in zone.
         self.dict_of_raster = zone["sources"]
@@ -57,12 +56,12 @@ class ZoneDataModule(LightningDataModule):
         self.dem = zone["dem"]
         self.img_size_pixel = img_size_pixel
         self.output_size = self.img_size_pixel * self.tile_factor
-        
+        self.width = self.img_size_pixel * self.tile_factor
         self.margin = margin
         self.transforms = transforms
 
-        self.width = width
-        self.height = height
+        self.width = self.img_size_pixel * self.tile_factor if width is None else width
+        self.height = self.img_size_pixel * self.tile_factor if height is None else height
 
         self.num_workers = num_workers
         self.percentage_val = percentage_val
@@ -78,32 +77,38 @@ class ZoneDataModule(LightningDataModule):
         else:
             self.random_seed = RANDOM_SEED
             self.shuffle = True
-        self.test_image_files, self.test_mask_files = None, None
+
         self.resolution = resolution
         self.batch_size = batch_size
-        self.test_dataset, self.pred_dataset = None, None
+        self.pred_dataset = None
+
+         # Variable for zone detection
+        self.zone_detection_job = None
+        self.n_channel = None
+        self.meta = None
+
 
     def prepare_data(self):
         self.zone_detection_job = self.create_detection_job()
         self.zone_detection_job.save_job()
         self.n_channel = get_number_of_band(self.dict_of_raster, self.dem)
+        self.meta = self.init_meta()
 
-    def setup(self, stage=None):         
-        if not self.pred_dataset:
-            self.test_dataset = PatchDataset(image_files=self.test_image_files,
-                                                 mask_files=self.test_mask_files,
-                                                 transform=self.transforms['test'],
-                                                 image_bands=self.image_bands,
-                                                 mask_bands=self.mask_bands,
-                                                 width=self.width,
-                                                 height=self.height,
-                                                 get_sample_info=self.get_sample_info)
+    def setup(self):
+        if not self.test_dataset:
+            self.dataset = ZoneDetectionDataset(job=self.zone_detection_job,
+                                                dict_of_raster=self.dict_of_raster,
+                                                meta=self.meta,
+                                                dem=self.dem,
+                                                height=self.height,
+                                                width=self.width,
+                                                resolution=self.resolution)
         if self.subset is True:
             self.test_dataset = Subset(self.test_dataset, range(0, 10))
 
     def test_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
-                          batch_size=self.test_batch_size,
+                          batch_size=self.batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
                           shuffle=False,
@@ -111,7 +116,7 @@ class ZoneDataModule(LightningDataModule):
 
     def predict_dataloader(self):
         return DataLoader(dataset=self.test_dataset,
-                          batch_size=self.test_batch_size,
+                          batch_size=self.batch_size,
                           num_workers=self.num_workers,
                           pin_memory=self.pin_memory,
                           shuffle=False,
@@ -122,7 +127,6 @@ class ZoneDataModule(LightningDataModule):
             if os.path.isfile(self.extent):
                 # Target if a file 
                 gdf_zone = gpd.GeoDataFrame.from_file(self.extent)
-
             else:
                 # Target is a directory containing multiple files .shp, .shx, .dbf, .prj ...
                 with rasterio.open(next(iter(self.dict_of_raster.values()))["path"]) as src:
@@ -131,9 +135,7 @@ class ZoneDataModule(LightningDataModule):
                 gdf_zone = gpd.GeoDataFrame(data=[{"id": 1, "geometry": wkt.loads(self.extent)}],
                                             geometry="geometry",
                                             crs=crs)
-
             return gdf_zone
-
         else:
             raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
                     f"{self.extent} doesn't exists")
@@ -141,13 +143,28 @@ class ZoneDataModule(LightningDataModule):
     def create_detection_job(self):
         gdf_zone = self.create_gdf()
         df, _ = ZoneDetectionJob.build_job(gdf=gdf_zone,
-                                                output_size=self.output_size,
-                                                resolution=self.resolution,
-                                                overlap=self.margin,
-                                                out_dalle_size=self.out_dalle_size)
+                                           output_size=self.output_size,
+                                           resolution=self.resolution,
+                                           overlap=self.margin,
+                                           out_dalle_size=self.out_dalle_size)
         if self.out_dalle_size is not None:
             zone_detection_job = ZoneDetectionJob(df, self.output_path)
         else:
             zone_detection_job = ZoneDetectionJobNoDalle(df, self.output_path)
-        
         return zone_detection_job
+
+    def init_meta(self):
+        self.meta = self.get_meta(self.zone_detection_job.get_cell_at(0, "img_file"))
+        self.meta["driver"] = "GTiff"
+        self.meta["dtype"] = "uint8"
+        self.meta["count"] = self.n_classes
+        self.meta["transform"], _, _ = aligned_target(self.meta["transform"],
+                                                      self.meta["width"],
+                                                      self.meta["height"],
+                                                      self.resolution)
+        self.meta["width"] = self.img_size_pixel
+        self.meta["height"] = self.img_size_pixel
+
+    def get_meta(self, file):
+        with rasterio.open(file) as src:
+            return src.meta.copy()
