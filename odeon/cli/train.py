@@ -22,21 +22,22 @@ from odeon.callbacks.tensorboard import (
     PredictionsAdder,
     HParamsAdder
 )
-from odeon.callbacks.utils import HistorySaver, LightningCheckpoint
+from odeon.callbacks.history import HistorySaver
+from odeon.callbacks.checkpoint import LightningCheckpoint
 from odeon.callbacks.writer import PatchPredictionWriter
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist, file_exist
-from odeon.data.datamodules.patch_segmentation import SegDataModule
+from odeon.data.datamodules.patch_datamodule import SegDataModule
 from odeon.modules.seg_module import SegmentationTask
 from odeon.metrics.stats_module import Stats
-from odeon.data.transforms.utils import (
+from odeon.data.transforms.base import (
     Compose, 
     Rotation90, 
     Radiometry,
     ToDoubleTensor,
-    NormalizeImgAsFloat
+    ScaleImageToFloat
 )
 from odeon.models.base import model_list
 from odeon.loggers.json_logs import JSONLogger
@@ -316,36 +317,18 @@ class TrainCLI(BaseTool):
 
     def configure_transforms(self, data_aug):
 
-        def parse_data_augmentation(list_tfm):
+        def _parse_data_augmentation(list_tfm):
             tfm_dict = {"rotation90": Rotation90(), "radiometry": Radiometry()}
             list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
             tfm_func = [tfm_dict[tfm] for tfm in list_tfm]
             return tfm_func
 
         if self.compute_normalization_weights is True:
-            stats = Stats(train_file=self.train_file,
-                          val_file=self.val_file,
-                          test_file=self.test_file,
-                          image_bands=self.image_bands,
-                          mask_bands=self.mask_bands,
-                          batch_size=self.batch_size,
-                          num_workers=self.num_workers,
-                          percentage_val=self.percentage_val,
-                          deterministic=self.deterministic,
-                          resolution=self.resolution,
-                          subset=self.testing,
-                          device=self.device,
-                          accelerator=self.accelerator,
-                          num_nodes=self.num_nodes,
-                          num_processes=self.num_processes,
-                          strategy=self.strategy)
-
-            self.normalization_weights = stats()
-            self.normalization_weights.to_csv(os.path.join(self.output_folder, self.name_exp_log, "normalization_weights.csv"))
+            self.normalization_weights = self.compute_stats()
 
         transforms = {}
         for split_name in ["train", "val", "test"]:
-            tfm_func = [] if data_aug is None else parse_data_augmentation(data_aug[split_name])
+            tfm_func = [] if data_aug is None else _parse_data_augmentation(data_aug[split_name])
             # Part to define how to normalize the data
             if self.normalization_weights is not None:
                 if isinstance(self.normalization_weights, dict):
@@ -354,7 +337,7 @@ class TrainCLI(BaseTool):
                     tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc[split_name, "mean"],
                                                  std=self.normalization_weights.loc[split_name, "std"])])
             else:
-                tfm_func.append(NormalizeImgAsFloat())
+                tfm_func.append(ScaleImageToFloat())
             tfm_func.append(ToDoubleTensor())  # To transform float type arrays to double type tensors
             transforms[split_name] = Compose(tfm_func)
         return transforms
@@ -362,18 +345,18 @@ class TrainCLI(BaseTool):
     def configure_loggers(self):
         # Loggers definition
         train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                        name="tensorboard_logs",
-                                        version=self.version_name,
-                                        default_hp_metric=False,
-                                        sub_dir='Train',
-                                        filename_suffix='_train')
+                                         name="tensorboard_logs",
+                                         version=self.version_name,
+                                         default_hp_metric=False,
+                                         sub_dir='Train',
+                                         filename_suffix='_train')
 
         valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                        name="tensorboard_logs",
-                                        version=self.version_name,
-                                        default_hp_metric=False,
-                                        sub_dir='Validation',
-                                        filename_suffix='_val')
+                                         name="tensorboard_logs",
+                                         version=self.version_name,
+                                         default_hp_metric=False,
+                                         sub_dir='Validation',
+                                         filename_suffix='_val')
 
         loggers = [train_logger, valid_logger]
 
@@ -487,13 +470,12 @@ class TrainCLI(BaseTool):
                                                         output_type=self.prediction_output_type,
                                                         write_interval="batch")
             callbacks.append(custom_pred_writer)
-        if self.progress_rate <= 0 :
+        if self.progress_rate <= 0:
             self.enable_progress_bar = False
         else:
             progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
             callbacks.append(progress_bar)
             self.enable_progress_bar = True
-    
         return callbacks
     
     def setup(self):
@@ -551,6 +533,29 @@ class TrainCLI(BaseTool):
             raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                              "something went wrong during training configuration",
                              stack_trace=error)
+
+    def compute_stats(self):
+        stats = Stats(train_file=self.train_file,
+                    val_file=self.val_file,
+                    test_file=self.test_file,
+                    image_bands=self.image_bands,
+                    mask_bands=self.mask_bands,
+                    batch_size=self.batch_size,
+                    num_workers=self.num_workers,
+                    percentage_val=self.percentage_val,
+                    deterministic=self.deterministic,
+                    resolution=self.resolution,
+                    subset=self.testing,
+                    device=self.device,
+                    accelerator=self.accelerator,
+                    num_nodes=self.num_nodes,
+                    num_processes=self.num_processes,
+                    strategy=self.strategy)
+
+        normalization_weights = stats()
+
+        normalization_weights.to_csv(os.path.join(self.output_folder, "normalization_weights.csv"))
+        return normalization_weights
 
     def get_version_name(self):
         version_idx = None

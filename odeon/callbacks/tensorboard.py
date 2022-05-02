@@ -326,7 +326,7 @@ class PredictionsAdder(TensorboardCallback):
                                                  pin_memory=trainer.datamodule.pin_memory,
                                                  shuffle=True)
             self.test_samples = next(iter(self.test_sample_loader))
-    from odeon.data.transforms.utils import NormalizeImgAsFloat
+
     @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
         if phase == "train":

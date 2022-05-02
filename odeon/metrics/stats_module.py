@@ -3,8 +3,8 @@ import pandas as pd
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.data.datamodules.patch_segmentation import SegDataModule
-from odeon.data.transforms.utils import ToDoubleTensor
+from odeon.data.datamodules.patch_datamodule import SegDataModule
+from odeon.data.transforms.base import ToDoubleTensor
 from odeon.metrics.metrics_module import MeanVector, IncrementalVariance
 
 RANDOM_SEED = 42

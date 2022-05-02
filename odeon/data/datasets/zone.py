@@ -6,7 +6,7 @@ import rasterio
 import numpy as np
 from odeon import LOGGER
 from odeon.commons.image import raster_to_ndarray, CollectionDatasetReader
-from odeon.data.transforms.utils import ToDoubleTensor, ToPatchTensor, ToWindowTensor
+from odeon.data.transforms.base import ToDoubleTensor, ToPatchTensor, ToWindowTensor
 from odeon.commons.rasterio import affine_to_ndarray
 from odeon.commons.folder_manager import create_folder
 from odeon.commons.exception import OdeonError, ErrorCodes

@@ -7,17 +7,17 @@ from pytorch_lightning import (
     Trainer,
     seed_everything
 )
-from odeon.callbacks.utils import HistorySaver
-from odeon.callbacks.writer import CustomPredictionWriter
+from odeon.callbacks.history import HistorySaver
+from odeon.callbacks.writer import PatchPredictionWriter
 from odeon.commons.core import BaseTool
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.data.datamodules.patch_segmentation import SegDataModule
-from odeon.data.datamodules.zone_segmentation import ZoneDataModule
+from odeon.data.datamodules.patch_datamodule import SegDataModule
+from odeon.data.datamodules.zone_datamodule import ZoneDataModule
 from odeon.modules.seg_module import SegmentationTask
-from odeon.data.transforms.utils import Compose, ToDoubleTensor
+from odeon.data.transforms.base import Compose, ToDoubleTensor
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
@@ -242,7 +242,7 @@ class DetectCLI(BaseTool):
 
         # Callbacks definition
         path_detections = os.path.join(self.output_folder, "detections")
-        custom_pred_writer = CustomPredictionWriter(output_dir=path_detections,
+        custom_pred_writer = PatchPredictionWriter(output_dir=path_detections,
                                                     output_type=self.output_type,
                                                     write_interval="batch",
                                                     img_size_pixel=self.img_size_pixel)
@@ -251,9 +251,9 @@ class DetectCLI(BaseTool):
         if self.get_metrics:
             self.callbacks.append(HistorySaver())
 
-        if self.progress_rate <= 0 :
+        if self.progress_rate <= 0:
             self.enable_progress_bar = False
-        else :
+        else:
             progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
             self.callbacks.append(progress_bar)
             self.enable_progress_bar = True

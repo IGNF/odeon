@@ -7,6 +7,90 @@ from skimage.color import rgb2hsv
 from skimage.transform import rotate
 from skimage.util import random_noise
 from skimage.util import img_as_float
+from typing import Any, Callable, Dict, List, Sequence, Tuple, Optional
+import numpy as np
+
+
+class BasicTransform:
+    def __init__(self):
+        self.params: Dict[Any, Any] = {}
+        self.img_only: bool = False
+        self.mask_only: bool = False
+
+    def __call__(self, image: np.ndarray, mask: np.ndarray) -> Dict[str, Any]:
+        if self.img_only:
+            return {"image": self.apply_to_img(image), "mask": mask}
+        elif self.mask_only:
+            return {"image": image, "mask": self.apply_to_mask(mask)}
+        else:
+            return {"image": self.apply_to_img(image), "mask": self.apply_to_mask(mask)}
+
+    def apply_to_img(self, img: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+
+    def apply_to_mask(self, mask: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
+
+
+class ScaleImageToFloat(BasicTransform):
+    """
+    scale an input sample to float image between [0, 1]
+    """
+
+    def __init__(
+        self,
+        scale_factor: float = 255,
+        clip: bool = False,
+        img_only: bool = True,
+        mask_only: bool = False,
+    ):
+        super(ScaleImageToFloat, self).__init__()
+        self.img_only = img_only
+        self.mask_only = mask_only
+        self.scale_factor = scale_factor
+        self.clip = clip
+
+    def _scale_array(self, arr: np.ndarray) -> np.ndarray:
+        arr = np.multiply(arr, 1.0 / self.scale_factor, dtype=np.float32)
+        if self.clip:
+            return np.clip(arr, 0, 1)
+        else:
+            return arr
+
+    def apply_to_img(self, img: np.ndarray) -> np.ndarray:
+        return self._scale_array(img)
+
+    def apply_to_mask(self, mask: np.ndarray) -> np.ndarray:
+        return self._scale_array(mask)
+
+
+class FloatImageToByte(BasicTransform):
+    """
+    scale an input image from [0-1] to [0-255] mainly ofr rgb display purpose
+    """
+
+    def __init__(
+        self, clip: bool = False, img_only: bool = True, mask_only: bool = False
+    ):
+        super(FloatImageToByte, self).__init__()
+        self.img_only = img_only
+        self.mask_only = mask_only
+        self.scale_factor = 255
+        self.clip = clip
+
+    def _float_to_byte(self, arr: np.ndarray) -> np.ndarray:
+        arr = np.multiply(arr, self.scale_factor, dtype=np.float32)
+        arr = arr.astype(np.uint8)
+        if self.clip:
+            return np.clip(arr, 0, 255)
+        else:
+            return arr
+
+    def apply_to_img(self, img: np.ndarray) -> np.ndarray:
+        return self._float_to_byte(img)
+
+    def apply_to_mask(self, mask: np.ndarray) -> np.ndarray:
+        return self._float_to_byte(mask)
 
 
 class NormalizeImgAsFloat(object):
@@ -14,9 +98,9 @@ class NormalizeImgAsFloat(object):
         Normalization with scikit-learn function img_as_float which normalize uint/int between 0 - 255 to float in the range 0 -1. 
     """
     def __call__(self, **sample):
-        image = sample['image']
-        sample['image'] = img_as_float(image)
-        return sample
+        image, mask = sample['image'], sample['mask']
+        image = img_as_float(image)
+        return {'image': image, 'mask': mask}
 
 
 class Rotation90(object):
