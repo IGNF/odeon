@@ -1,3 +1,5 @@
+from cv2 import determinant
+import numpy as np
 import torch
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
@@ -26,7 +28,8 @@ class SegmentationTask(pl.LightningModule):
                  patience=PATIENCE,
                  load_pretrained_weights=None,
                  init_model_weights=None,
-                 loss_classes_weights=None):
+                 loss_classes_weights=None,
+                 deterministic=False):
 
         super().__init__()
         self.model_name = model_name
@@ -40,7 +43,8 @@ class SegmentationTask(pl.LightningModule):
         self.patience = patience
         self.load_pretrained_weights = load_pretrained_weights
         self.init_model_weights = init_model_weights
-        self.loss_classes_weights = self.num_classes * [1] if loss_classes_weights is None else loss_classes_weights
+        self.loss_classes_weights = None if loss_classes_weights is None else loss_classes_weights
+        self.deterministic = deterministic
 
         # Variables not stocked in hparams dict
         self.model = None
@@ -52,15 +56,16 @@ class SegmentationTask(pl.LightningModule):
 
         self.save_hyperparameters("model_name", "num_classes", "num_channels", "class_labels", "criterion_name", 
                                   "optimizer_config", "learning_rate", "scheduler_config", "patience", "load_pretrained_weights", 
-                                  "init_model_weights", "loss_classes_weights")
+                                  "init_model_weights", "loss_classes_weights", "deterministic")
 
     def setup(self, stage=None):
         if self.model is None:
             self.model = build_model(model_name=self.hparams.model_name,
-                                    n_channels=self.hparams.num_channels,
-                                    n_classes=self.hparams.num_classes,
-                                    init_model_weights=self.hparams.init_model_weights,
-                                    load_pretrained_weights=self.hparams.load_pretrained_weights
+                                     n_channels=self.hparams.num_channels,
+                                     n_classes=self.hparams.num_classes,
+                                     init_model_weights=self.hparams.init_model_weights,
+                                     load_pretrained_weights=self.hparams.load_pretrained_weights,
+                                     deterministic=self.hparams.deterministic
                                     )
         if self.criterion is None:
             self.criterion= build_loss_function(self.hparams.criterion_name, self.hparams.loss_classes_weights)
@@ -69,28 +74,33 @@ class SegmentationTask(pl.LightningModule):
             self.train_epoch_loss, self.val_epoch_loss = None, None
             self.train_epoch_metrics, self.val_epoch_metrics = None, None
             self.train_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                              class_labels=self.hparams.class_labels)
+                                              class_labels=self.hparams.class_labels,
+                                              deterministic=self.deterministic)
             self.val_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                            class_labels=self.hparams.class_labels)
+                                            class_labels=self.hparams.class_labels,
+                                            deterministic=self.deterministic)
             self.train_loss = MeanMetric()
             self.val_loss = MeanMetric()
 
         elif stage == "validate":
             self.val_epoch_loss, self.val_epoch_metrics = None, None
             self.val_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                            class_labels=self.hparams.class_labels)
+                                            class_labels=self.hparams.class_labels,
+                                            deterministic=self.deterministic)
             self.val_loss = MeanMetric()
 
         elif stage == "test":
             self.test_epoch_loss, self.test_epoch_metrics = None, None
             self.test_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                             class_labels=self.hparams.class_labels)
+                                             class_labels=self.hparams.class_labels,
+                                             deterministic=self.deterministic)
             self.test_loss = MeanMetric()
 
         elif stage == "predict":
             self.predict_epoch_loss, self.predict_epoch_metrics = None, None
             self.predict_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                                class_labels=self.hparams.class_labels)
+                                                class_labels=self.hparams.class_labels,
+                                                deterministic=self.deterministic)
             self.predict_loss = MeanMetric()
 
     def forward(self, images):
@@ -100,7 +110,11 @@ class SegmentationTask(pl.LightningModule):
     def step(self, batch):
         images, targets = batch["image"], batch["mask"]
         logits = self.forward(images)
+        if self.deterministic:
+            torch.use_deterministic_algorithms(False)
         loss = self.criterion(logits, targets)
+        if self.deterministic:
+            torch.use_deterministic_algorithms(True)
         with torch.no_grad():
             proba = torch.softmax(logits, dim=1)
             preds = torch.argmax(proba, dim=1)

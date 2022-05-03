@@ -241,7 +241,8 @@ class TrainCLI(BaseTool):
                                            patience=self.patience,
                                            load_pretrained_weights=self.load_pretrained_weights,
                                            init_model_weights=self.init_model_weights,
-                                           loss_classes_weights=self.class_imbalance)
+                                           loss_classes_weights=self.class_imbalance,
+                                           deterministic=self.deterministic)
 
         self.loggers = self.configure_loggers()
 
@@ -325,7 +326,8 @@ class TrainCLI(BaseTool):
 
         if self.compute_normalization_weights is True:
             self.normalization_weights = self.compute_stats()
-
+            if self.verbosity:
+                LOGGER.debug(f"DEBUG: normalization_weights: {self.normalization_weights}")
         transforms = {}
         for split_name in ["train", "val", "test"]:
             tfm_func = [] if data_aug is None else _parse_data_augmentation(data_aug[split_name])
@@ -340,6 +342,9 @@ class TrainCLI(BaseTool):
                 tfm_func.append(ScaleImageToFloat())
             tfm_func.append(ToDoubleTensor())  # To transform float type arrays to double type tensors
             transforms[split_name] = Compose(tfm_func)
+            if self.verbosity:
+                LOGGER.debug(f"DEBUG: {split_name}, {tfm_func}")
+
         return transforms
 
     def configure_loggers(self):
@@ -386,6 +391,8 @@ class TrainCLI(BaseTool):
                                               version=self.version_name,
                                               name="test_json")
                 loggers.append(test_json_logger)
+        if self.verbosity:
+            LOGGER.debug(f"DEBUG: Loggers: {loggers}")
         return loggers
 
     def configure_callbacks(self):
@@ -476,6 +483,10 @@ class TrainCLI(BaseTool):
             progress_bar = TQDMProgressBar(refresh_rate=self.progress_rate)
             callbacks.append(progress_bar)
             self.enable_progress_bar = True
+
+        if self.verbosity:
+            LOGGER.debug(f"DEBUG: Callbacks: {callbacks}")
+
         return callbacks
     
     def setup(self):
@@ -506,7 +517,9 @@ class TrainCLI(BaseTool):
         if self.reproducible is True:
             self.random_seed = RANDOM_SEED
             seed_everything(self.random_seed, workers=True)
-            self.deterministic = False  # Should be true but problem with confusion matrix calculation in torchmetrics
+            self.deterministic = True
+            torch.use_deterministic_algorithms(True)
+
         else:
             self.random_seed = None
             self.deterministic = False
@@ -520,6 +533,11 @@ class TrainCLI(BaseTool):
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                  "something went wrong during training configuration",
                                  stack_trace=error)
+        if self.verbosity:
+            LOGGER.debug(f"DEBUG: model_out_ext: {self.model_out_ext}")
+            LOGGER.debug(f"DEBUG: name_exp_log: {self.name_exp_log}")
+            LOGGER.debug(f"DEBUG: output_tensorboard_logs: {self.output_tensorboard_logs}")
+            LOGGER.debug(f"DEBUG: version_name: {self.version_name}")
 
     def check(self):
         if self.model_name not in model_list:

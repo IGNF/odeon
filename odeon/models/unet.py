@@ -123,9 +123,7 @@ class DecoderConv(nn.Module):
         if self.bilinear:
             # reduces width, height
             x1 = F.interpolate(x1, scale_factor=2, mode="bilinear", align_corners=True)
-
         x1 = self.up(x1)
-
         x = torch.cat([x2, x1], dim=1)
 
         x = self.conv(x)
@@ -231,23 +229,25 @@ class UNet(nn.Module):
         number of output classes
     """
 
-    def __init__(self, n_channels, n_classes):
+    def __init__(self, n_channels, n_classes, bilinear=True, batch_norm=True):
 
         super(UNet, self).__init__()
 
         self.n_classes = n_classes
+        self.bilinear = bilinear
+        self.batch_norm = batch_norm
 
         # encoder
-        self.inc = InputConv(n_channels, 64, batch_norm=True)
-        self.down1 = EncoderConv(64, 128, batch_norm=True)
-        self.down2 = EncoderConv(128, 256, batch_norm=True)
-        self.down3 = EncoderConv(256, 512, batch_norm=True)
-        self.down4 = EncoderConv(512, 1024, batch_norm=True)
+        self.inc = InputConv(n_channels, 64, batch_norm=self.batch_norm)
+        self.down1 = EncoderConv(64, 128, batch_norm=self.batch_norm)
+        self.down2 = EncoderConv(128, 256, batch_norm=self.batch_norm)
+        self.down3 = EncoderConv(256, 512, batch_norm=self.batch_norm)
+        self.down4 = EncoderConv(512, 1024, batch_norm=self.batch_norm)
         # decoder
-        self.up1 = DecoderConv(1024, 512, batch_norm=True)
-        self.up2 = DecoderConv(512, 256, batch_norm=True)
-        self.up3 = DecoderConv(256, 128, batch_norm=True)
-        self.up4 = DecoderConv(128, 64, batch_norm=True)
+        self.up1 = DecoderConv(1024, 512, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up2 = DecoderConv(512, 256, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up3 = DecoderConv(256, 128, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up4 = DecoderConv(128, 64, bilinear=self.bilinear, batch_norm=self.batch_norm)
 
         self.outc = OutputConv(64, n_classes)
 
@@ -277,23 +277,25 @@ class LightUNet(nn.Module):
         number of output classes
     """
 
-    def __init__(self, n_channels, n_classes):
+    def __init__(self, n_channels, n_classes, bilinear=True, batch_norm=False):
 
         super(LightUNet, self).__init__()
 
         self.n_classes = n_classes
+        self.bilinear = bilinear
+        self.batch_norm = batch_norm
 
         # encoder
-        self.inc = InputConv(n_channels, 8)
-        self.down1 = EncoderConv(8, 16)
-        self.down2 = EncoderConv(16, 32)
-        self.down3 = EncoderConv(32, 64)
-        self.down4 = EncoderConv(64, 128)
+        self.inc = InputConv(n_channels, 8, batch_norm=self.batch_norm)
+        self.down1 = EncoderConv(8, 16, batch_norm=self.batch_norm)
+        self.down2 = EncoderConv(16, 32, batch_norm=self.batch_norm)
+        self.down3 = EncoderConv(32, 64, batch_norm=self.batch_norm)
+        self.down4 = EncoderConv(64, 128, batch_norm=self.batch_norm)
         # decoder
-        self.up1 = DecoderConv(128, 64)
-        self.up2 = DecoderConv(64, 32)
-        self.up3 = DecoderConv(32, 16)
-        self.up4 = DecoderConv(16, 8)
+        self.up1 = DecoderConv(128, 64, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up2 = DecoderConv(64, 32, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up3 = DecoderConv(32, 16, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up4 = DecoderConv(16, 8, bilinear=self.bilinear, batch_norm=self.batch_norm)
 
         # last layer
         self.outc = OutputConv(8, n_classes)

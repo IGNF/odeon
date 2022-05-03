@@ -329,13 +329,13 @@ class PredictionsAdder(TensorboardCallback):
 
     @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
-        if phase == "train":
-            samples = self.train_samples
-        elif phase == "val":
-            samples = self.val_samples
-        elif phase == "test" or phase =="predict":
-            samples = self.test_samples
-
+        # if phase == "train":
+        #     samples = self.train_samples
+        # elif phase == "val":
+        #     samples = self.val_samples
+        # elif phase == "test" or phase =="predict":
+        #     samples = self.test_samples
+        samples = self.train_samples
         images, targets = samples["image"].to(device=pl_module.device), samples["mask"].to(device=pl_module.device)
         
         with torch.no_grad():

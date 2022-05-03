@@ -1,6 +1,9 @@
 import os
+from pyexpat import model
 import torch
 from pathlib import Path
+from odeon import LOGGER
+from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.models.unet import UNet, UNetResNet, LightUNet
 from odeon.models.deeplabv3p import DeeplabV3p
 
@@ -10,17 +13,23 @@ model_list = [
     "deeplab"
 ]
 
-
 def build_model(model_name,
                 n_channels, 
                 n_classes,                                  
                 init_model_weights=None,
-                load_pretrained_weights=None):
+                load_pretrained_weights=None,
+                deterministic=False):
+
+    bilinear = False if deterministic else True
+    if deterministic and model_name not in ["unet", "lightunet"]:
+        LOGGER.error('ERROR: The reproductibility of a training only works for Unet and Lightunet models in this version.')
+        raise OdeonError(ErrorCodes.ERR_MODEL_ERROR,
+            "Wrong parameters model_name or reproducible. If reproducible is True model name should be 'unet' or 'lightunet'")
 
     if model_name == 'lightunet':
-        net = LightUNet(n_channels=n_channels, n_classes=n_classes)
+        net = LightUNet(n_channels=n_channels, n_classes=n_classes, bilinear=bilinear)
     elif model_name == 'unet':
-        net = UNet(n_channels=n_channels, n_classes=n_classes)
+        net = UNet(n_channels=n_channels, n_classes=n_classes, bilinear=bilinear)
     elif str.startswith(model_name, 'resnet'):
         depth = int(model_name[6:])
         net = UNetResNet(depth, n_classes=n_classes, n_channels=n_channels)
