@@ -330,7 +330,10 @@ class TrainCLI(BaseTool):
                 LOGGER.debug(f"DEBUG: normalization_weights: {self.normalization_weights}")
         transforms = {}
         for split_name in ["train", "val", "test"]:
-            tfm_func = [] if data_aug is None else _parse_data_augmentation(data_aug[split_name])
+            if split_name == "train":
+                tfm_func = [] if data_aug is None else _parse_data_augmentation(data_aug[split_name])
+            else:
+                tfm_func = []
             # Part to define how to normalize the data
             if self.normalization_weights is not None:
                 if isinstance(self.normalization_weights, dict):
