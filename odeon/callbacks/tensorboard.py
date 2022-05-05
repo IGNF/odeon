@@ -283,7 +283,7 @@ class PredictionsAdder(TensorboardCallback):
         if self.train_samples is None:
             self.train_sample_dataset = PatchDataset(image_files=trainer.datamodule.train_image_files,
                                                      mask_files=trainer.datamodule.train_mask_files,
-                                                     transform=None,
+                                                     transform=trainer.datamodule.transforms['train'],
                                                      image_bands=trainer.datamodule.image_bands,
                                                      mask_bands=trainer.datamodule.mask_bands,
                                                      width=trainer.datamodule.width,
@@ -298,7 +298,7 @@ class PredictionsAdder(TensorboardCallback):
         if self.val_samples is None:
             self.val_sample_dataset = PatchDataset(image_files=trainer.datamodule.val_image_files,
                                                    mask_files=trainer.datamodule.val_mask_files,
-                                                   transform=None,
+                                                   transform=trainer.datamodule.transforms['val'],
                                                    image_bands=trainer.datamodule.image_bands,
                                                    mask_bands=trainer.datamodule.mask_bands,
                                                    width=trainer.datamodule.width,
@@ -315,7 +315,7 @@ class PredictionsAdder(TensorboardCallback):
         if self.test_samples is None:
             self.test_sample_dataset = PatchDataset(image_files=trainer.datamodule.test_image_files,
                                                     mask_files=trainer.datamodule.test_mask_files,
-                                                    transform=None,
+                                                    transform=trainer.datamodule.transforms['test'],
                                                     image_bands=trainer.datamodule.image_bands,
                                                     mask_bands=trainer.datamodule.mask_bands,
                                                     width=trainer.datamodule.width,
@@ -343,12 +343,16 @@ class PredictionsAdder(TensorboardCallback):
             proba = torch.softmax(logits, dim=1)
             preds = torch.argmax(proba, dim=1)
 
-        images = images.cpu().type(torch.uint8)
+
+        # images = images.cpu().type(torch.uint8)
+        images = images.cpu()
         targets = targets.cpu()
         preds = preds.cpu()
         grids = []
         images = torch.stack([images[:, band_i, :, :] for band_i in self.display_bands], 1)
-
+        images = torch.multiply(images, 255).type(torch.uint8)
+        images =  torch.clip(images, 0, 255)
+        
         for image, target, pred in zip(images, targets, preds):
             pred_bands = torch.zeros_like(target)
             for class_i in np.arange(trainer.datamodule.num_classes):
