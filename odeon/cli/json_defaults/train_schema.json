@@ -15,7 +15,6 @@
                 "mask_bands": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true},
                 "class_labels": {"type": "array", "items": {"type": "string"}},
                 "resolution": {"type": ["number", "array"]},
-                "compute_normalization_weights": {"type": "boolean", "default": false},
                 "normalization_weights": {
                     "type": "object",
                     "properties": {

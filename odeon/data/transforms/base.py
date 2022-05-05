@@ -7,7 +7,7 @@ from skimage.color import rgb2hsv
 from skimage.transform import rotate
 from skimage.util import random_noise
 from skimage.util import img_as_float
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Optional
+from typing import Any, Callable, Dict, Union
 import numpy as np
 
 
@@ -17,7 +17,7 @@ class BasicTransform:
         self.img_only: bool = False
         self.mask_only: bool = False
 
-    def __call__(self, image: np.ndarray, mask: np.ndarray) -> Dict[str, Any]:
+    def __call__(self, image: np.ndarray=None, mask: np.ndarray=None) -> Dict[str, Any]:
         if self.img_only:
             return {"image": self.apply_to_img(image), "mask": mask}
         elif self.mask_only:
@@ -64,6 +64,42 @@ class ScaleImageToFloat(BasicTransform):
         return self._scale_array(mask)
 
 
+class DeNormalize(BasicTransform):
+    def __init__(
+        self,
+        mean: list[float],
+        std: list[float],
+        max_pixel_value: float = 255.0,
+        img_only: bool = True,
+        mask_only: bool = False,
+    ):
+        super(DeNormalize, self).__init__()
+        self.mean = mean
+        self.std = std
+        self.img_only = img_only
+        self.mask_only = mask_only
+        self.max_pixel_value = max_pixel_value
+
+    def _denormalize(self, img):
+        mean = np.array(self.mean, dtype=np.float32)
+        mean *= self.max_pixel_value
+
+        std = np.array(self.std, dtype=np.float32)
+        std *= self.max_pixel_value
+
+        img = img.astype(np.float32)
+        img *= std
+        img += mean
+        return img
+    
+    def apply_to_img(self, img: np.ndarray) -> np.ndarray:
+        return self._denormalize(img)
+
+    def apply_to_mask(self, mask: np.ndarray) -> np.ndarray:
+        return self._denormalize(mask)
+
+
+
 class FloatImageToByte(BasicTransform):
     """
     scale an input image from [0-1] to [0-255] mainly ofr rgb display purpose
@@ -93,14 +129,43 @@ class FloatImageToByte(BasicTransform):
         return self._float_to_byte(mask)
 
 
-class NormalizeImgAsFloat(object):
-    """
-        Normalization with scikit-learn function img_as_float which normalize uint/int between 0 - 255 to float in the range 0 -1. 
-    """
-    def __call__(self, **sample):
-        image, mask = sample['image'], sample['mask']
-        image = img_as_float(image)
-        return {'image': image, 'mask': mask}
+class HWC_to_CHW(BasicTransform):
+    def __init__(
+        self, img_only: bool = False, mask_only: bool = False
+    ):
+        super(HWC_to_CHW, self).__init__()
+        self.img_only = img_only
+        self.mask_only = mask_only
+
+    @staticmethod
+    def swap_axes(array: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        array = array.swapaxes(0, 2).swapaxes(1, 2)
+        return array
+
+    def apply_to_img(self, img: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        return self.swap_axes(img)
+
+    def apply_to_mask(self, mask: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        return self.swap_axes(mask)
+
+
+class CHW_to_HWC(BasicTransform):
+    def __init__(self, img_only: bool = False, mask_only: bool = False):
+        super(CHW_to_HWC, self).__init__()
+        self.img_only = img_only
+        self.mask_only = mask_only
+
+    @staticmethod
+    def swap_axes(array: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        # swap the axes order from (bands, rows, columns) to (rows, columns, bands)
+        array = array.swapaxes(0, 2).swapaxes(0, 1)
+        return array
+
+    def apply_to_img(self, img: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        return self.swap_axes(img)
+
+    def apply_to_mask(self, mask: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+        return self.swap_axes(mask)
 
 
 class Rotation90(object):

@@ -1,3 +1,4 @@
+from inspect import stack
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -12,7 +13,6 @@ from odeon.data.datasets.patch import PatchDataset
 from odeon.commons.metric.plots import plot_confusion_matrix
 
 ALPHA = 0.4
-NUM_PREDICTIONS = 5
 OCSGE_LUT = [
  (219,  14, 154),
  (114, 113, 112),
@@ -265,7 +265,6 @@ class PredictionsAdder(TensorboardCallback):
         train_samples=None,
         val_samples=None,
         test_samples=None,
-        num_predictions=NUM_PREDICTIONS,
         display_bands=[1, 2, 3],
         ):
 
@@ -274,84 +273,30 @@ class PredictionsAdder(TensorboardCallback):
         self.train_samples = train_samples
         self.val_samples = val_samples
         self.test_samples = test_samples
-        self.num_predictions = num_predictions
         self.sample_dataset = None
         self.display_bands = [idx_band - 1 for idx_band in display_bands]
 
     @rank_zero_only
-    def on_fit_start(self, trainer, pl_module):
-        if self.train_samples is None:
-            self.train_sample_dataset = PatchDataset(image_files=trainer.datamodule.train_image_files,
-                                                     mask_files=trainer.datamodule.train_mask_files,
-                                                     transform=trainer.datamodule.transforms['train'],
-                                                     image_bands=trainer.datamodule.image_bands,
-                                                     mask_bands=trainer.datamodule.mask_bands,
-                                                     width=trainer.datamodule.width,
-                                                     height=trainer.datamodule.height)
-            self.train_sample_loader = DataLoader(dataset=self.train_sample_dataset,
-                                                  batch_size=self.num_predictions,
-                                                  num_workers=trainer.datamodule.num_workers,
-                                                  pin_memory=trainer.datamodule.pin_memory,
-                                                  shuffle=True)
-            self.train_samples = next(iter(self.train_sample_loader))
-
-        if self.val_samples is None:
-            self.val_sample_dataset = PatchDataset(image_files=trainer.datamodule.val_image_files,
-                                                   mask_files=trainer.datamodule.val_mask_files,
-                                                   transform=trainer.datamodule.transforms['val'],
-                                                   image_bands=trainer.datamodule.image_bands,
-                                                   mask_bands=trainer.datamodule.mask_bands,
-                                                   width=trainer.datamodule.width,
-                                                   height=trainer.datamodule.height)
-            self.val_sample_loader = DataLoader(dataset=self.val_sample_dataset,
-                                                batch_size=self.num_predictions,
-                                                num_workers=trainer.datamodule.num_workers,
-                                                pin_memory=trainer.datamodule.pin_memory,
-                                                shuffle=True)
-            self.val_samples = next(iter(self.val_sample_loader))
-
-    @rank_zero_only
-    def on_test_start(self, trainer, pl_module):
-        if self.test_samples is None:
-            self.test_sample_dataset = PatchDataset(image_files=trainer.datamodule.test_image_files,
-                                                    mask_files=trainer.datamodule.test_mask_files,
-                                                    transform=trainer.datamodule.transforms['test'],
-                                                    image_bands=trainer.datamodule.image_bands,
-                                                    mask_bands=trainer.datamodule.mask_bands,
-                                                    width=trainer.datamodule.width,
-                                                    height=trainer.datamodule.height)
-            self.test_sample_loader = DataLoader(dataset=self.test_sample_dataset,
-                                                 batch_size=self.num_predictions,
-                                                 num_workers=trainer.datamodule.num_workers,
-                                                 pin_memory=trainer.datamodule.pin_memory,
-                                                 shuffle=True)
-            self.test_samples = next(iter(self.test_sample_loader))
-
-    @rank_zero_only
     def add_predictions(self, trainer, pl_module, phase):
-        # if phase == "train":
-        #     samples = self.train_samples
-        # elif phase == "val":
-        #     samples = self.val_samples
-        # elif phase == "test" or phase =="predict":
-        #     samples = self.test_samples
-        samples = self.train_samples
+        trainer.datamodule.create_samples(phase=phase)
+        samples = trainer.datamodule.samples[phase]
         images, targets = samples["image"].to(device=pl_module.device), samples["mask"].to(device=pl_module.device)
-        
+
         with torch.no_grad():
             logits = pl_module.forward(images)
             proba = torch.softmax(logits, dim=1)
             preds = torch.argmax(proba, dim=1)
 
-
         # images = images.cpu().type(torch.uint8)
-        images = images.cpu()
+        images = images.cpu().numpy()
         targets = targets.cpu()
         preds = preds.cpu()
         grids = []
+
+        inv_tfm = trainer.datamodule.inv_transforms[phase]
+        inv_images = np.stack([inv_tfm(image=image)['image'] for image in images])
+        images = torch.tensor(inv_images).type(torch.uint8)
         images = torch.stack([images[:, band_i, :, :] for band_i in self.display_bands], 1)
-        images = torch.multiply(images, 255).type(torch.uint8)
-        images =  torch.clip(images, 0, 255)
         
         for image, target, pred in zip(images, targets, preds):
             pred_bands = torch.zeros_like(target)

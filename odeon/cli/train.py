@@ -86,7 +86,6 @@ class TrainCLI(BaseTool):
         model_filename=None,
         model_out_ext=None,
         init_weights=None,
-        compute_normalization_weights=False,
         normalization_weights=None,
         epochs=NUM_EPOCHS,
         batch_size=BATCH_SIZE,
@@ -136,10 +135,8 @@ class TrainCLI(BaseTool):
         self.model_filename = model_filename
         self.model_out_ext = model_out_ext
 
-        # Computations of data stats (mean and std) in order to do normalization
-        self.data_augmentation= data_augmentation
-        self.compute_normalization_weights = compute_normalization_weights
-        self.normalization_weights = normalization_weights
+        self.data_augmentation= data_augmentation  # Dict of desired data augmentation
+        self.normalization_weights = normalization_weights  # Stats for each split (mean and std) in order to do normalization
 
         # Datamodule
         self.train_file = train_file
@@ -211,14 +208,13 @@ class TrainCLI(BaseTool):
 
     def configure(self):
 
-        self.transforms = self.configure_transforms(self.data_augmentation)
-
         self.data_module = SegDataModule(train_file=self.train_file,
                                          val_file=self.val_file,
                                          test_file=self.test_file,
                                          image_bands=self.image_bands,
                                          mask_bands=self.mask_bands,
-                                         transforms=self.transforms,
+                                         data_augmentation=self.data_augmentation,
+                                         data_stats=self.normalization_weights,
                                          width=None,
                                          height=None,
                                          batch_size=self.batch_size,
@@ -266,14 +262,16 @@ class TrainCLI(BaseTool):
         """
         self.configure()
 
+        self.data_module.setup(stage="fit")
+
         STD_OUT_LOGGER.info(
             f"Training : \n" 
             f"device: {self.device} \n"
             f"model: {self.model_name} \n"
             f"model file: {self.model_filename} \n"
             f"number of classes: {self.data_module.num_classes} \n"
-            f"number of samples: {len(self.data_module.train_image_files) + len(self.data_module.val_image_files)}  "
-            f"(train: {len(self.data_module.train_image_files)}, val: {len(self.data_module.val_image_files)})"
+            f"number of samples: {len(self.data_module.train_dataset) + len(self.data_module.val_dataset)}"
+            f"(train: {len(self.data_module.train_dataset)}, val: {len(self.data_module.val_dataset)})"
             )
 
         try:
@@ -315,40 +313,6 @@ class TrainCLI(BaseTool):
                 raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                                     "ERROR: Something went wrong during the test step of the training",
                                     stack_trace=error)
-
-    def configure_transforms(self, data_aug):
-
-        def _parse_data_augmentation(list_tfm):
-            tfm_dict = {"rotation90": Rotation90(), "radiometry": Radiometry()}
-            list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
-            tfm_func = [tfm_dict[tfm] for tfm in list_tfm]
-            return tfm_func
-
-        if self.compute_normalization_weights is True:
-            self.normalization_weights = self.compute_stats()
-            if self.verbosity:
-                LOGGER.debug(f"DEBUG: normalization_weights: {self.normalization_weights}")
-        transforms = {}
-        for split_name in ["train", "val", "test"]:
-            if split_name == "train":
-                tfm_func = [] if data_aug is None else _parse_data_augmentation(data_aug[split_name])
-            else:
-                tfm_func = []
-            # Part to define how to normalize the data
-            if self.normalization_weights is not None:
-                if isinstance(self.normalization_weights, dict):
-                    self.normalization_weights = pd.DataFrame(self.normalization_weights).T
-                if  split_name != "test" or (split_name == "test" and self.test_file is not None):
-                    tfm_func.extend([A.Normalize(mean=self.normalization_weights.loc[split_name, "mean"],
-                                                 std=self.normalization_weights.loc[split_name, "std"])])
-            else:
-                tfm_func.append(ScaleImageToFloat())
-            tfm_func.append(ToDoubleTensor())  # To transform float type arrays to double type tensors
-            transforms[split_name] = Compose(tfm_func)
-            if self.verbosity:
-                LOGGER.debug(f"DEBUG: {split_name}, {tfm_func}")
-
-        return transforms
 
     def configure_loggers(self):
         # Loggers definition
@@ -411,9 +375,9 @@ class TrainCLI(BaseTool):
             )
             code_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
             callbacks.extend([MetricsWandb(),
-                                   LogConfusionMatrix(),
-                                   UploadCodeAsArtifact(code_dir=code_dir,
-                                                        use_git=True)])
+                              LogConfusionMatrix(),
+                              UploadCodeAsArtifact(code_dir=code_dir,
+                                                   use_git=True)])
         if self.model_out_ext == ".ckpt":
             checkpoint_miou_callback = LightningCheckpoint(monitor="val_miou",
                                                          dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
@@ -472,7 +436,7 @@ class TrainCLI(BaseTool):
                 self.resume_checkpoint = os.path.join(self.output_folder, self.model_filename)
             else:
                 LOGGER.error("ERROR: Odeon only handles files of type .pth or .ckpt for the continue training feature.")
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR, 
+                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                                  "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
         if self.get_prediction:
             path_predictions = os.path.join(self.output_folder, self.name_exp_log, "predictions", self.version_name)
@@ -554,29 +518,6 @@ class TrainCLI(BaseTool):
             raise OdeonError(ErrorCodes.ERR_TRAINING_ERROR,
                              "something went wrong during training configuration",
                              stack_trace=error)
-
-    def compute_stats(self):
-        stats = Stats(train_file=self.train_file,
-                    val_file=self.val_file,
-                    test_file=self.test_file,
-                    image_bands=self.image_bands,
-                    mask_bands=self.mask_bands,
-                    batch_size=self.batch_size,
-                    num_workers=self.num_workers,
-                    percentage_val=self.percentage_val,
-                    deterministic=self.deterministic,
-                    resolution=self.resolution,
-                    subset=self.testing,
-                    device=self.device,
-                    accelerator=self.accelerator,
-                    num_nodes=self.num_nodes,
-                    num_processes=self.num_processes,
-                    strategy=self.strategy)
-
-        normalization_weights = stats()
-
-        normalization_weights.to_csv(os.path.join(self.output_folder, "normalization_weights.csv"))
-        return normalization_weights
 
     def get_version_name(self):
         version_idx = None

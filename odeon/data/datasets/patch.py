@@ -46,7 +46,8 @@ class PatchDataset(Dataset):
     height=None, 
     image_bands=None,             
     mask_bands=None,
-    get_sample_info=False
+    get_sample_info=False,
+    keep_original_image=False
     ):
         self.image_files = image_files
         self.image_bands = image_bands
@@ -56,6 +57,7 @@ class PatchDataset(Dataset):
         self.height = height
         self.transform_function = transform
         self.get_sample_info = get_sample_info
+        self.keep_original_image = keep_original_image
 
     def __len__(self):
         return len(self.image_files)
@@ -95,6 +97,9 @@ class PatchDataset(Dataset):
         if self.get_sample_info:
             sample["filename"] = os.path.basename(image_file)
             sample["affine"] = affine_to_ndarray(meta["transform"])
+
+        if self.keep_original_image:
+            sample["original"] = img
 
         return sample
 

@@ -7,13 +7,15 @@ from torch.utils.data import DataLoader, Subset
 from pytorch_lightning import LightningDataModule
 from odeon import LOGGER
 from odeon.data.datasets.patch import PatchDataset
-from odeon.commons.guard import check_files, check_raster_bands
+from odeon.data.transforms.utils import configure_transforms
+from odeon.commons.guard import check_files, check_raster_bands, file_exist
 from odeon.commons.exception import OdeonError, ErrorCodes
 
 RANDOM_SEED = 42
 BATCH_SIZE = 5
 NUM_WORKERS = 4
 PERCENTAGE_VAL = 0.3
+NUM_PREDICTIONS = 5
 
 
 class SegDataModule(LightningDataModule):
@@ -25,7 +27,8 @@ class SegDataModule(LightningDataModule):
                 image_bands=None,
                 mask_bands=None,
                 class_labels=None,
-                transforms=None,
+                data_augmentation=None,
+                data_stats=None,
                 width=None,
                 height=None,
                 batch_size=BATCH_SIZE,
@@ -44,7 +47,10 @@ class SegDataModule(LightningDataModule):
         self.test_file = test_file
         self.image_bands = image_bands
         self.mask_bands = mask_bands
-        self.transforms = transforms
+
+        self.transforms, self.inv_transforms = configure_transforms(data_aug=data_augmentation,
+                                                                    normalization_weights=data_stats)
+
         self.width = width
         self.height = height
         self.num_workers = num_workers
@@ -59,8 +65,18 @@ class SegDataModule(LightningDataModule):
         else:
             self.random_seed = RANDOM_SEED
             self.shuffle = True
-        self.train_image_files, self.val_image_files, self.test_image_files = None, None, None
-        self.train_mask_files, self.val_mask_files, self.test_mask_files = None, None, None
+
+        self.files = {"train": {"image": None,
+                                "mask": None
+                                },
+                       "val": {"image": None,
+                               "mask": None
+                                },
+                       "test": {"image": None,
+                                "mask": None
+                               }
+                      }
+        self.samples = {}
         self.get_split_files()
         self.resolution, self.meta = {}, {} 
         self.sample_dims = self.get_dims_and_meta()
@@ -80,17 +96,17 @@ class SegDataModule(LightningDataModule):
     def setup(self, stage=None):
         if stage == "fit" or stage == "validate":
             if not self.train_dataset and not self.val_dataset:
-                self.train_dataset = PatchDataset(image_files=self.train_image_files,
-                                                  mask_files=self.train_mask_files,
-                                                  transform=self.transforms['train'],
+                self.train_dataset = PatchDataset(image_files=self.files["train"]["image"],
+                                                  mask_files=self.files["train"]["mask"],
+                                                  transform=self.transforms["train"],
                                                   image_bands=self.image_bands,
                                                   mask_bands=self.mask_bands,
                                                   width=self.width,
                                                   height=self.height)
 
-                self.val_dataset = PatchDataset(image_files=self.val_image_files,
-                                                mask_files=self.val_mask_files,
-                                                transform=self.transforms['val'],
+                self.val_dataset = PatchDataset(image_files=self.files["val"]["image"],
+                                                mask_files=self.files["val"]["mask"],
+                                                transform=self.transforms["val"],
                                                 image_bands=self.image_bands,
                                                 mask_bands=self.mask_bands,
                                                 width=self.width,
@@ -102,9 +118,9 @@ class SegDataModule(LightningDataModule):
 
         elif stage == "test":
             if not self.test_dataset:
-                self.test_dataset = PatchDataset(image_files=self.test_image_files,
-                                                 mask_files=self.test_mask_files,
-                                                 transform=self.transforms['test'],
+                self.test_dataset = PatchDataset(image_files=self.files["test"]["image"],
+                                                 mask_files=self.files["test"]["mask"],
+                                                 transform=self.transforms["test"],
                                                  image_bands=self.image_bands,
                                                  mask_bands=self.mask_bands,
                                                  width=self.width,
@@ -114,9 +130,9 @@ class SegDataModule(LightningDataModule):
 
         elif stage == "predict":            
             if not self.pred_dataset:
-                self.test_dataset = PatchDataset(image_files=self.test_image_files,
-                                                 mask_files=self.test_mask_files,
-                                                 transform=self.transforms['test'],
+                self.test_dataset = PatchDataset(image_files=self.files["test"]["image"],
+                                                 mask_files=self.files["test"]["mask"],
+                                                 transform=self.transforms["test"],
                                                  image_bands=self.image_bands,
                                                  mask_bands=self.mask_bands,
                                                  width=self.width,
@@ -158,11 +174,8 @@ class SegDataModule(LightningDataModule):
                           drop_last=self.drop_last)
 
     def read_csv_sample_file(self, file_path):
-        image_files = []
-        mask_files = []
-        if not os.path.exists(file_path):
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"file ${file_path} does not exist.")
+        file_exist(file=file_path)
+        image_files, mask_files = [], []
         with open(file_path) as csvfile:
             sample_reader = csv.reader(csvfile)
             for item in sample_reader:
@@ -179,19 +192,19 @@ class SegDataModule(LightningDataModule):
             else:
                 train_image_files, val_image_files, train_mask_files, val_mask_files = \
                     train_test_split(train_image_files,
-                                    train_mask_files,
-                                    test_size=self.percentage_val,
-                                    random_state=self.random_seed)
+                                     train_mask_files,
+                                     test_size=self.percentage_val,
+                                     random_state=self.random_seed)
             for list_files in [train_image_files, val_image_files, train_mask_files, val_mask_files]:
                 check_files(list_files)
-            self.train_image_files, self.train_mask_files = train_image_files, train_mask_files
-            self.val_image_files, self.val_mask_files = val_image_files, val_mask_files
+            self.files["train"]["image"], self.files["train"]["mask"] = train_image_files, train_mask_files
+            self.files["val"]["image"], self.files["val"]["mask"] = val_image_files, val_mask_files
 
         if self.test_file:
             test_image_files, test_mask_files = self.read_csv_sample_file(self.test_file)
             for list_files in [test_image_files, test_mask_files]:
                 check_files(list_files)
-            self.test_image_files, self.test_mask_files = test_image_files, test_mask_files
+            self.files["test"]["image"], self.files["test"]["mask"] = test_image_files, test_mask_files
 
     @staticmethod
     def get_samples(image_files, mask_files, index=0):
@@ -206,23 +219,23 @@ class SegDataModule(LightningDataModule):
 
     @staticmethod
     def check_sample(sample):
-        if sample['image'].shape[0:-1] != sample['mask'].shape[0:-1]:
-            LOGGER.error('ERROR: check the width/height of the inputs masks and detections. \
-                Those input data should have the same width/height.')
+        if sample["image"].shape[0:-1] != sample["mask"].shape[0:-1]:
+            LOGGER.error("ERROR: check the width/height of the inputs masks and detections. \
+                Those input data should have the same width/height.")
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                              "Detections and masks have different width/height.")
 
     def get_dims_and_meta(self):
         if self.train_file and self.val_file:
-            train_sample = self.get_samples(self.train_image_files,
-                                            self.train_mask_files)
-            val_sample = self.get_samples(self.val_image_files,
-                                        self.val_mask_files)
+            train_sample = self.get_samples(self.files["train"]["image"],
+                                            self.files["train"]["mask"])
+            val_sample = self.get_samples(self.files["val"]["image"],
+                                        self.files["val"]["mask"])
             self.check_sample(train_sample)
             self.check_sample(val_sample)
 
-            if train_sample['image'].shape != val_sample['image'].shape:
-                LOGGER.warning("WARNING: Data in train dataset and validation dataset don\'t have\
+            if train_sample["image"].shape != val_sample["image"].shape:
+                LOGGER.warning("WARNING: Data in train dataset and validation dataset don\"t have\
                             the same dimensions.")
 
             # Meta and resolution definition
@@ -233,8 +246,8 @@ class SegDataModule(LightningDataModule):
             self.meta["val"] = val_sample["meta"]
 
         if self.test_file:
-            test_sample = self.get_samples(self.test_image_files,
-                                           self.test_mask_files)
+            test_sample = self.get_samples(self.files["test"]["image"],
+                                           self.files["test"]["mask"])
             self.check_sample(test_sample)
             self.resolution["test"] = test_sample["resolution"]
             self.meta["test"] = test_sample["meta"]
@@ -243,27 +256,45 @@ class SegDataModule(LightningDataModule):
             self.meta["test"] = self.meta["val"]
 
         if self.train_file:
-            dims = {'image': train_sample['image'].shape, 'mask': train_sample['mask'].shape}
+            dims = {"image": train_sample["image"].shape, "mask": train_sample["mask"].shape}
         elif self.test_file:
-            dims = {'image': test_sample['image'].shape, 'mask': test_sample['mask'].shape}
+            dims = {"image": test_sample["image"].shape, "mask": test_sample["mask"].shape}
         else:
             LOGGER.error("ERROR: SegDataModule need at least a train file or a test file to be instantiate.")
-            raise ValueError('Parameter train_file/test_file is not correct.')
+            raise ValueError("Parameter train_file/test_file is not correct.")
 
         return dims
 
     def get_bands(self, image_bands, mask_bands):
         if image_bands is None:
-            image_bands = np.arange(self.sample_dims['image'][-1])
+            image_bands = np.arange(self.sample_dims["image"][-1])
         else:
-            check_raster_bands(raster_band=np.arange(1, self.sample_dims['image'][-1] + 1),
+            check_raster_bands(raster_band=np.arange(1, self.sample_dims["image"][-1] + 1),
                                proposed_bands=image_bands)
         if mask_bands is None:
-            mask_bands = np.arange(self.sample_dims['mask'][-1])
+            mask_bands = np.arange(self.sample_dims["mask"][-1])
         else:
-            check_raster_bands(raster_band=np.arange(1, self.sample_dims['mask'][-1] + 1),
+            check_raster_bands(raster_band=np.arange(1, self.sample_dims["mask"][-1] + 1),
                                proposed_bands=mask_bands)
         return image_bands, mask_bands
+
+    def create_samples(self, phase:str, num_samples:int=NUM_PREDICTIONS)-> None:
+        if not phase in self.samples.keys():
+            sample_dataset = PatchDataset(image_files=self.files[phase]["image"],
+                                          mask_files=self.files[phase]["mask"],
+                                          transform=self.transforms[phase],
+                                          image_bands=self.image_bands,
+                                          mask_bands=self.mask_bands,
+                                          width=self.width,
+                                          height=self.height)
+
+            sample_loader = DataLoader(dataset=sample_dataset,
+                                       batch_size=num_samples,
+                                       num_workers=self.num_workers,
+                                       pin_memory=self.pin_memory,
+                                       shuffle=True)
+
+            self.samples[phase] = next(iter(sample_loader))
 
     def get_batch_size(self, parameter_batch_size):
         if isinstance(parameter_batch_size, int):
@@ -276,16 +307,16 @@ class SegDataModule(LightningDataModule):
             test_batch_size = parameter_batch_size[-1]
         else:
             LOGGER.error("ERROR: Parameter batch_size should a list/tuple of length one, two or three.")
-            raise ValueError('Parameter batch_size is not correct.')
+            raise ValueError("Parameter batch_size is not correct.")
 
         if self.train_file and self.val_file:
-            assert train_batch_size <= len(self.train_image_files),\
+            assert train_batch_size <= len(self.files["train"]["image"]),\
                 "batch_size must be lower than the number of files in the dataset"
-            assert val_batch_size <= len(self.val_image_files),\
+            assert val_batch_size <= len(self.files["val"]["image"]),\
             "batch_size must be lower than the number of files in the dataset"
 
         if self.test_file is not None:
-            assert test_batch_size <= len(self.test_image_files),\
+            assert test_batch_size <= len(self.files["test"]["image"]),\
             "batch_size must be lower than the number of files in the dataset"
 
         self.train_batch_size = train_batch_size
@@ -295,23 +326,23 @@ class SegDataModule(LightningDataModule):
     def get_resolution(self, parameter_resolution):
         if isinstance(parameter_resolution, int):
             self.resolution["train"] = [parameter_resolution, parameter_resolution]
-            self.resolution["val"]  = [parameter_resolution, parameter_resolution]
-            self.resolution["test"]  = [parameter_resolution, parameter_resolution]
+            self.resolution["val"] = [parameter_resolution, parameter_resolution]
+            self.resolution["test"] = [parameter_resolution, parameter_resolution]
         elif isinstance(parameter_resolution, (tuple, list, np.ndarray)):
-            self.resolution["train"]  = parameter_resolution[0]
-            self.resolution["val"]  = parameter_resolution[1]
-            self.resolution["test"]  = parameter_resolution[-1]
+            self.resolution["train"] = parameter_resolution[0]
+            self.resolution["val"] = parameter_resolution[1]
+            self.resolution["test"] = parameter_resolution[-1]
 
     def configure_labels(self, class_labels):
         if class_labels is not None:
             if len(class_labels) == self.num_classes:
                 class_labels = class_labels
             else:
-                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
+                LOGGER.error("ERROR: parameter labels should have a number of values equal to the number of classes.")
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                                     "The input parameter labels is incorrect.")
         else:
-            class_labels = [f'class {i + 1}' for i in range(self.num_classes)]
+            class_labels = [f"class {i + 1}" for i in range(self.num_classes)]
         return class_labels
 
     def teardown(self, stage=None):

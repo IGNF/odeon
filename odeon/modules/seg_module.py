@@ -16,6 +16,7 @@ DEFAULT_LR = 0.01
 
 
 class SegmentationTask(pl.LightningModule):
+
     def __init__(self,
                  model_name,
                  num_classes,
@@ -110,11 +111,15 @@ class SegmentationTask(pl.LightningModule):
     def step(self, batch):
         images, targets = batch["image"], batch["mask"]
         logits = self.forward(images)
+
         if self.deterministic:
             torch.use_deterministic_algorithms(False)
+
         loss = self.criterion(logits, targets)
+
         if self.deterministic:
             torch.use_deterministic_algorithms(True)
+
         with torch.no_grad():
             proba = torch.softmax(logits, dim=1)
             preds = torch.argmax(proba, dim=1)
