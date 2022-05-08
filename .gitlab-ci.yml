@@ -13,7 +13,7 @@ flake8:
   stage: Static Analysis
   script: flake8 --max-line-length=120 odeon/
   only:
-  - master
+  - lightning_multi_gpus
   - merge_requests
 
 pylint:
@@ -21,7 +21,7 @@ pylint:
   allow_failure: false
   script: pylint --rcfile=.pylintrc odeon/
   only:
-  - master
+  - lightning_multi_gpus
   - merge_requests
 
 sphinx:
@@ -37,7 +37,7 @@ sphinx:
   - rm -rf docs/api
   - sphinx-build -b html docs/. docs/_build
   only:
-  - master
+  - lightning_multi_gpus
   - merge_requests
 
 pages:
@@ -56,5 +56,5 @@ pages:
     paths:
     - public
   only:
-  - master
+  - lightning_multi_gpus
   - tags

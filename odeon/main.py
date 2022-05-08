@@ -152,12 +152,14 @@ def main():
         with Timer("Train model"):
             try:
                 datasource_conf = conf.get('data_source')
-                model_conf = conf.get('model_setup')
                 train_conf = conf.get('train_setup')
+                output_conf = conf.get('output_setup')
+                device_conf = conf.get('device_setup')
                 trainer = TrainCLI(verbosity,
                                    **datasource_conf,
-                                   **model_conf,
-                                   **train_conf)
+                                   **train_conf,
+                                   **output_conf,
+                                   **device_conf)
                 trainer()
                 return 0
             except OdeonError as oe:

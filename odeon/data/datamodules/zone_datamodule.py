@@ -14,7 +14,7 @@ from odeon.data.datamodules.job import (
 )
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.rasterio import get_number_of_band
-from odeon.data.datasets.zone import ZoneDetectionDataset
+from odeon.data.datasets import ZoneDetectionDataset
 
 RANDOM_SEED = 42
 BATCH_SIZE = 5
@@ -86,7 +86,6 @@ class ZoneDataModule(LightningDataModule):
         self.zone_detection_job = None
         self.n_channel = None
         self.meta = None
-
 
     def prepare_data(self):
         self.zone_detection_job = self.create_detection_job()

@@ -6,8 +6,8 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 from pytorch_lightning import LightningDataModule
 from odeon import LOGGER
-from odeon.data.datasets.patch import PatchDataset
-from odeon.data.transforms.utils import configure_transforms
+from odeon.data.datasets import PatchDataset
+from odeon.data.transforms.configure import configure_transforms
 from odeon.commons.guard import check_files, check_raster_bands, file_exist
 from odeon.commons.exception import OdeonError, ErrorCodes
 
@@ -39,7 +39,8 @@ class SegDataModule(LightningDataModule):
                 get_sample_info=False,
                 resolution=None,
                 drop_last=False,
-                subset=False):
+                subset=False,
+                random_seed=RANDOM_SEED):
 
         super().__init__()
         self.train_file = train_file
@@ -57,15 +58,16 @@ class SegDataModule(LightningDataModule):
         self.percentage_val = percentage_val
         self.pin_memory = pin_memory
         self.get_sample_info = get_sample_info
-        self.drop_last = drop_last 
-        self.subset = subset
-        if deterministic:
-            self.random_seed = None
+        self.drop_last = drop_last
+        self.random_seed = random_seed
+        self.deterministic = deterministic
+        
+        if self.deterministic:
             self.shuffle = False
         else:
-            self.random_seed = RANDOM_SEED
             self.shuffle = True
-
+        
+        self.subset = subset
         self.files = {"train": {"image": None,
                                 "mask": None
                                 },

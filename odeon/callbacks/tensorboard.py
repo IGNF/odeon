@@ -1,4 +1,3 @@
-from inspect import stack
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -9,7 +8,6 @@ from pytorch_lightning.loggers import LoggerCollection, TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.data.datasets.patch import PatchDataset
 from odeon.commons.metric.plots import plot_confusion_matrix
 
 ALPHA = 0.4

@@ -1,2 +1,2 @@
-include odeon/scripts/json_defaults/*.json
+include odeon/cli/json_defaults/*.json
 include odeon/commons/reports/jupyter_layout.html

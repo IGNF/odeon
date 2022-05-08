@@ -1,11 +1,13 @@
 import os
-from pyexpat import model
 import torch
-from pathlib import Path
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.models.unet import UNet, UNetResNet, LightUNet
-from odeon.models.deeplabv3p import DeeplabV3p
+from odeon.models import (
+    UNet,
+    UNetResNet, 
+    LightUNet, 
+    DeeplabV3p
+)
 
 model_list = [
     "unet", "lightunet",
@@ -15,9 +17,7 @@ model_list = [
 
 def build_model(model_name,
                 n_channels, 
-                n_classes,                                  
-                init_model_weights=None,
-                load_pretrained_weights=None,
+                n_classes,
                 deterministic=False):
 
     bilinear = False if deterministic else True

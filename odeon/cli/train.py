@@ -14,33 +14,26 @@ from pytorch_lightning import (
     seed_everything
 )
 from odeon import LOGGER
-from odeon.callbacks.legacy import ContinueTraining, ExoticCheckPoint
-from odeon.callbacks.tensorboard import (
-    MetricsAdder,
-    GraphAdder,
-    HistogramAdder,
-    PredictionsAdder,
-    HParamsAdder
-)
-from odeon.callbacks.history import HistorySaver
-from odeon.callbacks.checkpoint import LightningCheckpoint
-from odeon.callbacks.writer import PatchPredictionWriter
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.guard import dirs_exist, file_exist
-from odeon.data.datamodules.patch_datamodule import SegDataModule
-from odeon.modules.seg_module import SegmentationTask
-from odeon.metrics.stats_module import Stats
-from odeon.data.transforms.base import (
-    Compose, 
-    Rotation90, 
-    Radiometry,
-    ToDoubleTensor,
-    ScaleImageToFloat
-)
+from odeon.data.datamodules import SegDataModule
+from odeon.modules import SegmentationTask
 from odeon.models.base import model_list
-from odeon.loggers.json_logs import JSONLogger
+from odeon.loggers import JSONLogger
+from odeon.callbacks import (
+    ExoticCheckPoint,
+    MetricsAdder,
+    GraphAdder,
+    HistogramAdder,
+    PredictionsAdder,
+    HParamsAdder,
+    ContinueTraining,
+    HistorySaver,
+    LightningCheckpoint,
+    PatchPredictionWriter
+)
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_training")
@@ -50,7 +43,6 @@ RANDOM_SEED = 42
 PERCENTAGE_VAL = 0.3
 VAL_CHECK_INTERVAL = 1.0
 BATCH_SIZE = 5
-PATIENCE = 30
 NUM_EPOCHS = 1000
 LEARNING_RATE = 0.001
 NUM_WORKERS = 4
@@ -59,6 +51,12 @@ MODEL_OUT_EXT = ".ckpt"
 ACCELERATOR = "gpu"
 PROGRESS = 1
 NUM_NODES = 1
+EARLY_STOPPING_CONFIG = {
+    "patience" : 30,
+    "monitor": "val_loss",
+    "mode": "min",
+    "min_delta": 0.00
+}
 
 
 class TrainCLI(BaseTool):
@@ -85,13 +83,9 @@ class TrainCLI(BaseTool):
         resolution=None,
         model_filename=None,
         model_out_ext=None,
-        init_weights=None,
         normalization_weights=None,
         epochs=NUM_EPOCHS,
         batch_size=BATCH_SIZE,
-        patience=PATIENCE,
-        load_pretrained_weights=None,
-        init_model_weights=None,
         save_history=True,
         continue_training=False,
         loss="ce",
@@ -103,21 +97,18 @@ class TrainCLI(BaseTool):
         accelerator=ACCELERATOR,
         num_nodes=NUM_NODES,
         num_processes=None,
-        reproducible=True,
+        random_seed=RANDOM_SEED,
+        deterministic=False,
         lr=LEARNING_RATE,
         num_workers=NUM_WORKERS,
-        output_tensorboard_logs=None,
         strategy=None,
         val_check_interval=VAL_CHECK_INTERVAL,
         name_exp_log=None,
         version_name=None,
-        log_histogram=False,
-        log_graph=False,
-        log_predictions=False,
-        log_learning_rate=False,
-        log_hparams=False,
+        use_tensorboard=True,
         use_wandb=False,
-        early_stopping=False,
+        log_learning_rate=False,
+        early_stopping=EARLY_STOPPING_CONFIG,
         save_top_k=NUM_CKPT_SAVED,
         get_prediction=False,
         prediction_output_type="uint8",
@@ -130,7 +121,6 @@ class TrainCLI(BaseTool):
         # Parameters for outputs 
         self.output_folder = output_folder
         self.name_exp_log = name_exp_log
-        self.output_tensorboard_logs = output_tensorboard_logs
         self.version_name = version_name
         self.model_filename = model_filename
         self.model_out_ext = model_out_ext
@@ -157,20 +147,13 @@ class TrainCLI(BaseTool):
         self.scheduler_config = scheduler_config
         self.learning_rate = lr
         self.class_imbalance = class_imbalance
-        self.init_weights = init_weights
-        self.init_model_weights = init_model_weights
         self.model_name = model_name
-        self.load_pretrained_weights = load_pretrained_weights
 
         # Loggers
-        self.log_histogram = log_histogram
-        self.log_graph = log_graph
-        self.log_predictions = log_predictions
+        self.use_tensorboard = use_tensorboard
         self.log_learning_rate = log_learning_rate
-        self.log_hparams = log_hparams
 
         # Callbacks
-        self.patience = patience
         self.get_prediction = get_prediction
         self.prediction_output_type = prediction_output_type
         self.save_history = save_history
@@ -183,7 +166,8 @@ class TrainCLI(BaseTool):
 
         # Training parameters
         self.epochs = epochs
-        self.reproducible= reproducible
+        self.deterministic = deterministic
+        self.random_seed = random_seed
         self.val_check_interval = val_check_interval
 
         # Parameters for device definition
@@ -224,7 +208,8 @@ class TrainCLI(BaseTool):
                                          deterministic=self.deterministic,
                                          get_sample_info=self.get_prediction,
                                          resolution=self.resolution,
-                                         subset=self.testing)
+                                         subset=self.testing,
+                                         random_seed=self.random_seed)
 
         self.seg_module = SegmentationTask(model_name=self.model_name,
                                            num_classes=self.data_module.num_classes,
@@ -234,9 +219,6 @@ class TrainCLI(BaseTool):
                                            learning_rate= self.learning_rate,
                                            optimizer_config=self.optimizer_config,
                                            scheduler_config=self.scheduler_config,
-                                           patience=self.patience,
-                                           load_pretrained_weights=self.load_pretrained_weights,
-                                           init_model_weights=self.init_model_weights,
                                            loss_classes_weights=self.class_imbalance,
                                            deterministic=self.deterministic)
 
@@ -300,12 +282,12 @@ class TrainCLI(BaseTool):
                     LOGGER.info(f"Test with .pth file :{os.path.join(self.output_folder, self.model_filename)}")
 
                 if self.get_prediction:
-                    self.trainer.predict(self.seg_module,
+                    self.trainer.predict(model=self.seg_module,
                                          datamodule=self.data_module,
                                          ckpt_path=best_val_loss_ckpt_path)
 
                 else:
-                    self.trainer.test(self.seg_module,
+                    self.trainer.test(model=self.seg_module,
                                       datamodule=self.data_module,
                                       ckpt_path=best_val_loss_ckpt_path)
 
@@ -315,27 +297,32 @@ class TrainCLI(BaseTool):
                                     stack_trace=error)
 
     def configure_loggers(self):
-        # Loggers definition
-        train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                         name="tensorboard_logs",
-                                         version=self.version_name,
-                                         default_hp_metric=False,
-                                         sub_dir='Train',
-                                         filename_suffix='_train')
+        loggers = []
 
-        valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                         name="tensorboard_logs",
-                                         version=self.version_name,
-                                         default_hp_metric=False,
-                                         sub_dir='Validation',
-                                         filename_suffix='_val')
+        if self.use_tensorboard:
+            train_logger = TensorBoardLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                            name="tensorboard_logs",
+                                            version=self.version_name,
+                                            default_hp_metric=False,
+                                            sub_dir='Train',
+                                            filename_suffix='_train')
 
-        loggers = [train_logger, valid_logger]
+            valid_logger = TensorBoardLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                            name="tensorboard_logs",
+                                            version=self.version_name,
+                                            default_hp_metric=False,
+                                            sub_dir='Validation',
+                                            filename_suffix='_val')
+            loggers.extend([train_logger, valid_logger])
 
-        if self.use_wandb:
-            wandb_logger = WandbLogger(project=self.name_exp_log,
-                                       save_dir=os.path.join(self.output_folder, self.name_exp_log))
-            loggers.append(wandb_logger)
+            if self.test_file:
+                test_logger = TensorBoardLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
+                                                name="tensorboard_logs",
+                                                version=self.version_name,
+                                                default_hp_metric=False,
+                                                sub_dir='Test',
+                                                filename_suffix='_test')
+                loggers.append(test_logger)
 
         if self.save_history:
             json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
@@ -343,29 +330,28 @@ class TrainCLI(BaseTool):
                                     name="history_json")
             loggers.append(json_logger)
 
-        if self.test_file:
-            # Logger will be use for test or predict phase
-            test_logger = TensorBoardLogger(save_dir=os.path.join(self.output_tensorboard_logs, self.name_exp_log),
-                                            name="tensorboard_logs",
-                                            version=self.version_name,
-                                            default_hp_metric=False,
-                                            sub_dir='Test',
-                                            filename_suffix='_test')
-            loggers.append(test_logger)
-
-            if self.save_history:
+            if self.test_file:
                 test_json_logger = JSONLogger(save_dir=os.path.join(self.output_folder, self.name_exp_log),
                                               version=self.version_name,
                                               name="test_json")
                 loggers.append(test_json_logger)
+
+        if self.use_wandb:
+            wandb_logger = WandbLogger(project=self.name_exp_log,
+                                       save_dir=os.path.join(self.output_folder, self.name_exp_log))
+            loggers.append(wandb_logger)
+
         if self.verbosity:
             LOGGER.debug(f"DEBUG: Loggers: {loggers}")
+
         return loggers
 
     def configure_callbacks(self):
         # Callbacks definition
-        tensorboard_metrics = MetricsAdder()
-        callbacks = [tensorboard_metrics]
+        callbacks = []
+        if self.use_tensorboard:
+            tensorboard_metrics = MetricsAdder()
+            callbacks.append(tensorboard_metrics)
 
         if self.use_wandb:
             from odeon.callbacks.wandb import (
@@ -380,7 +366,10 @@ class TrainCLI(BaseTool):
                                                    use_git=True)])
         if self.model_out_ext == ".ckpt":
             checkpoint_miou_callback = LightningCheckpoint(monitor="val_miou",
-                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_miou_ckpt"),
+                                                         dirpath=os.path.join(self.output_folder, 
+                                                                              self.name_exp_log,
+                                                                              "odeon_miou_ckpt"
+                                                                              ),
                                                          version=self.version_name,
                                                          filename=self.model_filename,
                                                          save_top_k=self.save_top_k,
@@ -388,42 +377,50 @@ class TrainCLI(BaseTool):
                                                          save_last=True)
 
             checkpoint_loss_callback = LightningCheckpoint(monitor="val_loss",
-                                                         dirpath=os.path.join(self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"),
+                                                         dirpath=os.path.join(self.output_folder,
+                                                                              self.name_exp_log,
+                                                                              "odeon_val_loss_ckpt"
+                                                                              ),
                                                          version=self.version_name,
                                                          filename=self.model_filename,
                                                          save_top_k=self.save_top_k,
                                                          mode="min",
                                                          save_last=True)
             callbacks.extend([checkpoint_miou_callback, checkpoint_loss_callback])
+
         elif self.model_out_ext == ".pth":
             checkpoint_pth = ExoticCheckPoint(out_folder=self.output_folder,
                                               out_filename=self.model_filename,
                                               model_out_ext=self.model_out_ext)
             callbacks.append(checkpoint_pth)
+            
         else:
             LOGGER.error('ERROR: parameter model_out_ext could only be .ckpt or  .pth ...')
             raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                                 "The input parameter model_out_ext is incorrect.")
         if self.save_history:
             callbacks.append(HistorySaver())
-        if self.log_graph:
-            callbacks.append(GraphAdder())
-        if self.log_histogram:
-            callbacks.append(HistogramAdder())
-        if self.log_predictions:
-            callbacks.append(PredictionsAdder())
+
+        if self.use_tensorboard:
+            callbacks.extend([
+                GraphAdder(),
+                HistogramAdder(),
+                PredictionsAdder(),
+                HParamsAdder(),
+                ])
+
         if self.log_learning_rate:
             lr_monitor_callback = LearningRateMonitor(logging_interval="epoch", log_momentum=True)
             callbacks.append(lr_monitor_callback)
-        if self.log_hparams:
-            callbacks.append(HParamsAdder())
+
         if self.early_stopping:
-            if isinstance(self.early_stopping, str):
-                mode = 'min' if self.early_stopping.lower().endswith('loss') else 'max'
-                early_stop_callback = EarlyStopping(monitor=self.early_stopping, min_delta=0.00, patience=self.patience, verbose=False, mode=mode)
-            else:
-                early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.00, patience=self.patience, verbose=False, mode="min")
+            early_stop_callback = EarlyStopping(monitor=self.early_stopping["monitor"],
+                                                min_delta=self.early_stopping["min_delta"], 
+                                                patience=self.early_stopping["patience"],
+                                                mode=self.early_stopping["mode"],
+                                                verbose=self.verbosity)
             callbacks.append(early_stop_callback)
+    
         if self.continue_training:
             file_exist(os.path.join(self.output_folder, self.model_filename))
             resume_file_ext = os.path.splitext(os.path.join(self.output_folder, self.model_filename))[-1]
@@ -438,12 +435,14 @@ class TrainCLI(BaseTool):
                 LOGGER.error("ERROR: Odeon only handles files of type .pth or .ckpt for the continue training feature.")
                 raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
                                  "The parameter model_filename is incorrect in this case with the parameter continue_training as true.")
+        
         if self.get_prediction:
             path_predictions = os.path.join(self.output_folder, self.name_exp_log, "predictions", self.version_name)
             custom_pred_writer = PatchPredictionWriter(output_dir=path_predictions,
-                                                        output_type=self.prediction_output_type,
-                                                        write_interval="batch")
+                                                       output_type=self.prediction_output_type,
+                                                       write_interval="batch")
             callbacks.append(custom_pred_writer)
+        
         if self.progress_rate <= 0:
             self.enable_progress_bar = False
         else:
@@ -453,7 +452,6 @@ class TrainCLI(BaseTool):
 
         if self.verbosity:
             LOGGER.debug(f"DEBUG: Callbacks: {callbacks}")
-
         return callbacks
     
     def setup(self):
@@ -471,25 +469,16 @@ class TrainCLI(BaseTool):
         else:
             self.name_exp_log = self.name_exp_log
 
-        if self.output_tensorboard_logs is None:
-            self.output_tensorboard_logs = self.output_folder
-        else: 
-            self.output_tensorboard_logs = self.output_tensorboard_logs
-
         if self.version_name is None:
             self.version_name = self.get_version_name()
         else:
             self.version_name = self.version_name
 
-        if self.reproducible is True:
-            self.random_seed = RANDOM_SEED
+        if self.random_seed is not None:
             seed_everything(self.random_seed, workers=True)
-            self.deterministic = True
-            torch.use_deterministic_algorithms(True)
 
-        else:
-            self.random_seed = None
-            self.deterministic = False
+        if self.deterministic is True:
+            torch.use_deterministic_algorithms(True)
 
         if self.use_wandb:
             try:
@@ -501,9 +490,9 @@ class TrainCLI(BaseTool):
                                  "something went wrong during training configuration",
                                  stack_trace=error)
         if self.verbosity:
+            LOGGER.debug(f"DEBUG: outpuit folder: {self.output_folder}")
             LOGGER.debug(f"DEBUG: model_out_ext: {self.model_out_ext}")
             LOGGER.debug(f"DEBUG: name_exp_log: {self.name_exp_log}")
-            LOGGER.debug(f"DEBUG: output_tensorboard_logs: {self.output_tensorboard_logs}")
             LOGGER.debug(f"DEBUG: version_name: {self.version_name}")
 
     def check(self):

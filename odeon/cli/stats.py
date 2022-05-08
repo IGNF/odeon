@@ -16,7 +16,10 @@ from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.statistics import Statistics
-from odeon.data.transforms.base import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
+from odeon.data.transforms.base import Compose 
+from odeon.data.transforms.geometric import Rotation90, Rotation
+from odeon.data.transforms.radiometric import Radiometry
+from odeon.data.transforms.tensor import ToDoubleTensor
 from odeon.data.datasets.patch import PatchDataset
 
 BATCH_SIZE = 1

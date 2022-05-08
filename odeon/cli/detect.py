@@ -17,7 +17,8 @@ from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.data.datamodules.patch_datamodule import SegDataModule
 from odeon.data.datamodules.zone_datamodule import ZoneDataModule
 from odeon.modules.seg_module import SegmentationTask
-from odeon.data.transforms.base import Compose, ToDoubleTensor
+from odeon.data.transforms.base import Compose
+from odeon.data.transforms.tensor import ToDoubleTensor
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")

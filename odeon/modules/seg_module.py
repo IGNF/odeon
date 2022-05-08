@@ -1,16 +1,12 @@
-from cv2 import determinant
-import numpy as np
 import torch
 import pytorch_lightning as pl
 from torchmetrics import MeanMetric
-
 from odeon import LOGGER
 from odeon.metrics.metrics_module import OdeonMetrics
 from odeon.models.base import build_model
 from odeon.nn.losses import build_loss_function
 from odeon.nn.optim import build_optimizer, build_scheduler
 
-PATIENCE = 30
 DEFAULT_CRITERION = "ce"
 DEFAULT_LR = 0.01
 
@@ -26,9 +22,6 @@ class SegmentationTask(pl.LightningModule):
                  learning_rate=DEFAULT_LR,
                  optimizer_config=None,
                  scheduler_config=None,
-                 patience=PATIENCE,
-                 load_pretrained_weights=None,
-                 init_model_weights=None,
                  loss_classes_weights=None,
                  deterministic=False):
 
@@ -41,9 +34,6 @@ class SegmentationTask(pl.LightningModule):
         self.learning_rate = learning_rate
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
-        self.patience = patience
-        self.load_pretrained_weights = load_pretrained_weights
-        self.init_model_weights = init_model_weights
         self.loss_classes_weights = None if loss_classes_weights is None else loss_classes_weights
         self.deterministic = deterministic
 
@@ -56,16 +46,14 @@ class SegmentationTask(pl.LightningModule):
         self.idx_csv_loggers = None
 
         self.save_hyperparameters("model_name", "num_classes", "num_channels", "class_labels", "criterion_name", 
-                                  "optimizer_config", "learning_rate", "scheduler_config", "patience", "load_pretrained_weights", 
-                                  "init_model_weights", "loss_classes_weights", "deterministic")
+                                  "optimizer_config", "learning_rate", "scheduler_config", "loss_classes_weights",
+                                  "deterministic")
 
     def setup(self, stage=None):
         if self.model is None:
             self.model = build_model(model_name=self.hparams.model_name,
                                      n_channels=self.hparams.num_channels,
                                      n_classes=self.hparams.num_classes,
-                                     init_model_weights=self.hparams.init_model_weights,
-                                     load_pretrained_weights=self.hparams.load_pretrained_weights,
                                      deterministic=self.hparams.deterministic
                                     )
         if self.criterion is None:
@@ -206,8 +194,7 @@ class SegmentationTask(pl.LightningModule):
 
         if self.scheduler is None:
             self.scheduler = build_scheduler(optimizer=self.optimizer,
-                                             scheduler_config=self.hparams.scheduler_config,
-                                             patience=self.hparams.patience)
+                                             scheduler_config=self.hparams.scheduler_config)
 
         lr_scheduler_config = {"scheduler": self.scheduler,
                                "interval": "epoch",

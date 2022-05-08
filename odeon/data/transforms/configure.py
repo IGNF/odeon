@@ -1,14 +1,14 @@
 import albumentations as A
+from typing import List
 from odeon import LOGGER
-from odeon.data.transforms.base import (
+from odeon.data.transforms import (
     Compose,
-    DeNormalize, 
-    Rotation90, 
-    Radiometry,
-    ToDoubleTensor,
-    ScaleImageToFloat,
-    FloatImageToByte,
     DeNormalize,
+    Rotation90,
+    Radiometry,
+    ScaleImageToFloat, 
+    FloatImageToByte,
+    ToDoubleTensor,
     CHW_to_HWC,
     HWC_to_CHW
 )
@@ -16,7 +16,7 @@ from odeon.data.transforms.base import (
 
 def configure_transforms(data_aug:dict, normalization_weights:dict=None, verbosity:bool=False)-> dict:
 
-    def _parse_data_augmentation(list_tfm):
+    def _parse_data_augmentation(list_tfm: List[str])-> List:
         tfm_dict = {"rotation90": Rotation90(), "radiometry": Radiometry()}
         list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
         tfm_func = [tfm_dict[tfm] for tfm in list_tfm]
