@@ -7,9 +7,9 @@ Notes
 
 """
 
+import os
 import pathlib
 import shutil
-import os
 from os import listdir
 
 
@@ -41,7 +41,11 @@ def find_file_names(path_to_dir, suffix=".csv"):
     """
 
     file_names = listdir(path_to_dir)
-    return [os.path.join(path_to_dir, filename) for filename in file_names if filename.endswith(suffix)]
+    return [
+        os.path.join(path_to_dir, filename)
+        for filename in file_names
+        if filename.endswith(suffix)
+    ]
 
 
 def build_directories(paths, append=True, exist_ok=True):

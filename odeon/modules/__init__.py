@@ -1,1 +1,1 @@
-from .seg_module import SegmentationTask
+from .seg_module import SegmentationTask  # noqa

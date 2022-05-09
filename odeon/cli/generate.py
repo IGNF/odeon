@@ -5,25 +5,29 @@ main entry point to generation tool
 
 """
 
-import os
 import glob
+import os
+
+import fiona
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 import rasterio
-import fiona
+from rasterio.features import geometry_window, rasterize
 from rasterio.windows import transform
-from rasterio.features import rasterize, geometry_window
-from odeon.commons.image import CollectionDatasetReader
-from odeon.commons.rasterio import get_max_type
+from tqdm import tqdm
+
 from odeon import LOGGER
-from odeon.commons.dataframe import set_path_to_center, split_dataset_from_df
-from odeon.commons.folder_manager import build_directories
-from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.guard import geo_projection_raster_guard, geo_projection_vector_guard
-from odeon.commons.guard import vector_driver_guard, files_exist, dirs_exist, raster_bands_exist
-from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon.commons.core import BaseTool
+from odeon.commons.dataframe import set_path_to_center, split_dataset_from_df
+from odeon.commons.exception import ErrorCodes, OdeonError
+from odeon.commons.folder_manager import build_directories
+from odeon.commons.guard import (dirs_exist, files_exist,
+                                 geo_projection_raster_guard,
+                                 geo_projection_vector_guard,
+                                 raster_bands_exist, vector_driver_guard)
+from odeon.commons.image import CollectionDatasetReader
+from odeon.commons.logger.logger import get_new_logger, get_simple_handler
+from odeon.commons.rasterio import get_max_type
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_generation")
@@ -32,63 +36,69 @@ STD_OUT_LOGGER.addHandler(ch)
 
 
 class Generator(BaseTool):
-
-    def __init__(self,
-                 image_layers,
-                 vector_classes,
-                 output_path=None,
-                 poi_pattern=None,
-                 train_test_split=-1,
-                 train_val_split=-1,
-                 compute_only_masks=False,
-                 dem=False,
-                 append=False,
-                 image_size_pixel=512,
-                 resolution=None
-                 ):
+    def __init__(
+        self,
+        image_layers,
+        vector_classes,
+        output_path=None,
+        poi_pattern=None,
+        train_test_split=-1,
+        train_val_split=-1,
+        compute_only_masks=False,
+        dem=False,
+        append=False,
+        image_size_pixel=512,
+        resolution=None,
+    ):
         """Main generation function called when you use the cli tool generation
 
-            Parameters
-            ----------
-            image_layers : dict
-             a dict in the form {band_name: {path: file_path,band: []}
-            vector_classes : dict
-             a dict in the form {class_name: file_path}
-            output_path : str
-             the output path of generaiton
-            poi_pattern : regex
-             a regex to list the files of poi in input
-            train_test_split : Union[float, None]
-             the percentage of train in train test split
-            train_val_split : Union[float, None]
-             the percentage of train in train val split
-            compute_only_masks : bool
-             rather generate only the mask or not
-            dem : bool
-             create the DSM - DTM band or not if DSM and DTM are here
-            append : bool
-             append generated data to a previous a generation output
-            image_size_pixel : int
-             size of patch in pixel
-            resolution : Union(float, list of float)
-             resolution in x and y of the output patches
+        Parameters
+        ----------
+        image_layers : dict
+         a dict in the form {band_name: {path: file_path,band: []}
+        vector_classes : dict
+         a dict in the form {class_name: file_path}
+        output_path : str
+         the output path of generaiton
+        poi_pattern : regex
+         a regex to list the files of poi in input
+        train_test_split : Union[float, None]
+         the percentage of train in train test split
+        train_val_split : Union[float, None]
+         the percentage of train in train val split
+        compute_only_masks : bool
+         rather generate only the mask or not
+        dem : bool
+         create the DSM - DTM band or not if DSM and DTM are here
+        append : bool
+         append generated data to a previous a generation output
+        image_size_pixel : int
+         size of patch in pixel
+        resolution : Union(float, list of float)
+         resolution in x and y of the output patches
 
-            Returns
-            -------
+        Returns
+        -------
 
-            """
+        """
         self.shape_files = vector_classes
         self.raster_out = os.path.join(output_path, "full_mask.tiff")
         self.dict_of_raster = image_layers
         self.vector_classes = vector_classes
         self.img_size = image_size_pixel
-        self.files = [glob.glob(poi_pattern)] if isinstance(poi_pattern, str) else [glob.glob(i) for i in poi_pattern]
+        self.files = (
+            [glob.glob(poi_pattern)]
+            if isinstance(poi_pattern, str)
+            else [glob.glob(i) for i in poi_pattern]
+        )
         self.train_val_split = train_val_split
         self.train_test_split = train_test_split
         self.compute_only_masks = compute_only_masks
         self.dem = dem
         self.append = append
-        self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
+        self.resolution = (
+            resolution if isinstance(resolution, list) else [resolution, resolution]
+        )
         self.nb_of_image_band = 0
         self.output_path = output_path
         self.meta_img = None
@@ -125,9 +135,11 @@ class Generator(BaseTool):
 
         except Exception as error:
 
-            raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                             "something went wrong during generation",
-                             stack_trace=error)
+            raise OdeonError(
+                ErrorCodes.ERR_GENERATION_ERROR,
+                "something went wrong during generation",
+                stack_trace=error,
+            )
         finally:
 
             self.clean()
@@ -145,16 +157,21 @@ class Generator(BaseTool):
 
                 if len(elt) == 0:
 
-                    raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                                     "couldn't find file with poi_pattern")
+                    raise OdeonError(
+                        ErrorCodes.ERR_FILE_NOT_EXIST,
+                        "couldn't find file with poi_pattern",
+                    )
 
             files_exist(elt)
             dirs_exist([self.output_path])
 
         except OdeonError as oe:
 
-            raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                             "something went wrong during generation", stack_trace=oe)
+            raise OdeonError(
+                ErrorCodes.ERR_GENERATION_ERROR,
+                "something went wrong during generation",
+                stack_trace=oe,
+            )
 
         # we compute the number of bands for the patch image output
         # and the scales factors for each raster with the targeted resolution
@@ -169,9 +186,11 @@ class Generator(BaseTool):
 
             except OdeonError as oe:
 
-                raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                 "something went wrong during generation configuration",
-                                 stack_trace=oe)
+                raise OdeonError(
+                    ErrorCodes.ERR_GENERATION_ERROR,
+                    "something went wrong during generation configuration",
+                    stack_trace=oe,
+                )
 
         for name, vector in self.shape_files.items():
 
@@ -183,9 +202,11 @@ class Generator(BaseTool):
 
             except OdeonError as oe:
 
-                raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                 "something went wrong during generation configuration",
-                                 stack_trace=oe)
+                raise OdeonError(
+                    ErrorCodes.ERR_GENERATION_ERROR,
+                    "something went wrong during generation configuration",
+                    stack_trace=oe,
+                )
 
     def set_sequence(self):
         """
@@ -205,19 +226,27 @@ class Generator(BaseTool):
 
                 if len_seq != 1:
 
-                    raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                     "we expect the same type in each rater layer,"
-                                     " but one is array and the other is string")
+                    raise OdeonError(
+                        ErrorCodes.ERR_GENERATION_ERROR,
+                        "we expect the same type in each rater layer,"
+                        " but one is array and the other is string",
+                    )
 
                 self.dict_of_raster[name]["path"] = [raster["path"]]
 
             else:
 
-                len_seq = len(self.dict_of_raster[name]["path"]) if len_seq is None else len_seq
+                len_seq = (
+                    len(self.dict_of_raster[name]["path"])
+                    if len_seq is None
+                    else len_seq
+                )
 
                 if len_seq != len(self.dict_of_raster[name]["path"]):
-                    raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                     "we expect the same length of array in each image layers")
+                    raise OdeonError(
+                        ErrorCodes.ERR_GENERATION_ERROR,
+                        "we expect the same length of array in each image layers",
+                    )
 
         for name, vector in self.vector_classes.items():
 
@@ -227,9 +256,11 @@ class Generator(BaseTool):
 
                 if len_seq != 1:
 
-                    raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                     "something went wrong during generation configuration:"
-                                     "\nyou declared an array in image_layers but a string is found in vector_layers")
+                    raise OdeonError(
+                        ErrorCodes.ERR_GENERATION_ERROR,
+                        "something went wrong during generation configuration:"
+                        "\nyou declared an array in image_layers but a string is found in vector_layers",
+                    )
 
                 else:
 
@@ -239,21 +270,27 @@ class Generator(BaseTool):
 
                 if len_seq != len(vector):
 
-                    raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                     "something went wrong during generation configuration:"
-                                     "\nthe length of image_layers array is different of "
-                                     "of poi_pattern array")
+                    raise OdeonError(
+                        ErrorCodes.ERR_GENERATION_ERROR,
+                        "something went wrong during generation configuration:"
+                        "\nthe length of image_layers array is different of "
+                        "of poi_pattern array",
+                    )
 
         LOGGER.debug(f"len of seq {len_seq}")
 
         if len_seq != len(self.files):
             LOGGER.debug(f"length of file  {self.files}: {len(self.files)}")
-            raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                             "something went wrong during generation configuration:"
-                             "\nthe length of image_layers array is different of "
-                             "of poi_pattern array")
-        LOGGER.debug(f" image_layers: {self.dict_of_raster}, vector layers: {self.vector_classes}, "
-                     f" poi_pattern: {self.files}")
+            raise OdeonError(
+                ErrorCodes.ERR_GENERATION_ERROR,
+                "something went wrong during generation configuration:"
+                "\nthe length of image_layers array is different of "
+                "of poi_pattern array",
+            )
+        LOGGER.debug(
+            f" image_layers: {self.dict_of_raster}, vector layers: {self.vector_classes}, "
+            f" poi_pattern: {self.files}"
+        )
         self.num_seq = len_seq
 
     def get_bounds(self):
@@ -265,12 +302,11 @@ class Generator(BaseTool):
 
             for file in self.files:
 
-                df_in = pd.read_csv(file, delimiter=";",
-                                    header=None,
-                                    names=["x", "y"]).sample(frac=1)
+                df_in = pd.read_csv(
+                    file, delimiter=";", header=None, names=["x", "y"]
+                ).sample(frac=1)
                 df_in["num_seq"] = 1
-                self.df = self.df.append(df_in,
-                                         ignore_index=True)
+                self.df = self.df.append(df_in, ignore_index=True)
 
         else:
 
@@ -278,15 +314,19 @@ class Generator(BaseTool):
 
                 for file in l:
 
-                    df_in = pd.read_csv(file, delimiter=";",
-                                        header=None,
-                                        names=["x", "y"]).sample(frac=1)
+                    df_in = pd.read_csv(
+                        file, delimiter=";", header=None, names=["x", "y"]
+                    ).sample(frac=1)
 
                     df_in["num_seq"] = idx
-                    self.df = self.df.append(df_in,
-                                             ignore_index=True)
+                    self.df = self.df.append(df_in, ignore_index=True)
 
-        left, bottom, top, right = self.df["x"].min(), self.df["y"].min(), self.df["y"].max(), self.df["x"].max()
+        left, bottom, top, right = (
+            self.df["x"].min(),
+            self.df["y"].min(),
+            self.df["y"].max(),
+            self.df["x"].max(),
+        )
         self.extent = {"left": left, "bottom": bottom, "top": top, "right": right}
         LOGGER.debug(self.extent)
         LOGGER.debug(self.df)
@@ -307,7 +347,7 @@ class Generator(BaseTool):
 
             dsm_length = len(self.dict_of_raster["DSM"]["bands"])
             dtm_length = len(self.dict_of_raster["DTM"]["bands"])
-            self.nb_of_image_band -= (dsm_length + dtm_length - 1)
+            self.nb_of_image_band -= dsm_length + dtm_length - 1
 
         LOGGER.debug(f"number of raster band in img patch: {self.nb_of_image_band}")
 
@@ -320,13 +360,15 @@ class Generator(BaseTool):
 
         """
         with rasterio.open(next(iter(self.dict_of_raster.values()))["path"][0]) as dst:
-            self.meta_msk = {"crs": dst.meta["crs"],
-                             "transform": dst.meta["transform"],
-                             "driver": "GTiff",
-                             "count": len(self.vector_classes) + 1,
-                             "width": self.img_size,
-                             "height": self.img_size,
-                             "dtype": rasterio.uint8}
+            self.meta_msk = {
+                "crs": dst.meta["crs"],
+                "transform": dst.meta["transform"],
+                "driver": "GTiff",
+                "count": len(self.vector_classes) + 1,
+                "width": self.img_size,
+                "height": self.img_size,
+                "dtype": rasterio.uint8,
+            }
 
             self.meta_img = self.meta_msk.copy()
             self.meta_img["count"] = self.nb_of_image_band
@@ -360,9 +402,7 @@ class Generator(BaseTool):
             train_msk_path = os.path.join(train_path, "msk")
             self.paths["train_img_path"] = train_img_path
             self.paths["train_msk_path"] = train_msk_path
-            train = set_path_to_center(train,
-                                       train_img_path,
-                                       train_msk_path)
+            train = set_path_to_center(train, train_img_path, train_msk_path)
             self.splits["train"] = train
 
         elif self.train_val_split == 0 and self.train_test_split == -1:
@@ -374,9 +414,7 @@ class Generator(BaseTool):
             val_msk_path = os.path.join(val_path, "msk")
             self.paths["val_img_path"] = val_img_path
             self.paths["val_msk_path"] = val_msk_path
-            val = set_path_to_center(val,
-                                     val_img_path,
-                                     val_msk_path)
+            val = set_path_to_center(val, val_img_path, val_msk_path)
             self.splits["val"] = val
 
         elif self.train_val_split == -1 and self.train_test_split == 0:
@@ -388,9 +426,7 @@ class Generator(BaseTool):
             test_msk_path = os.path.join(test_path, "msk")
             self.paths["test_img_path"] = test_img_path
             self.paths["test_msk_path"] = test_msk_path
-            test = set_path_to_center(test,
-                                      test_img_path,
-                                      test_msk_path)
+            test = set_path_to_center(test, test_img_path, test_msk_path)
             self.splits["test"] = test
 
         elif self.train_val_split > 0 and self.train_test_split == -1:
@@ -398,16 +434,13 @@ class Generator(BaseTool):
             LOGGER.debug("train/val only case")
             # case only train/val split
             train = self.df
-            train, val = split_dataset_from_df(train,
-                                               self.train_val_split)
+            train, val = split_dataset_from_df(train, self.train_val_split)
             train_path = os.path.join(self.output_path, "train")
             train_img_path = os.path.join(train_path, "img")
             train_msk_path = os.path.join(train_path, "msk")
             self.paths["train_img_path"] = train_img_path
             self.paths["train_msk_path"] = train_msk_path
-            train = set_path_to_center(train,
-                                       train_img_path,
-                                       train_msk_path)
+            train = set_path_to_center(train, train_img_path, train_msk_path)
             self.splits["train"] = train
 
             val_path = os.path.join(self.output_path, "val")
@@ -416,9 +449,7 @@ class Generator(BaseTool):
             self.paths["val_img_path"] = val_img_path
             self.paths["val_msk_path"] = val_msk_path
 
-            val = set_path_to_center(val,
-                                     val_img_path,
-                                     val_msk_path)
+            val = set_path_to_center(val, val_img_path, val_msk_path)
             self.splits["val"] = val
 
         elif self.train_val_split == -1 and self.train_test_split > 0:
@@ -431,9 +462,7 @@ class Generator(BaseTool):
             train_msk_path = os.path.join(train_path, "msk")
             self.paths["train_img_path"] = train_img_path
             self.paths["train_msk_path"] = train_msk_path
-            train = set_path_to_center(train,
-                                       train_img_path,
-                                       train_msk_path)
+            train = set_path_to_center(train, train_img_path, train_msk_path)
             self.splits["train"] = train
 
             test_path = os.path.join(self.output_path, "test")
@@ -442,9 +471,7 @@ class Generator(BaseTool):
             self.paths["test_img_path"] = test_img_path
             self.paths["test_msk_path"] = test_msk_path
 
-            test = set_path_to_center(test,
-                                      test_img_path,
-                                      test_msk_path)
+            test = set_path_to_center(test, test_img_path, test_msk_path)
             self.splits["test"] = test
 
         elif self.train_val_split == 0 and self.train_test_split > 0:
@@ -458,9 +485,7 @@ class Generator(BaseTool):
             val_msk_path = os.path.join(val_path, "msk")
             self.paths["val_img_path"] = val_img_path
             self.paths["val_msk_path"] = val_msk_path
-            val = set_path_to_center(val,
-                                     val_img_path,
-                                     val_msk_path)
+            val = set_path_to_center(val, val_img_path, val_msk_path)
             self.splits["val"] = val
 
             test_path = os.path.join(self.output_path, "test")
@@ -469,9 +494,7 @@ class Generator(BaseTool):
             self.paths["test_img_path"] = test_img_path
             self.paths["test_msk_path"] = test_msk_path
 
-            test = set_path_to_center(test,
-                                      test_img_path,
-                                      test_msk_path)
+            test = set_path_to_center(test, test_img_path, test_msk_path)
             self.splits["test"] = test
 
         else:
@@ -479,17 +502,14 @@ class Generator(BaseTool):
             # general case train/val/test split
             train = self.df
             train, test = split_dataset_from_df(train, self.train_test_split)
-            train, val = split_dataset_from_df(train,
-                                               self.train_val_split)
+            train, val = split_dataset_from_df(train, self.train_val_split)
 
             train_path = os.path.join(self.output_path, "train")
             train_img_path = os.path.join(train_path, "img")
             train_msk_path = os.path.join(train_path, "msk")
             self.paths["train_img_path"] = train_img_path
             self.paths["train_msk_path"] = train_msk_path
-            train = set_path_to_center(train,
-                                       train_img_path,
-                                       train_msk_path)
+            train = set_path_to_center(train, train_img_path, train_msk_path)
             self.splits["train"] = train
 
             val_path = os.path.join(self.output_path, "val")
@@ -498,9 +518,7 @@ class Generator(BaseTool):
             self.paths["val_img_path"] = val_img_path
             self.paths["val_msk_path"] = val_msk_path
 
-            val = set_path_to_center(val,
-                                     val_img_path,
-                                     val_msk_path)
+            val = set_path_to_center(val, val_img_path, val_msk_path)
             self.splits["val"] = val
 
             test_path = os.path.join(self.output_path, "test")
@@ -509,9 +527,7 @@ class Generator(BaseTool):
             self.paths["test_img_path"] = test_img_path
             self.paths["test_msk_path"] = test_msk_path
 
-            test = set_path_to_center(test,
-                                      test_img_path,
-                                      test_msk_path)
+            test = set_path_to_center(test, test_img_path, test_msk_path)
             self.splits["test"] = test
 
         build_directories(self.paths, self.append)
@@ -526,15 +542,17 @@ class Generator(BaseTool):
 
         """
 
-        stdout = f'''
+        stdout = f"""
                 ##############################################
                 #                                            #
                 #   Preprocess: Shapefile rasterization      #
                 #    part {pointer + 1} of {self.num_seq}    #
                 ##############################################
-                '''
+                """
 
-        with rasterio.open(next(iter(self.dict_of_raster.values()))["path"][pointer]) as dataset:
+        with rasterio.open(
+            next(iter(self.dict_of_raster.values()))["path"][pointer]
+        ) as dataset:
 
             meta = dataset.meta
             meta["dtype"] = rasterio.uint8
@@ -543,13 +561,17 @@ class Generator(BaseTool):
 
         STD_OUT_LOGGER.info(stdout)
 
-        with rasterio.open(self.raster_out, 'w+', **meta,
-                           NBITS=1,
-                           BIGTIFF="IF_NEEDED",
-                           tiled=True,
-                           blockxsize=self.img_size,
-                           blockysize=self.img_size,
-                           sparse_ok="TRUE") as new_dataset:
+        with rasterio.open(
+            self.raster_out,
+            "w+",
+            **meta,
+            NBITS=1,
+            BIGTIFF="IF_NEEDED",
+            tiled=True,
+            blockxsize=self.img_size,
+            blockysize=self.img_size,
+            sparse_ok="TRUE",
+        ) as new_dataset:
 
             for idx, (name, shape_file) in enumerate(self.shape_files.items(), start=1):
                 LOGGER.info(f"shape file: {shape_file[pointer]}")
@@ -560,31 +582,36 @@ class Generator(BaseTool):
 
                         try:
 
-                            geometry = polygon['geometry']
+                            geometry = polygon["geometry"]
 
                             polygon_window = geometry_window(
-                                new_dataset,
-                                [geometry],
-                                pixel_precision=6).round_shape(op='ceil',
-                                                               pixel_precision=4)
+                                new_dataset, [geometry], pixel_precision=6
+                            ).round_shape(op="ceil", pixel_precision=4)
 
-                            polygon_shape = (polygon_window.height, polygon_window.width)
+                            polygon_shape = (
+                                polygon_window.height,
+                                polygon_window.width,
+                            )
                             tuples = [geometry]
-                            polygon_transform = transform(polygon_window, new_dataset.transform)
+                            polygon_transform = transform(
+                                polygon_window, new_dataset.transform
+                            )
 
-                            polygon_band = rasterize(tuples,
-                                                     out_shape=polygon_shape,
-                                                     default_value=1,
-                                                     transform=polygon_transform,
-                                                     dtype=rasterio.uint8,
-                                                     fill=0)
+                            polygon_band = rasterize(
+                                tuples,
+                                out_shape=polygon_shape,
+                                default_value=1,
+                                transform=polygon_transform,
+                                dtype=rasterio.uint8,
+                                fill=0,
+                            )
 
                             old_band = new_dataset.read(idx, window=polygon_window)
-                            new_band = old_band.astype(np.bool) + polygon_band.astype(np.bool)
+                            new_band = old_band.astype(np.bool) + polygon_band.astype(
+                                np.bool
+                            )
                             new_band = new_band.astype(np.uint8)
-                            new_dataset.write_band(idx,
-                                                   new_band,
-                                                   window=polygon_window)
+                            new_dataset.write_band(idx, new_band, window=polygon_window)
 
                             # building the no label band
                             """
@@ -599,17 +626,23 @@ class Generator(BaseTool):
 
                             LOGGER.warning(f"shape file: {shape_file}, polygon id: {i}")
                             """this excepion occurs if a polygon it out of the raster bounds"""
-                            LOGGER.warning(f"window error during the rasterization"
-                                           f"of polygon {i} of classe {name} \n "
-                                           f"error: {error}")
+                            LOGGER.warning(
+                                f"window error during the rasterization"
+                                f"of polygon {i} of classe {name} \n "
+                                f"error: {error}"
+                            )
 
                         except MemoryError as error:
 
-                            LOGGER.warning(f"shape file: {shape_file}, polygon shape: , polygon id: {i}")
+                            LOGGER.warning(
+                                f"shape file: {shape_file}, polygon shape: , polygon id: {i}"
+                            )
                             """this excepion occurs if a polygon it out of the raster bounds"""
-                            LOGGER.warning(f"window error during the rasterization"
-                                           f"of polygon {i} of classe {name} \n "
-                                           f"error: {error}")
+                            LOGGER.warning(
+                                f"window error during the rasterization"
+                                f"of polygon {i} of classe {name} \n "
+                                f"error: {error}"
+                            )
                             """
                             raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
                                              f"At least one of the polygon of shape file {shape_file} is too big",
@@ -620,9 +653,11 @@ class Generator(BaseTool):
 
                             LOGGER.warning(f"shape file: {shape_file}, polygon id: {i}")
                             """this excepion occurs if a polygon it out of the raster bounds"""
-                            LOGGER.warning(f"window error during the rasterization"
-                                           f"of polygon {i} of classe {name} \n "
-                                           f"error: {error}")
+                            LOGGER.warning(
+                                f"window error during the rasterization"
+                                f"of polygon {i} of classe {name} \n "
+                                f"error: {error}"
+                            )
 
     def generate(self, pointer):
         """
@@ -632,13 +667,9 @@ class Generator(BaseTool):
 
         """
 
-        def generate_data(df,
-                          meta_msk,
-                          meta_img,
-                          raster_out,
-                          dict_of_raster,
-                          dem,
-                          compute_only_masks):
+        def generate_data(
+            df, meta_msk, meta_img, raster_out, dict_of_raster, dem, compute_only_masks
+        ):
             """
             generate and writes a Patch (a tuple image, mask) for each
             row of the dataframe representing the Dataset.
@@ -672,26 +703,30 @@ class Generator(BaseTool):
                     if os.path.isfile(center["img_file"]):
                         os.remove(center["img_file"])
 
-                    CollectionDatasetReader.stack_window_raster(center,
-                                                                dict_of_raster,
-                                                                meta_img,
-                                                                dem,
-                                                                compute_only_masks,
-                                                                raster_out,
-                                                                meta_msk)
+                    CollectionDatasetReader.stack_window_raster(
+                        center,
+                        dict_of_raster,
+                        meta_img,
+                        dem,
+                        compute_only_masks,
+                        raster_out,
+                        meta_msk,
+                    )
                 except Exception as error:
 
-                    raise OdeonError(ErrorCodes.ERR_GENERATION_ERROR,
-                                     "something went wrong during generation",
-                                     stack_trace=error)
+                    raise OdeonError(
+                        ErrorCodes.ERR_GENERATION_ERROR,
+                        "something went wrong during generation",
+                        stack_trace=error,
+                    )
 
-        stdout = f'''
+        stdout = f"""
                 ##############################################
                 #                                            #
                 #   Generating images and masks              #
                 #    part {pointer + 1} of {self.num_seq}    #
                 ##############################################
-                '''
+                """
 
         STD_OUT_LOGGER.info(stdout)
 
@@ -699,40 +734,47 @@ class Generator(BaseTool):
         # in order to use the same function get_stacked_window_collection for DEM computation.
 
         for i, source_type in enumerate(self.dict_of_raster.keys()):
-            self.dict_of_raster[source_type]['connection'] = \
-                rasterio.open(self.dict_of_raster[source_type]['path'][pointer])
+            self.dict_of_raster[source_type]["connection"] = rasterio.open(
+                self.dict_of_raster[source_type]["path"][pointer]
+            )
             if i == 0:
-                self.meta_msk['transform'] = self.dict_of_raster[source_type]['connection'].transform
-                self.meta_img['transform'] = self.meta_msk['transform']
+                self.meta_msk["transform"] = self.dict_of_raster[source_type][
+                    "connection"
+                ].transform
+                self.meta_img["transform"] = self.meta_msk["transform"]
 
         for split_name, split in self.splits.items():
             LOGGER.info(f"generating {split_name} data")
             s = split[split["num_seq"] == pointer]
             LOGGER.debug(s)
-            generate_data(s,
-                          self.meta_msk,
-                          self.meta_img,
-                          self.raster_out,
-                          self.dict_of_raster,
-                          self.dem,
-                          self.compute_only_masks)
+            generate_data(
+                s,
+                self.meta_msk,
+                self.meta_img,
+                self.raster_out,
+                self.dict_of_raster,
+                self.dem,
+                self.compute_only_masks,
+            )
 
             output_split = os.path.join(self.output_path, f"{split_name}.csv")
 
             if (self.append or pointer > 0) is True and os.path.isfile(output_split):
-                df = pd.read_csv(output_split, header=None, names=["img_file", "msk_file"])
+                df = pd.read_csv(
+                    output_split, header=None, names=["img_file", "msk_file"]
+                )
                 df = df.append(split, ignore_index=True)
-                df[["img_file", "msk_file"]].to_csv(output_split,
-                                                    index=False,
-                                                    header=False)
+                df[["img_file", "msk_file"]].to_csv(
+                    output_split, index=False, header=False
+                )
 
             else:
-                split[["img_file", "msk_file"]].to_csv(output_split,
-                                                       index=False,
-                                                       header=False)
+                split[["img_file", "msk_file"]].to_csv(
+                    output_split, index=False, header=False
+                )
         # Close all opened rasters
         for source_type in self.dict_of_raster.keys():
-            self.dict_of_raster[source_type]['connection'].close()
+            self.dict_of_raster[source_type]["connection"].close()
 
     def clean(self):
         """Clean temporary pre-rasterized mask

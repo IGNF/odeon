@@ -1,7 +1,7 @@
-import torch
 import pytorch_lightning as pl
+import torch
 from torchmetrics import MeanMetric
-from odeon import LOGGER
+
 from odeon.metrics.metrics_module import OdeonMetrics
 from odeon.models.base import build_model
 from odeon.nn.losses import build_loss_function
@@ -12,18 +12,19 @@ DEFAULT_LR = 0.01
 
 
 class SegmentationTask(pl.LightningModule):
-
-    def __init__(self,
-                 model_name,
-                 num_classes,
-                 num_channels,
-                 class_labels,
-                 criterion_name=DEFAULT_CRITERION,
-                 learning_rate=DEFAULT_LR,
-                 optimizer_config=None,
-                 scheduler_config=None,
-                 loss_classes_weights=None,
-                 deterministic=False):
+    def __init__(
+        self,
+        model_name,
+        num_classes,
+        num_channels,
+        class_labels,
+        criterion_name=DEFAULT_CRITERION,
+        learning_rate=DEFAULT_LR,
+        optimizer_config=None,
+        scheduler_config=None,
+        loss_classes_weights=None,
+        deterministic=False,
+    ):
 
         super().__init__()
         self.model_name = model_name
@@ -34,7 +35,9 @@ class SegmentationTask(pl.LightningModule):
         self.learning_rate = learning_rate
         self.optimizer_config = optimizer_config
         self.scheduler_config = scheduler_config
-        self.loss_classes_weights = None if loss_classes_weights is None else loss_classes_weights
+        self.loss_classes_weights = (
+            None if loss_classes_weights is None else loss_classes_weights
+        )
         self.deterministic = deterministic
 
         # Variables not stocked in hparams dict
@@ -45,51 +48,73 @@ class SegmentationTask(pl.LightningModule):
         self.samples = None
         self.idx_csv_loggers = None
 
-        self.save_hyperparameters("model_name", "num_classes", "num_channels", "class_labels", "criterion_name", 
-                                  "optimizer_config", "learning_rate", "scheduler_config", "loss_classes_weights",
-                                  "deterministic")
+        self.save_hyperparameters(
+            "model_name",
+            "num_classes",
+            "num_channels",
+            "class_labels",
+            "criterion_name",
+            "optimizer_config",
+            "learning_rate",
+            "scheduler_config",
+            "loss_classes_weights",
+            "deterministic",
+        )
 
     def setup(self, stage=None):
         if self.model is None:
-            self.model = build_model(model_name=self.hparams.model_name,
-                                     n_channels=self.hparams.num_channels,
-                                     n_classes=self.hparams.num_classes,
-                                     deterministic=self.hparams.deterministic
-                                    )
+            self.model = build_model(
+                model_name=self.hparams.model_name,
+                n_channels=self.hparams.num_channels,
+                n_classes=self.hparams.num_classes,
+                deterministic=self.hparams.deterministic,
+            )
         if self.criterion is None:
-            self.criterion= build_loss_function(self.hparams.criterion_name, self.hparams.loss_classes_weights)
+            self.criterion = build_loss_function(
+                self.hparams.criterion_name, self.hparams.loss_classes_weights
+            )
 
         if stage == "fit":
             self.train_epoch_loss, self.val_epoch_loss = None, None
             self.train_epoch_metrics, self.val_epoch_metrics = None, None
-            self.train_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                              class_labels=self.hparams.class_labels,
-                                              deterministic=self.deterministic)
-            self.val_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                            class_labels=self.hparams.class_labels,
-                                            deterministic=self.deterministic)
+            self.train_metrics = OdeonMetrics(
+                num_classes=self.hparams.num_classes,
+                class_labels=self.hparams.class_labels,
+                deterministic=self.deterministic,
+            )
+            self.val_metrics = OdeonMetrics(
+                num_classes=self.hparams.num_classes,
+                class_labels=self.hparams.class_labels,
+                deterministic=self.deterministic,
+            )
             self.train_loss = MeanMetric()
             self.val_loss = MeanMetric()
 
         elif stage == "validate":
             self.val_epoch_loss, self.val_epoch_metrics = None, None
-            self.val_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                            class_labels=self.hparams.class_labels,
-                                            deterministic=self.deterministic)
+            self.val_metrics = OdeonMetrics(
+                num_classes=self.hparams.num_classes,
+                class_labels=self.hparams.class_labels,
+                deterministic=self.deterministic,
+            )
             self.val_loss = MeanMetric()
 
         elif stage == "test":
             self.test_epoch_loss, self.test_epoch_metrics = None, None
-            self.test_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                             class_labels=self.hparams.class_labels,
-                                             deterministic=self.deterministic)
+            self.test_metrics = OdeonMetrics(
+                num_classes=self.hparams.num_classes,
+                class_labels=self.hparams.class_labels,
+                deterministic=self.deterministic,
+            )
             self.test_loss = MeanMetric()
 
         elif stage == "predict":
             self.predict_epoch_loss, self.predict_epoch_metrics = None, None
-            self.predict_metrics = OdeonMetrics(num_classes=self.hparams.num_classes,
-                                                class_labels=self.hparams.class_labels,
-                                                deterministic=self.deterministic)
+            self.predict_metrics = OdeonMetrics(
+                num_classes=self.hparams.num_classes,
+                class_labels=self.hparams.class_labels,
+                deterministic=self.deterministic,
+            )
             self.predict_loss = MeanMetric()
 
     def forward(self, images):
@@ -122,7 +147,11 @@ class SegmentationTask(pl.LightningModule):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def training_step_end(self, step_output):
-        loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
+        loss, preds, targets = (
+            step_output["loss"].mean(),
+            step_output["preds"],
+            step_output["targets"],
+        )
         self.train_loss.update(loss)
         self.train_metrics(preds=preds, target=targets)
         return loss
@@ -130,8 +159,14 @@ class SegmentationTask(pl.LightningModule):
     def training_epoch_end(self, outputs):
         self.train_epoch_loss = self.train_loss.compute()
         self.train_epoch_metrics = self.train_metrics.compute()
-        self.log("train_loss", self.train_epoch_loss,
-                    on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        self.log(
+            "train_loss",
+            self.train_epoch_loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=False,
+        )
         self.train_loss.reset()
         self.train_metrics.reset()
 
@@ -140,7 +175,11 @@ class SegmentationTask(pl.LightningModule):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def validation_step_end(self, step_output):
-        loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
+        loss, preds, targets = (
+            step_output["loss"].mean(),
+            step_output["preds"],
+            step_output["targets"],
+        )
         self.val_loss.update(loss)
         self.val_metrics(preds=preds, target=targets)
         return loss
@@ -149,10 +188,22 @@ class SegmentationTask(pl.LightningModule):
         self.val_epoch_loss = self.val_loss.compute()
         self.val_epoch_metrics = self.val_metrics.compute()
         # self.log: log metrics we want to monitor for model selection in checkpoints creation
-        self.log("val_loss", self.val_epoch_loss,
-                    on_step=False, on_epoch=True, prog_bar=True, logger=False)
-        self.log('val_miou', self.val_epoch_metrics["Average/IoU"],
-                    on_step=False, on_epoch=True, prog_bar=True, logger=False)
+        self.log(
+            "val_loss",
+            self.val_epoch_loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=False,
+        )
+        self.log(
+            "val_miou",
+            self.val_epoch_metrics["Average/IoU"],
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=False,
+        )
         # self.scheduler_step(self.val_epoch_loss)
         self.val_loss.reset()
         self.val_metrics.reset()
@@ -162,7 +213,11 @@ class SegmentationTask(pl.LightningModule):
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def test_step_end(self, step_output):
-        loss, preds, targets = step_output["loss"].mean(), step_output["preds"], step_output["targets"]
+        loss, preds, targets = (
+            step_output["loss"].mean(),
+            step_output["preds"],
+            step_output["targets"],
+        )
         self.test_loss.update(loss)
         self.test_metrics(preds=preds, target=targets)
         return loss
@@ -188,24 +243,27 @@ class SegmentationTask(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.optimizer is None:
-            self.optimizer = build_optimizer(params=self.model.parameters(),
-                                             learning_rate=self.hparams.learning_rate,
-                                             optimizer_config=self.hparams.optimizer_config)
+            self.optimizer = build_optimizer(
+                params=self.model.parameters(),
+                learning_rate=self.hparams.learning_rate,
+                optimizer_config=self.hparams.optimizer_config,
+            )
 
         if self.scheduler is None:
-            self.scheduler = build_scheduler(optimizer=self.optimizer,
-                                             scheduler_config=self.hparams.scheduler_config)
+            self.scheduler = build_scheduler(
+                optimizer=self.optimizer, scheduler_config=self.hparams.scheduler_config
+            )
 
-        lr_scheduler_config = {"scheduler": self.scheduler,
-                               "interval": "epoch",
-                               "monitor": "val_loss",
-                               "frequency": 1,
-                               "strict": True,
-                               "name": 'LR Scheduler'}
+        lr_scheduler_config = {
+            "scheduler": self.scheduler,
+            "interval": "epoch",
+            "monitor": "val_loss",
+            "frequency": 1,
+            "strict": True,
+            "name": "LR Scheduler",
+        }
 
-        config = {"optimizer": self.optimizer,
-                  "lr_scheduler": lr_scheduler_config
-                 }
+        config = {"optimizer": self.optimizer, "lr_scheduler": lr_scheduler_config}
 
         return config
 

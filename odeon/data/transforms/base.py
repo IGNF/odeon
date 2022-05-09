@@ -1,5 +1,5 @@
-import numpy as np
 from typing import Any, Dict
+
 import numpy as np
 
 
@@ -9,7 +9,9 @@ class BasicTransform:
         self.img_only: bool = False
         self.mask_only: bool = False
 
-    def __call__(self, image: np.ndarray=None, mask: np.ndarray=None) -> Dict[str, Any]:
+    def __call__(
+        self, image: np.ndarray = None, mask: np.ndarray = None
+    ) -> Dict[str, Any]:
         if self.img_only:
             return {"image": self.apply_to_img(image), "mask": mask}
         elif self.mask_only:

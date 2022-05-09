@@ -1,13 +1,16 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-from odeon.commons.exception import OdeonError, ErrorCodes
+
+from odeon.commons.exception import ErrorCodes, OdeonError
+
 # from odeon import LOGGER
 
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
-    def __init__(self, name, fmt=':f'):
+
+    def __init__(self, name, fmt=":f"):
         self.name = name
         self.fmt = fmt
         self.reset()
@@ -25,7 +28,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
     def __str__(self):
-        fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
+        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
         return fmtstr.format(**self.__dict__)
 
 
@@ -125,7 +128,9 @@ def get_confusion_matrix(predictions, target, multilabel=False):
     return cms
 
 
-def get_confusion_matrix_torch(predictions, target, multilabel=False, cuda=False, threshold=0.5):
+def get_confusion_matrix_torch(
+    predictions, target, multilabel=False, cuda=False, threshold=0.5
+):
     """Return the confusion matrix
 
     The confusion matrix is :
@@ -318,19 +323,23 @@ def get_iou_metrics_torch(cm, micro=True, cuda=False):
         #   FP_i = sum_j cm[j , i] - cm [i, i]  (sum on dim 0)
         if micro:
             # we use nansum to handle np.nan values inside cm
-            cm_00 = np.nansum(np.diag(cm_array))  # TP = sum of cm diag element without nan
-            cm_10 = np.nansum(cm_array.sum(0)-np.diag(cm_array))  # FP_all = sum FP_i
-            cm_01 = np.nansum(cm_array.sum(1)-np.diag(cm_array))  # FN_all = sum FN_i
+            cm_00 = np.nansum(
+                np.diag(cm_array)
+            )  # TP = sum of cm diag element without nan
+            cm_10 = np.nansum(cm_array.sum(0) - np.diag(cm_array))  # FP_all = sum FP_i
+            cm_01 = np.nansum(cm_array.sum(1) - np.diag(cm_array))  # FN_all = sum FN_i
             if cm_00 != 0:
                 m = cm_00 / (cm_00 + cm_10 + cm_01)
         else:
-            with np.errstate(divide='ignore', invalid='ignore'):
+            with np.errstate(divide="ignore", invalid="ignore"):
                 # we could ignore divide by zero and np.nan result as is managed by next compute
                 # ious is an 1D array of class iou
                 # for each class :
                 #   Inter_i = TP_i
                 #   Union_i = TP_i + FP_i + FN_i = sum_j cm[i , j] +  sum_j cm[i , j] - cm [i, i]
-                ious = np.diag(cm_array) / (cm_array.sum(0) + cm_array.sum(1) - np.diag(cm_array))
+                ious = np.diag(cm_array) / (
+                    cm_array.sum(0) + cm_array.sum(1) - np.diag(cm_array)
+                )
             # do not count classes that are not present in the dataset in the mean IoU
             m = np.nansum(ious) / (np.logical_not(np.isnan(ious))).sum()
 
@@ -343,13 +352,16 @@ def get_iou_metrics_torch(cm, micro=True, cuda=False):
             # compute iou by class and then take the mean
             # from N * 2 *2 t* 2*2*N
             cm_array = cm_array.transpose(1, 2, 0)
-            with np.errstate(divide='ignore', invalid='ignore'):
-                ious = cm_array[0, 0] / (cm_array[0, 0] + cm_array[1, 0] + cm_array[0, 1])
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ious = cm_array[0, 0] / (
+                    cm_array[0, 0] + cm_array[1, 0] + cm_array[0, 1]
+                )
             m = np.nansum(ious) / (np.logical_not(np.isnan(ious))).sum()
 
     else:
         raise OdeonError(
             message=f"confusion matrix of from size {cm.size()}, should be of type N*N or N*2*2",
-            error_code=ErrorCodes.ERR_TRAINING_ERROR)
+            error_code=ErrorCodes.ERR_TRAINING_ERROR,
+        )
 
     return m.astype(float)

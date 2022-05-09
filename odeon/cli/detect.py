@@ -1,24 +1,23 @@
 import os
-import yaml
+
 import torch
-from pytorch_lightning.loggers import CSVLogger
+import yaml
+from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
-from pytorch_lightning import (
-    Trainer,
-    seed_everything
-)
+from pytorch_lightning.loggers import CSVLogger
+
+from odeon import LOGGER
 from odeon.callbacks.history import HistorySaver
 from odeon.callbacks.writer import PatchPredictionWriter
 from odeon.commons.core import BaseTool
-from odeon import LOGGER
-from odeon.commons.exception import OdeonError, ErrorCodes
+from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.data.datamodules.patch_datamodule import SegDataModule
 from odeon.data.datamodules.zone_datamodule import ZoneDataModule
-from odeon.modules.seg_module import SegmentationTask
 from odeon.data.transforms.base import Compose
 from odeon.data.transforms.tensor import ToDoubleTensor
+from odeon.modules.seg_module import SegmentationTask
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
@@ -28,7 +27,7 @@ ACCELERATOR = "gpu"
 BATCH_SIZE = 5
 NUM_WORKERS = 4
 THRESHOLD = 0.5
-DEFAULT_OUTPUT_TYPE="uint8"
+DEFAULT_OUTPUT_TYPE = "uint8"
 PROGRESS = 1
 RANDOM_SEED = 42
 NUM_PROCESSES = 1
@@ -36,7 +35,6 @@ NUM_NODES = 1
 
 
 class DetectCLI(BaseTool):
-
     def __init__(
         self,
         verbosity,
@@ -67,7 +65,7 @@ class DetectCLI(BaseTool):
         progress=PROGRESS,
         dataset=None,  # Dataset
         zone=None,  # Zone
-        ):
+    ):
 
         self.verbosity = verbosity
 
@@ -116,50 +114,54 @@ class DetectCLI(BaseTool):
         if zone is not None:
             self.mode = "zone"
             self.zone = zone
-            self.data_module = \
-                ZoneDataModule(
-                    zone=self.zone,
-                    img_size_pixel=self.img_size_pixel,
-                    transforms=self.transforms,
-                    width=None,
-                    height=None,
-                    batch_size=self.batch_size,
-                    num_workers=self.num_workers,
-                    pin_memory=True,
-                    deterministic=False,
-                    resolution=self.resolution,
-                    get_sample_info=True,
-                    subset=self.testing
-                    )
+            self.data_module = ZoneDataModule(
+                zone=self.zone,
+                img_size_pixel=self.img_size_pixel,
+                transforms=self.transforms,
+                width=None,
+                height=None,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers,
+                pin_memory=True,
+                deterministic=False,
+                resolution=self.resolution,
+                get_sample_info=True,
+                subset=self.testing,
+            )
         else:
             self.mode = "dataset"
             self.dataset = dataset
-            self.data_module = \
-                SegDataModule(
-                    test_file=self.dataset["path"],
-                    image_bands=self.dataset["image_bands"],
-                    mask_bands=self.dataset["mask_bands"],
-                    transforms=self.transforms,
-                    width=None,
-                    height=None,
-                    batch_size=self.batch_size,
-                    num_workers=self.num_workers,
-                    pin_memory=True,
-                    deterministic=False,
-                    resolution=self.resolution,
-                    get_sample_info=True,
-                    subset=self.testing
-                    )
+            self.data_module = SegDataModule(
+                test_file=self.dataset["path"],
+                image_bands=self.dataset["image_bands"],
+                mask_bands=self.dataset["mask_bands"],
+                transforms=self.transforms,
+                width=None,
+                height=None,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers,
+                pin_memory=True,
+                deterministic=False,
+                resolution=self.resolution,
+                get_sample_info=True,
+                subset=self.testing,
+            )
 
         if class_labels is not None:
             if len(class_labels) == self.data_module.num_classes:
                 self.class_labels = class_labels
             else:
-                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                    "The input parameter labels is incorrect.")
+                LOGGER.error(
+                    "ERROR: parameter labels should have a number of values equal to the number of classes."
+                )
+                raise OdeonError(
+                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                    "The input parameter labels is incorrect.",
+                )
         else:
-            self.class_labels = [f'class {i + 1}' for i in range(self.data_module.num_classes)]
+            self.class_labels = [
+                f"class {i + 1}" for i in range(self.data_module.num_classes)
+            ]
 
         STD_OUT_LOGGER.info(
             f"Detection : \n"
@@ -172,7 +174,7 @@ class DetectCLI(BaseTool):
             f"image size pixel: {self.img_size_pixel} \n"
             f"resolution: {self.resolution} \n"
             f"output type: {self.output_type}"
-            )
+        )
 
         try:
             self.check()
@@ -180,9 +182,11 @@ class DetectCLI(BaseTool):
             raise error
 
         except Exception as error:
-            raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
-                             "something went wrong during detection configuration",
-                             stack_trace=error)
+            raise OdeonError(
+                ErrorCodes.ERR_DETECTION_ERROR,
+                "something went wrong during detection configuration",
+                stack_trace=error,
+            )
 
     def __call__(self):
         try:
@@ -191,14 +195,16 @@ class DetectCLI(BaseTool):
             if self.model_ext == ".ckpt":
                 predict_ckpt = self.model_filename
 
-            self.trainer.predict(self.seg_module,
-                                 datamodule=self.data_module,
-                                 ckpt_path=predict_ckpt)
+            self.trainer.predict(
+                self.seg_module, datamodule=self.data_module, ckpt_path=predict_ckpt
+            )
 
         except OdeonError as error:
-            raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
-                                "ERROR: Something went wrong during the test step of the training",
-                                stack_trace=error)
+            raise OdeonError(
+                ErrorCodes.ERR_DETECTION_ERROR,
+                "ERROR: Something went wrong during the test step of the training",
+                stack_trace=error,
+            )
 
     def check(self):
         try:
@@ -206,9 +212,11 @@ class DetectCLI(BaseTool):
             files_exist(files_to_check)
             dirs_exist([self.output_folder])
         except OdeonError as error:
-            raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
-                             "something went wrong during detection configuration",
-                             stack_trace=error)
+            raise OdeonError(
+                ErrorCodes.ERR_DETECTION_ERROR,
+                "something went wrong during detection configuration",
+                stack_trace=error,
+            )
 
     def configure(self):
 
@@ -221,9 +229,11 @@ class DetectCLI(BaseTool):
                 try:
                     self.init_params = yaml.safe_load(stream)
                 except yaml.YAMLError as error:
-                    raise OdeonError(ErrorCodes.ERR_DETECTION_ERROR,
-                                    "something went wrong during detection configuration",
-                                    stack_trace=error)
+                    raise OdeonError(
+                        ErrorCodes.ERR_DETECTION_ERROR,
+                        "something went wrong during detection configuration",
+                        stack_trace=error,
+                    )
             self.seg_module = SegmentationTask(**self.init_params)
             self.seg_module.setup()
             model_state_dict = torch.load(os.path.join(self.model_filename))
@@ -231,22 +241,29 @@ class DetectCLI(BaseTool):
             LOGGER.info(f"Prediction with file :{self.model_filename}")
 
         else:
-            LOGGER.error('ERROR: Detection tool work only with .ckpt and .pth files. For .pth you have to declare a hparams_file')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                "The input parameter file_name is incorrect.")
+            LOGGER.error(
+                "ERROR: Detection tool work only with .ckpt and .pth files. For .pth you have to declare a hparams_file"
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "The input parameter file_name is incorrect.",
+            )
 
         # Loggers definition
         loggers = []
-        detect_csv_logger = CSVLogger(save_dir=os.path.join(self.output_folder),
-                                      name="detect_csv")
+        detect_csv_logger = CSVLogger(
+            save_dir=os.path.join(self.output_folder), name="detect_csv"
+        )
         loggers.append(detect_csv_logger)
 
         # Callbacks definition
         path_detections = os.path.join(self.output_folder, "detections")
-        custom_pred_writer = PatchPredictionWriter(output_dir=path_detections,
-                                                    output_type=self.output_type,
-                                                    write_interval="batch",
-                                                    img_size_pixel=self.img_size_pixel)
+        custom_pred_writer = PatchPredictionWriter(
+            output_dir=path_detections,
+            output_type=self.output_type,
+            write_interval="batch",
+            img_size_pixel=self.img_size_pixel,
+        )
         self.callbacks = [custom_pred_writer]
 
         if self.get_metrics:
@@ -259,13 +276,15 @@ class DetectCLI(BaseTool):
             self.callbacks.append(progress_bar)
             self.enable_progress_bar = True
 
-        self.trainer = Trainer(devices=self.device,
-                               accelerator=self.accelerator,
-                               callbacks=self.callbacks,
-                               logger=loggers,
-                               deterministic=self.deterministic,
-                               max_epochs=-1,
-                               strategy=self.strategy,
-                               num_nodes=self.num_nodes,
-                               num_processes=self.num_processes,
-                               enable_progress_bar=self.enable_progress_bar)
+        self.trainer = Trainer(
+            devices=self.device,
+            accelerator=self.accelerator,
+            callbacks=self.callbacks,
+            logger=loggers,
+            deterministic=self.deterministic,
+            max_epochs=-1,
+            strategy=self.strategy,
+            num_nodes=self.num_nodes,
+            num_processes=self.num_processes,
+            enable_progress_bar=self.enable_progress_bar,
+        )

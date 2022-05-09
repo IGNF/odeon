@@ -24,19 +24,25 @@ class DoubleConv(nn.Module):
         super(DoubleConv, self).__init__()
         if batch_norm is True:
             self.double_conv = nn.Sequential(
-                nn.Conv2d(in_ch, out_ch, 3, padding=1),  # different from original U-Net (padding is set to 0)
-                nn.BatchNorm2d(out_ch),                  # original U-Net does not contain batch normalisation
+                nn.Conv2d(
+                    in_ch, out_ch, 3, padding=1
+                ),  # different from original U-Net (padding is set to 0)
+                nn.BatchNorm2d(
+                    out_ch
+                ),  # original U-Net does not contain batch normalisation
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_ch, out_ch, 3, padding=1),
                 nn.BatchNorm2d(out_ch),
-                nn.ReLU(inplace=True)
+                nn.ReLU(inplace=True),
             )
         else:
             self.double_conv = nn.Sequential(
-                nn.Conv2d(in_ch, out_ch, 3, padding=1),  # different from original U-Net (padding is set to 0)
+                nn.Conv2d(
+                    in_ch, out_ch, 3, padding=1
+                ),  # different from original U-Net (padding is set to 0)
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_ch, out_ch, 3, padding=1),
-                nn.ReLU(inplace=True)
+                nn.ReLU(inplace=True),
             )
 
     def forward(self, x):
@@ -45,8 +51,8 @@ class DoubleConv(nn.Module):
 
 
 class InputConv(nn.Module):
-    """Input convolution, clone of DoubleConv
-    """
+    """Input convolution, clone of DoubleConv"""
+
     def __init__(self, in_ch, out_ch, batch_norm=False):
         super(InputConv, self).__init__()
         self.double_conv = DoubleConv(in_ch, out_ch, batch_norm)
@@ -76,8 +82,7 @@ class EncoderConv(nn.Module):
     def __init__(self, in_ch, out_ch, batch_norm=False):
         super(EncoderConv, self).__init__()
         self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_ch, out_ch, batch_norm)
+            nn.MaxPool2d(2), DoubleConv(in_ch, out_ch, batch_norm)
         )
 
     def forward(self, x):
@@ -167,6 +172,7 @@ class ConvRelu(nn.Module):
     out_ch : int
         number of output channels
     """
+
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.conv = conv3x3(in_ch, out_ch)
@@ -203,13 +209,14 @@ class DecoderBlockV2(nn.Module):
 
             self.block = nn.Sequential(
                 ConvRelu(in_ch, middle_ch),
-                nn.ConvTranspose2d(middle_ch, out_ch, kernel_size=4, stride=2,
-                                   padding=1),
-                nn.ReLU(inplace=True)
+                nn.ConvTranspose2d(
+                    middle_ch, out_ch, kernel_size=4, stride=2, padding=1
+                ),
+                nn.ReLU(inplace=True),
             )
         else:
             self.block = nn.Sequential(
-                nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+                nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False),
                 ConvRelu(in_ch, middle_ch),
                 ConvRelu(middle_ch, out_ch),
             )
@@ -244,10 +251,18 @@ class UNet(nn.Module):
         self.down3 = EncoderConv(256, 512, batch_norm=self.batch_norm)
         self.down4 = EncoderConv(512, 1024, batch_norm=self.batch_norm)
         # decoder
-        self.up1 = DecoderConv(1024, 512, bilinear=self.bilinear, batch_norm=self.batch_norm)
-        self.up2 = DecoderConv(512, 256, bilinear=self.bilinear, batch_norm=self.batch_norm)
-        self.up3 = DecoderConv(256, 128, bilinear=self.bilinear, batch_norm=self.batch_norm)
-        self.up4 = DecoderConv(128, 64, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up1 = DecoderConv(
+            1024, 512, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
+        self.up2 = DecoderConv(
+            512, 256, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
+        self.up3 = DecoderConv(
+            256, 128, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
+        self.up4 = DecoderConv(
+            128, 64, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
 
         self.outc = OutputConv(64, n_classes)
 
@@ -292,10 +307,18 @@ class LightUNet(nn.Module):
         self.down3 = EncoderConv(32, 64, batch_norm=self.batch_norm)
         self.down4 = EncoderConv(64, 128, batch_norm=self.batch_norm)
         # decoder
-        self.up1 = DecoderConv(128, 64, bilinear=self.bilinear, batch_norm=self.batch_norm)
-        self.up2 = DecoderConv(64, 32, bilinear=self.bilinear, batch_norm=self.batch_norm)
-        self.up3 = DecoderConv(32, 16, bilinear=self.bilinear, batch_norm=self.batch_norm)
-        self.up4 = DecoderConv(16, 8, bilinear=self.bilinear, batch_norm=self.batch_norm)
+        self.up1 = DecoderConv(
+            128, 64, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
+        self.up2 = DecoderConv(
+            64, 32, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
+        self.up3 = DecoderConv(
+            32, 16, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
+        self.up4 = DecoderConv(
+            16, 8, bilinear=self.bilinear, batch_norm=self.batch_norm
+        )
 
         # last layer
         self.outc = OutputConv(8, n_classes)
@@ -317,10 +340,17 @@ class LightUNet(nn.Module):
 
 
 class UNetResNet(nn.Module):
-
-    def __init__(self, encoder_depth, n_classes, n_channels, num_filters=32, dropout_2d=0.2,
-                 pretrained=False, is_deconv=False):
-        """ U-Net model using ResNet(18, 34, 50, 101 or 152) encoder.
+    def __init__(
+        self,
+        encoder_depth,
+        n_classes,
+        n_channels,
+        num_filters=32,
+        dropout_2d=0.2,
+        pretrained=False,
+        is_deconv=False,
+    ):
+        """U-Net model using ResNet(18, 34, 50, 101 or 152) encoder.
         UNet: https://arxiv.org/abs/1505.04597
         ResNet: https://arxiv.org/abs/1512.03385
         Proposed by Alexander Buslaev: https://www.linkedin.com/in/al-buslaev/
@@ -356,30 +386,46 @@ class UNetResNet(nn.Module):
         self.dropout_2d = dropout_2d
 
         if encoder_depth == 18:
-            self.encoder = torchvision.models.resnet18(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet18(
+                pretrained=pretrained, num_classes=n_classes
+            )
             bottom_channel_nr = 512
         elif encoder_depth == 34:
-            self.encoder = torchvision.models.resnet34(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet34(
+                pretrained=pretrained, num_classes=n_classes
+            )
             bottom_channel_nr = 512
         elif encoder_depth == 50:
-            self.encoder = torchvision.models.resnet50(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet50(
+                pretrained=pretrained, num_classes=n_classes
+            )
             bottom_channel_nr = 512
         elif encoder_depth == 101:
-            self.encoder = torchvision.models.resnet101(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet101(
+                pretrained=pretrained, num_classes=n_classes
+            )
             bottom_channel_nr = 2048
         elif encoder_depth == 152:
-            self.encoder = torchvision.models.resnet152(pretrained=pretrained, num_classes=n_classes)
+            self.encoder = torchvision.models.resnet152(
+                pretrained=pretrained, num_classes=n_classes
+            )
             bottom_channel_nr = 2048
         else:
-            raise NotImplementedError('only 18, 34, 50, 101, 152 version of Resnet are implemented')
+            raise NotImplementedError(
+                "only 18, 34, 50, 101, 152 version of Resnet are implemented"
+            )
 
-        self.encoder.conv1 = nn.Conv2d(n_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.encoder.conv1 = nn.Conv2d(
+            n_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
+        )
 
         self.pool = nn.MaxPool2d(2, 2)
 
         self.relu = nn.ReLU(inplace=True)
 
-        self.conv1 = nn.Sequential(self.encoder.conv1, self.encoder.bn1, self.encoder.relu, self.pool)
+        self.conv1 = nn.Sequential(
+            self.encoder.conv1, self.encoder.bn1, self.encoder.relu, self.pool
+        )
 
         self.conv2 = self.encoder.layer1
 
@@ -389,15 +435,36 @@ class UNetResNet(nn.Module):
 
         self.conv5 = self.encoder.layer4
 
-        self.center = DecoderBlockV2(bottom_channel_nr, num_filters * 8 * 2, num_filters * 8, is_deconv)
-        self.dec5 = DecoderBlockV2(bottom_channel_nr + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)
-        self.dec4 = DecoderBlockV2(bottom_channel_nr // 2 + num_filters * 8, num_filters * 8 * 2, num_filters * 8,
-                                   is_deconv)
-        self.dec3 = DecoderBlockV2(bottom_channel_nr // 4 + num_filters * 8, num_filters * 4 * 2, num_filters * 2,
-                                   is_deconv)
-        self.dec2 = DecoderBlockV2(bottom_channel_nr // 8 + num_filters * 2, num_filters * 2 * 2, num_filters * 2 * 2,
-                                   is_deconv)
-        self.dec1 = DecoderBlockV2(num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv)
+        self.center = DecoderBlockV2(
+            bottom_channel_nr, num_filters * 8 * 2, num_filters * 8, is_deconv
+        )
+        self.dec5 = DecoderBlockV2(
+            bottom_channel_nr + num_filters * 8,
+            num_filters * 8 * 2,
+            num_filters * 8,
+            is_deconv,
+        )
+        self.dec4 = DecoderBlockV2(
+            bottom_channel_nr // 2 + num_filters * 8,
+            num_filters * 8 * 2,
+            num_filters * 8,
+            is_deconv,
+        )
+        self.dec3 = DecoderBlockV2(
+            bottom_channel_nr // 4 + num_filters * 8,
+            num_filters * 4 * 2,
+            num_filters * 2,
+            is_deconv,
+        )
+        self.dec2 = DecoderBlockV2(
+            bottom_channel_nr // 8 + num_filters * 2,
+            num_filters * 2 * 2,
+            num_filters * 2 * 2,
+            is_deconv,
+        )
+        self.dec1 = DecoderBlockV2(
+            num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv
+        )
         self.dec0 = ConvRelu(num_filters, num_filters)
         self.final = nn.Conv2d(num_filters, n_classes, kernel_size=1)
 

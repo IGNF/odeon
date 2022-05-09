@@ -6,43 +6,48 @@ This tool handles binary and multi-class cases.
 """
 import os
 from datetime import datetime
+
 import numpy as np
 import rasterio
-from odeon.commons.core import BaseTool
-from odeon.commons.exception import OdeonError, ErrorCodes
+
 from odeon import LOGGER
-from odeon.data.datasets.metrics import MetricsDataset
-from odeon.commons.metric.metrics_factory import MetricsFactory
-from odeon.commons.metric.metrics import DEFAULTS_VARS
+from odeon.commons.core import BaseTool
+from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.guard import check_raster_bands
+from odeon.commons.metric.metrics import DEFAULTS_VARS
+from odeon.commons.metric.metrics_factory import MetricsFactory
+from odeon.data.datasets.metrics import MetricsDataset
 
 
 class MetricsCLI(BaseTool):
     """
     Class to check variables coming from the CLI and create an instance of the class Metrics.
     """
-    def __init__(self,
-                 mask_path,
-                 pred_path,
-                 output_path,
-                 type_classifier,
-                 in_prob_range,
-                 output_type=DEFAULTS_VARS['output_type'],
-                 class_labels=DEFAULTS_VARS['class_labels'],
-                 mask_bands=DEFAULTS_VARS['mask_bands'],
-                 pred_bands=DEFAULTS_VARS['pred_bands'],
-                 weights=DEFAULTS_VARS['weights'],
-                 threshold=DEFAULTS_VARS['threshold'],
-                 n_thresholds=DEFAULTS_VARS['n_thresholds'],
-                 bit_depth=DEFAULTS_VARS['bit_depth'],
-                 bins=DEFAULTS_VARS['bins'],
-                 n_bins=DEFAULTS_VARS['n_bins'],
-                 get_normalize=DEFAULTS_VARS['get_normalize'],
-                 get_metrics_per_patch=DEFAULTS_VARS['get_metrics_per_patch'],
-                 get_ROC_PR_curves=DEFAULTS_VARS['get_ROC_PR_curves'],
-                 get_ROC_PR_values=DEFAULTS_VARS['get_ROC_PR_values'],
-                 get_calibration_curves=DEFAULTS_VARS['get_calibration_curves'],
-                 get_hists_per_metrics=DEFAULTS_VARS['get_hists_per_metrics']):
+
+    def __init__(
+        self,
+        mask_path,
+        pred_path,
+        output_path,
+        type_classifier,
+        in_prob_range,
+        output_type=DEFAULTS_VARS["output_type"],
+        class_labels=DEFAULTS_VARS["class_labels"],
+        mask_bands=DEFAULTS_VARS["mask_bands"],
+        pred_bands=DEFAULTS_VARS["pred_bands"],
+        weights=DEFAULTS_VARS["weights"],
+        threshold=DEFAULTS_VARS["threshold"],
+        n_thresholds=DEFAULTS_VARS["n_thresholds"],
+        bit_depth=DEFAULTS_VARS["bit_depth"],
+        bins=DEFAULTS_VARS["bins"],
+        n_bins=DEFAULTS_VARS["n_bins"],
+        get_normalize=DEFAULTS_VARS["get_normalize"],
+        get_metrics_per_patch=DEFAULTS_VARS["get_metrics_per_patch"],
+        get_ROC_PR_curves=DEFAULTS_VARS["get_ROC_PR_curves"],
+        get_ROC_PR_values=DEFAULTS_VARS["get_ROC_PR_values"],
+        get_calibration_curves=DEFAULTS_VARS["get_calibration_curves"],
+        get_hists_per_metrics=DEFAULTS_VARS["get_hists_per_metrics"],
+    ):
         """
         mask_path : str
             Path to the folder containing the masks.
@@ -100,18 +105,22 @@ class MetricsCLI(BaseTool):
         self.pred_path = pred_path
 
         if os.path.exists(output_path) and os.path.isdir(output_path):
-            name_output_path = os.path.join(output_path,
-                                            'metrics_report_' + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"))
+            name_output_path = os.path.join(
+                output_path,
+                "metrics_report_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"),
+            )
             os.makedirs(name_output_path)
             self.output_path = name_output_path
         else:
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Output folder ${output_path} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_DIR_NOT_EXIST,
+                f"Output folder ${output_path} does not exist.",
+            )
 
-        if output_type in ['md', 'json', 'html']:
+        if output_type in ["md", "json", "html"]:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html.')
+            LOGGER.error("ERROR: the output file can only be in md, json, html.")
 
         self.in_prob_range = in_prob_range
         self.type_classifier = type_classifier.lower()
@@ -134,33 +143,49 @@ class MetricsCLI(BaseTool):
             if pred_bands is None:
                 pred_bands = mask_bands
             # Standardization of band indices with rasterio/gdal, so the user will input the index 1 for the band 0.
-            mask_bands, pred_bands = [x - 1 for x in mask_bands], [x - 1 for x in pred_bands]
+            mask_bands, pred_bands = [x - 1 for x in mask_bands], [
+                x - 1 for x in pred_bands
+            ]
             # Checks if the bands entered in the configuration file have values corresponding to the bands of the
             # images present in the dataset entered
             check_raster_bands(np.arange(mask_class), mask_bands)
             check_raster_bands(np.arange(pred_class), pred_bands)
 
             if len(mask_bands) == len(pred_bands):
-                if self.type_classifier == 'binary' and len(mask_bands) > 1:
-                    LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
-                    raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                     "The input parameters mask_bands and pred_bands are incorrect.")
+                if self.type_classifier == "binary" and len(mask_bands) > 1:
+                    LOGGER.error(
+                        "ERROR: bands must be a list with a length greater than 1."
+                    )
+                    raise OdeonError(
+                        ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                        "The input parameters mask_bands and pred_bands are incorrect.",
+                    )
                 self.mask_bands = mask_bands
                 self.pred_bands = pred_bands
-                self.nbr_class = len(mask_bands) if self.type_classifier == 'multiclass' else 2
+                self.nbr_class = (
+                    len(mask_bands) if self.type_classifier == "multiclass" else 2
+                )
             else:
-                LOGGER.error('ERROR: parameters mask_bands and pred_bands should have the same number of values if\
-                             pred_bands is defined.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                 "The input parameters mask_bands and pred_bands are incorrect.")
+                LOGGER.error(
+                    "ERROR: parameters mask_bands and pred_bands should have the same number of values if\
+                             pred_bands is defined."
+                )
+                raise OdeonError(
+                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                    "The input parameters mask_bands and pred_bands are incorrect.",
+                )
         else:
             self.mask_bands = self.pred_bands = None
-            if min(mask_class, pred_class) > 2 and self.type_classifier == 'binary':
-                LOGGER.error("ERROR: If you have more than 2 classes, please use the classifier type 'multiclass' or\
-                             select a band with the parameters mask_bands/pred_bands")
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                 "The input parameter type classifier is incorrect.")
-            elif self.type_classifier == 'binary':
+            if min(mask_class, pred_class) > 2 and self.type_classifier == "binary":
+                LOGGER.error(
+                    "ERROR: If you have more than 2 classes, please use the classifier type 'multiclass' or\
+                             select a band with the parameters mask_bands/pred_bands"
+                )
+                raise OdeonError(
+                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                    "The input parameter type classifier is incorrect.",
+                )
+            elif self.type_classifier == "binary":
                 self.nbr_class = 2
             else:
                 self.nbr_class = min(mask_class, pred_class)
@@ -168,71 +193,92 @@ class MetricsCLI(BaseTool):
         # Check labels parameter
         if class_labels is not None:
             if self.nbr_class == 2 and len(class_labels) == 1:
-                self.class_labels = [class_labels[0], 'no_' + class_labels[0]]
+                self.class_labels = [class_labels[0], "no_" + class_labels[0]]
             elif len(class_labels) == self.nbr_class:
                 self.class_labels = class_labels
             else:
-                LOGGER.error('ERROR: parameter labels should have a number of values equal to the number of classes.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                 "The input parameter labels is incorrect.")
+                LOGGER.error(
+                    "ERROR: parameter labels should have a number of values equal to the number of classes."
+                )
+                raise OdeonError(
+                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                    "The input parameter labels is incorrect.",
+                )
         else:
             if self.nbr_class == 2:
-                self.class_labels = ['Positive', 'Negative']
+                self.class_labels = ["Positive", "Negative"]
             else:
-                self.class_labels = [f'class {i + 1}' for i in range(self.nbr_class)]
+                self.class_labels = [f"class {i + 1}" for i in range(self.nbr_class)]
 
         # Check weights parameter
         if weights is not None:
-            if (len(weights) == self.nbr_class) or \
-               (len(self.mask_bands) + 1 < min(mask_class, pred_class) and len(weights) == self.nbr_class + 1):
+            if (len(weights) == self.nbr_class) or (
+                len(self.mask_bands) + 1 < min(mask_class, pred_class)
+                and len(weights) == self.nbr_class + 1
+            ):
                 # Gives user the possibility to fix the weight for the 'Other' class when this one is created.
                 self.weights = np.array(weights)
             else:
-                LOGGER.error('ERROR: parameter weigths should have a number of values equal to the number of classes.')
-                raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                                 "The input parameter weigths is incorrect.")
+                LOGGER.error(
+                    "ERROR: parameter weigths should have a number of values equal to the number of classes."
+                )
+                raise OdeonError(
+                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                    "The input parameter weigths is incorrect.",
+                )
         else:
-            self.weights = np.ones(self.nbr_class) if self.type_classifier == 'multiclass' else None
+            self.weights = (
+                np.ones(self.nbr_class)
+                if self.type_classifier == "multiclass"
+                else None
+            )
 
         # For class selection, if selected bands + 1 < min(mask_bands, pred_bands) then 'Other' class is created
-        if self.mask_bands is not None and len(self.mask_bands) + 1 < min(mask_class, pred_class) \
-           and self.type_classifier == 'multiclass':
+        if (
+            self.mask_bands is not None
+            and len(self.mask_bands) + 1 < min(mask_class, pred_class)
+            and self.type_classifier == "multiclass"
+        ):
             # Add 1 because we create a class other for all the bands not selected.
             self.nbr_class += 1
-            self.class_labels.append('Other')
+            self.class_labels.append("Other")
             # If the user doesn't define a weight for the Other class, this one will have a weight of 0.
             if len(self.weights) != self.nbr_class:
                 self.weights = np.append(self.weights, 0.0)
 
-        self.metrics_dataset = MetricsDataset(self.mask_files,
-                                              self.pred_files,
-                                              nbr_class=self.nbr_class,
-                                              type_classifier=self.type_classifier,
-                                              mask_bands=self.mask_bands,
-                                              pred_bands=self.pred_bands,
-                                              width=self.width,
-                                              height=self.height)
+        self.metrics_dataset = MetricsDataset(
+            self.mask_files,
+            self.pred_files,
+            nbr_class=self.nbr_class,
+            type_classifier=self.type_classifier,
+            mask_bands=self.mask_bands,
+            pred_bands=self.pred_bands,
+            width=self.width,
+            height=self.height,
+        )
 
-        self.metrics = MetricsFactory(self.type_classifier)(dataset=self.metrics_dataset,
-                                                            output_path=self.output_path,
-                                                            type_classifier=self.type_classifier,
-                                                            in_prob_range=self.in_prob_range,
-                                                            class_labels=self.class_labels,
-                                                            output_type=self.output_type,
-                                                            mask_bands=self.mask_bands,
-                                                            pred_bands=self.pred_bands,
-                                                            weights=self.weights,
-                                                            threshold=self.threshold,
-                                                            n_thresholds=self.n_thresholds,
-                                                            bit_depth=self.bit_depth,
-                                                            bins=self.bins,
-                                                            n_bins=self.n_bins,
-                                                            get_normalize=self.get_normalize,
-                                                            get_metrics_per_patch=self.get_metrics_per_patch,
-                                                            get_ROC_PR_curves=self.get_ROC_PR_curves,
-                                                            get_ROC_PR_values=self.get_ROC_PR_values,
-                                                            get_calibration_curves=self.get_calibration_curves,
-                                                            get_hists_per_metrics=self.get_hists_per_metrics)
+        self.metrics = MetricsFactory(self.type_classifier)(
+            dataset=self.metrics_dataset,
+            output_path=self.output_path,
+            type_classifier=self.type_classifier,
+            in_prob_range=self.in_prob_range,
+            class_labels=self.class_labels,
+            output_type=self.output_type,
+            mask_bands=self.mask_bands,
+            pred_bands=self.pred_bands,
+            weights=self.weights,
+            threshold=self.threshold,
+            n_thresholds=self.n_thresholds,
+            bit_depth=self.bit_depth,
+            bins=self.bins,
+            n_bins=self.n_bins,
+            get_normalize=self.get_normalize,
+            get_metrics_per_patch=self.get_metrics_per_patch,
+            get_ROC_PR_curves=self.get_ROC_PR_curves,
+            get_ROC_PR_values=self.get_ROC_PR_values,
+            get_calibration_curves=self.get_calibration_curves,
+            get_hists_per_metrics=self.get_hists_per_metrics,
+        )
 
     def __call__(self):
         """
@@ -257,21 +303,27 @@ class MetricsCLI(BaseTool):
             Prediction folder does not exist.
         """
         if not os.path.exists(self.mask_path):
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Masks folder {self.mask_path} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_DIR_NOT_EXIST,
+                f"Masks folder {self.mask_path} does not exist.",
+            )
         elif not os.path.exists(self.pred_path):
-            LOGGER.error('ERROR: Predictions folder %s does not exist.', self.pred_path)
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Predictions folder {self.pred_path} does not exist.")
+            LOGGER.error("ERROR: Predictions folder %s does not exist.", self.pred_path)
+            raise OdeonError(
+                ErrorCodes.ERR_DIR_NOT_EXIST,
+                f"Predictions folder {self.pred_path} does not exist.",
+            )
         else:
             if os.path.isdir(self.mask_path) and os.path.isdir(self.pred_path):
                 mask_files, pred_files = self.list_files_from_dir()
             else:
-                LOGGER.error('ERROR: the input paths shoud point to dataset directories.')
+                LOGGER.error(
+                    "ERROR: the input paths shoud point to dataset directories."
+                )
         return mask_files, pred_files
 
     def list_files_from_dir(self):
-        """ List all the files from the mask and prediction input folders.
+        """List all the files from the mask and prediction input folders.
 
         Returns
         -------
@@ -287,7 +339,9 @@ class MetricsCLI(BaseTool):
                 mask_files.append(file_msk)
                 pred_files.append(file_pred)
             else:
-                LOGGER.warning('Problem of matching names between mask/prediction for %s', msk)
+                LOGGER.warning(
+                    "Problem of matching names between mask/prediction for %s", file_msk
+                )
         return mask_files, pred_files
 
     def get_samples_shapes(self):
@@ -316,23 +370,30 @@ class MetricsCLI(BaseTool):
             with rasterio.open(mask_file) as mask_raster:
                 mask = mask_raster.read().swapaxes(0, 2).swapaxes(0, 1)
         else:
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"File ${mask_file} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_FILE_NOT_EXIST, f"File ${mask_file} does not exist."
+            )
 
         if os.path.exists(pred_file):
             with rasterio.open(pred_file) as pred_raster:
                 pred = pred_raster.read().swapaxes(0, 2).swapaxes(0, 1)
         else:
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"File ${pred_file} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_FILE_NOT_EXIST, f"File ${pred_file} does not exist."
+            )
 
         if mask.shape[0:-1] != pred.shape[0:-1]:
-            LOGGER.error('ERROR: check the width/height of the inputs masks and detections. \
-                Those input data should have the same width/height.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "Detections and masks have different width/height.")
+            LOGGER.error(
+                "ERROR: check the width/height of the inputs masks and detections. \
+                Those input data should have the same width/height."
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "Detections and masks have different width/height.",
+            )
 
-        assert len(np.unique(mask.flatten())) <= mask.shape[-1], \
-            "Mask must contain a maximum number of unique values equal to the number of classes"
+        assert (
+            len(np.unique(mask.flatten())) <= mask.shape[-1]
+        ), "Mask must contain a maximum number of unique values equal to the number of classes"
 
         return mask.shape[0], mask.shape[1], mask.shape[-1], pred.shape[-1]

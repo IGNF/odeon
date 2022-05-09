@@ -1,8 +1,8 @@
 """
 Module to define custom exception
 """
-from enum import Enum, unique, auto
 import traceback
+from enum import Enum, auto, unique
 
 
 class OdeonError(Exception):
@@ -10,7 +10,7 @@ class OdeonError(Exception):
     Custom Exception for Odeon project
     """
 
-    def __init__(self, error_code, message='', stack_trace=None, *args, **kwargs):
+    def __init__(self, error_code, message="", stack_trace=None, *args, **kwargs):
         """
 
         Parameters
@@ -28,8 +28,12 @@ class OdeonError(Exception):
         # Raise a separate exception in case the error code passed isn't specified in the ErrorCodes enum
         if not isinstance(error_code, ErrorCodes):
 
-            msg = 'Error code passed in the error_code param must be of type {0}'
-            raise OdeonError(ErrorCodes.ERR_INCORRECT_ERRCODE, msg, args=[ErrorCodes.__class__.__name__])
+            msg = "Error code passed in the error_code param must be of type {0}"
+            raise OdeonError(
+                ErrorCodes.ERR_INCORRECT_ERRCODE,
+                msg,
+                args=[ErrorCodes.__class__.__name__],
+            )
 
         # Storing the error code on the exception object
         self.error_code = error_code
@@ -42,10 +46,12 @@ class OdeonError(Exception):
         # Prefixing the error code to the exception message
         try:
 
-            msg = f"{str(message)} \n error code : {str(self.error_code)} \n " \
-                  f"trace back: {str(self.traceback)} \n" \
-                  f" stack trace: {str(self.stack_trace)} \n" \
-                  f" {str(args)} \n str{str(kwargs)}"
+            msg = (
+                f"{str(message)} \n error code : {str(self.error_code)} \n "
+                f"trace back: {str(self.traceback)} \n"
+                f" stack trace: {str(self.stack_trace)} \n"
+                f" {str(args)} \n str{str(kwargs)}"
+            )
 
         except (IndexError, KeyError):
 
@@ -56,9 +62,7 @@ class OdeonError(Exception):
 
 @unique
 class ErrorCodes(Enum):
-    """Error codes for all module exceptions
-
-    """
+    """Error codes for all module exceptions"""
 
     ER_DEFAULT = auto()
 

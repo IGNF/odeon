@@ -1,17 +1,14 @@
-import numpy as np
 import torch
 from torchmetrics import Metric
-from odeon.commons.metric.metrics_multiclass import torch_metrics_from_cm
 from torchmetrics.functional import confusion_matrix
+
+from odeon.commons.metric.metrics_multiclass import torch_metrics_from_cm
 
 
 class OdeonMetrics(Metric):
-
-    def __init__(self,
-                 num_classes,
-                 class_labels,
-                 dist_sync_on_step=False,
-                 deterministic=False):
+    def __init__(
+        self, num_classes, class_labels, dist_sync_on_step=False, deterministic=False
+    ):
         # call `self.add_state`for every internal state that is needed for the metrics computations
         # dist_reduce_fx indicates the function that should be used to reduce
         # state from multiple processes
@@ -26,23 +23,21 @@ class OdeonMetrics(Metric):
         assert preds.shape == target.shape
         if self.deterministic:
             torch.use_deterministic_algorithms(False)
-        self.confmat += confusion_matrix(preds,
-                                         target,
-                                         num_classes=self.num_classes,
-                                         normalize=None)
+        self.confmat += confusion_matrix(
+            preds, target, num_classes=self.num_classes, normalize=None
+        )
         if self.deterministic:
             torch.use_deterministic_algorithms(True)
 
     def compute(self):
-        metrics_collecton = torch_metrics_from_cm(cm_macro=self.confmat,
-                                                  class_labels=self.class_labels)
+        metrics_collecton = torch_metrics_from_cm(
+            cm_macro=self.confmat, class_labels=self.class_labels
+        )
         return metrics_collecton
 
 
 class MeanVector(Metric):
-    def __init__(self,
-                 len_vector,
-                 dist_sync_on_step=False):
+    def __init__(self, len_vector, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.len_vector = len_vector
         default = torch.zeros(len_vector, dtype=torch.float32)
@@ -59,12 +54,10 @@ class MeanVector(Metric):
 
 class WellfordVariance(Metric):
     """
-        Compute variance in one pass with Wellford's algorithm.
+    Compute variance in one pass with Wellford's algorithm.
     """
 
-    def __init__(self,
-                 len_vector,
-                 dist_sync_on_step=False):
+    def __init__(self, len_vector, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.len_vector = len_vector
         default = torch.zeros(len_vector, dtype=torch.float32)
@@ -89,11 +82,10 @@ class WellfordVariance(Metric):
 
 class IncrementalVariance(Metric):
     """
-        Compute the variance in one pass with an incremental averaging of the mean and variance computed for each sample.
+    Compute the variance in one pass with an incremental averaging of the mean and variance computed for each sample.
     """
-    def __init__(self,
-                 len_vector,
-                 dist_sync_on_step=False):
+
+    def __init__(self, len_vector, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.len_vector = len_vector
         default = torch.zeros(len_vector, dtype=torch.float32)
@@ -102,13 +94,20 @@ class IncrementalVariance(Metric):
         self.add_state("weight", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     @staticmethod
-    def lerp_function(avg_value, new_value,  alpha):
+    def lerp_function(avg_value, new_value, alpha):
         return avg_value * (1 - alpha) + new_value * alpha
 
     def update(self, value: torch.Tensor):
-        self.avg_value = self.lerp_function(self.avg_value, value, 1 / (self.weight + 1))
-        self.avg_value_squared = self.lerp_function(self.avg_value_squared, value * value, 1 / (self.weight + 1))
+        self.avg_value = self.lerp_function(
+            self.avg_value, value, 1 / (self.weight + 1)
+        )
+        self.avg_value_squared = self.lerp_function(
+            self.avg_value_squared, value * value, 1 / (self.weight + 1)
+        )
         self.weight += 1
 
     def compute(self):
-        return torch.mean(torch.abs(self.avg_value_squared - (self.avg_value * self.avg_value)), axis=0)
+        return torch.mean(
+            torch.abs(self.avg_value_squared - (self.avg_value * self.avg_value)),
+            axis=0,
+        )

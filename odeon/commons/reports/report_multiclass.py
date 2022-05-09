@@ -1,16 +1,14 @@
-import os.path as osp
 import json
+import os.path as osp
+
+from odeon.commons.metric.plots import (plot_calibration_curves,
+                                        plot_confusion_matrix,
+                                        plot_norm_and_value_cms,
+                                        plot_roc_pr_curves)
 from odeon.commons.reports.report import Report
-from odeon.commons.metric.plots import (
-    plot_norm_and_value_cms, 
-    plot_confusion_matrix,
-    plot_calibration_curves, 
-    plot_roc_pr_curves
-)
 
 
 class Report_Multiclass(Report):
-
     def __init__(self, input_object):
         """Init function of a Metric_Report object.
 
@@ -22,56 +20,67 @@ class Report_Multiclass(Report):
         super().__init__(input_object)
 
     def create_data(self):
-        if self.input_object.output_type != 'json':
+        if self.input_object.output_type != "json":
             if self.input_object.get_normalize:
-                self.path_cm_macro = plot_norm_and_value_cms(self.input_object.cm_macro,
-                                                             labels=self.input_object.class_labels,
-                                                             output_path=osp.join(self.output_path, 'cm_macro.png'))
-                self.path_cm_micro = plot_norm_and_value_cms(self.input_object.cm_micro,
-                                                             labels=['Positive', 'Negative'],
-                                                             output_path=osp.join(self.output_path, 'cm_micro.png'),
-                                                             per_class_norm=False)
+                self.path_cm_macro = plot_norm_and_value_cms(
+                    self.input_object.cm_macro,
+                    labels=self.input_object.class_labels,
+                    output_path=osp.join(self.output_path, "cm_macro.png"),
+                )
+                self.path_cm_micro = plot_norm_and_value_cms(
+                    self.input_object.cm_micro,
+                    labels=["Positive", "Negative"],
+                    output_path=osp.join(self.output_path, "cm_micro.png"),
+                    per_class_norm=False,
+                )
             else:
-                self.path_cm_macro = plot_confusion_matrix(self.input_object.cm_macro,
-                                                           labels=self.input_object.class_labels,
-                                                           output_path=osp.join(self.output_path, 'cm_macro.png'))
+                self.path_cm_macro = plot_confusion_matrix(
+                    self.input_object.cm_macro,
+                    labels=self.input_object.class_labels,
+                    output_path=osp.join(self.output_path, "cm_macro.png"),
+                )
 
-                self.path_cm_micro = plot_confusion_matrix(self.input_object.cm_micro,
-                                                           labels=['Positive', 'Negative'],
-                                                           output_path=osp.join(self.output_path, 'cm_micro.png'))
+                self.path_cm_micro = plot_confusion_matrix(
+                    self.input_object.cm_micro,
+                    labels=["Positive", "Negative"],
+                    output_path=osp.join(self.output_path, "cm_micro.png"),
+                )
 
             if self.input_object.get_calibration_curves:
-                self.path_calibration_curves = plot_calibration_curves(prob_true=self.input_object.dict_prob_true,
-                                                                       prob_pred=self.input_object.dict_prob_pred,
-                                                                       hist_counts=self.input_object.dict_hist_counts,
-                                                                       labels=self.input_object.class_labels,
-                                                                       nbr_class=self.input_object.nbr_class,
-                                                                       output_path=osp.join(self.output_path,
-                                                                                            'calibration_curves.png'),
-                                                                       bins=self.input_object.bins,
-                                                                       bins_xticks=self.input_object.bins_xticks)
+                self.path_calibration_curves = plot_calibration_curves(
+                    prob_true=self.input_object.dict_prob_true,
+                    prob_pred=self.input_object.dict_prob_pred,
+                    hist_counts=self.input_object.dict_hist_counts,
+                    labels=self.input_object.class_labels,
+                    nbr_class=self.input_object.nbr_class,
+                    output_path=osp.join(self.output_path, "calibration_curves.png"),
+                    bins=self.input_object.bins,
+                    bins_xticks=self.input_object.bins_xticks,
+                )
 
             if self.input_object.get_ROC_PR_curves:
-                self.roc_pr_classes = plot_roc_pr_curves(data=self.input_object.vect_classes,
-                                                         labels=self.input_object.class_labels,
-                                                         nbr_class=self.input_object.nbr_class,
-                                                         output_path=osp.join(self.output_path, 'roc_pr_curves.png'),
-                                                         decimals=self.input_object.decimals)
+                self.roc_pr_classes = plot_roc_pr_curves(
+                    data=self.input_object.vect_classes,
+                    labels=self.input_object.class_labels,
+                    nbr_class=self.input_object.nbr_class,
+                    output_path=osp.join(self.output_path, "roc_pr_curves.png"),
+                    decimals=self.input_object.decimals,
+                )
 
             if self.input_object.get_hists_per_metrics:
                 self.path_hists = self.input_object.plot_dataset_metrics_histograms()
 
     def to_json(self):
-        """Create a report in the json format.
-        """
+        """Create a report in the json format."""
         dict_export = self.input_object.dict_export
         json_object = json.dumps(dict_export, indent=4)
-        with open(osp.join(self.output_path, 'report_metrics.json'), "w") as output_file:
+        with open(
+            osp.join(self.output_path, "report_metrics.json"), "w"
+        ) as output_file:
             output_file.write(json_object)
 
     def to_md(self):
-        """Create a report in the markdown format.
-        """
+        """Create a report in the markdown format."""
         md_main = f"""
 # ODEON - Metrics
 
@@ -139,13 +148,14 @@ class Report_Multiclass(Report):
 
         md_elements.append(metrics_histograms + "\n".join(class_histograms))
 
-        with open(osp.join(self.output_path, 'multiclass_metrics.md'), "w") as output_file:
+        with open(
+            osp.join(self.output_path, "multiclass_metrics.md"), "w"
+        ) as output_file:
             for md_element in md_elements:
                 output_file.write(md_element)
 
     def to_html(self):
-        """Create a report in the html format.
-        """
+        """Create a report in the html format."""
         header_html = """
         <!DOCTYPE html>
         <html>
@@ -157,7 +167,7 @@ class Report_Multiclass(Report):
         </script>
         """
 
-        end_html = '</div></div></body></html>'
+        end_html = "</div></div></body></html>"
 
         main_html = """
             <h1><center> ODEON  Metrics</center></h1>
@@ -176,7 +186,7 @@ class Report_Multiclass(Report):
         html_elements.append(micro_html)
 
         if self.input_object.weighted:
-            weigths_html = f'<p>Confusion matrix micro made with weights : {self.input_object.weights}</p>'
+            weigths_html = f"<p>Confusion matrix micro made with weights : {self.input_object.weights}</p>"
             html_elements.append(weigths_html)
 
         macro_html = f"""
@@ -232,13 +242,16 @@ class Report_Multiclass(Report):
 
             <h3>Per class strategy</h3>
 
-            """ \
-            + "\n".join(hists_class_html)
+            """ + "\n".join(
+                hists_class_html
+            )
 
             html_elements.append(metrics_histograms)
 
         html_elements.append(end_html)
 
-        with open(osp.join(self.output_path, 'metrics_multiclass.html'), "w") as output_file:
+        with open(
+            osp.join(self.output_path, "metrics_multiclass.html"), "w"
+        ) as output_file:
             for html_part in html_elements:
                 output_file.write(html_part)

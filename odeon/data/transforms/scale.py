@@ -1,5 +1,6 @@
 import numpy as np
-from odeon.data.transforms import BasicTransform 
+
+from odeon.data.transforms import BasicTransform
 
 
 class ScaleImageToFloat(BasicTransform):
@@ -61,5 +62,3 @@ class FloatImageToByte(BasicTransform):
 
     def apply_to_mask(self, mask: np.ndarray) -> np.ndarray:
         return self._float_to_byte(mask)
-
-
