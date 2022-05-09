@@ -605,7 +605,7 @@ class TrainCLI(BaseTool):
 
     def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
 
-        def _get_value_monitor(input_str: str)-> float:
+        def _get_value_monitor(input_str):
             return float(input_str.split(monitor)[-1][1:5])
 
         best_ckpt_path = None

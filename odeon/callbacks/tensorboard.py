@@ -81,7 +81,7 @@ class MetricsAdder(TensorboardCallback):
         # Get logger for the current phase
         logger = self.get_tensorboard_logger(trainer=trainer, phase=phase)
         # Add the loss value to the experiment
-        logger.experiment.add_scalar(f"Loss", loss, global_step=pl_module.current_epoch)
+        logger.experiment.add_scalar("Loss", loss, global_step=pl_module.current_epoch)
         # Add every value computed to the experiment
         for key_metric in metric_collection.keys():
             if key_metric != "cm_macro" and key_metric != "cm_micro":
