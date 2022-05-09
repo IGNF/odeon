@@ -1,15 +1,13 @@
 import os
-from torch.utils.data import Dataset
-from skimage.util import img_as_float
-import rasterio
-# from rasterio.plot import reshape_as_raster
+
 import numpy as np
+from skimage.util import img_as_float
+from torch.utils.data import Dataset
+
 from odeon import LOGGER
-from odeon.commons.image import raster_to_ndarray, CollectionDatasetReader
-from odeon.data.transforms import ToDoubleTensor, ToPatchTensor, ToWindowTensor
+from odeon.commons.image import raster_to_ndarray
 from odeon.commons.rasterio import affine_to_ndarray
-from odeon.commons.folder_manager import create_folder
-from odeon.commons.exception import OdeonError, ErrorCodes
+from odeon.data.transforms import ToDoubleTensor, ToPatchTensor
 
 
 class PatchDataset(Dataset):
@@ -38,16 +36,16 @@ class PatchDataset(Dataset):
     """
 
     def __init__(
-    self,
-    image_files, 
-    mask_files, 
-    transform=None, 
-    width=None, 
-    height=None, 
-    image_bands=None,             
-    mask_bands=None,
-    get_sample_info=False,
-    keep_original_image=False
+        self,
+        image_files,
+        mask_files,
+        transform=None,
+        width=None,
+        height=None,
+        image_bands=None,
+        mask_bands=None,
+        get_sample_info=False,
+        keep_original_image=False,
     ):
         self.image_files = image_files
         self.image_bands = image_bands
@@ -67,25 +65,25 @@ class PatchDataset(Dataset):
         # load image file
         image_file = self.image_files[index]
         img, meta = raster_to_ndarray(
-                                    image_file,
-                                    width=self.width,
-                                    height=self.height,
-                                    resolution=None,
-                                    band_indices=self.image_bands
-                                    )
-        
+            image_file,
+            width=self.width,
+            height=self.height,
+            resolution=None,
+            band_indices=self.image_bands,
+        )
+
         sample = {"image": img}
 
         # Load mask file
-        if self.mask_files is not  None:
+        if self.mask_files is not None:
             mask_file = self.mask_files[index]
             msk, _ = raster_to_ndarray(
-                                        mask_file,
-                                        width=self.width,
-                                        height=self.height,
-                                        resolution=None,
-                                        band_indices=self.mask_bands
-                                        )
+                mask_file,
+                width=self.width,
+                height=self.height,
+                resolution=None,
+                band_indices=self.mask_bands,
+            )
             sample["mask"] = msk
 
         # apply transforms
@@ -105,16 +103,9 @@ class PatchDataset(Dataset):
 
 
 class PatchDetectionDataset(Dataset):
-
     def __init__(
-        self,
-        job,
-        resolution,
-        width,
-        height,
-        transform=None,
-        image_bands=None
-        ):
+        self, job, resolution, width, height, transform=None, image_bands=None
+    ):
 
         self.job = job
         self.job.keep_only_todo_list()
@@ -131,18 +122,20 @@ class PatchDetectionDataset(Dataset):
         # load image file
         image_file = self.job.get_cell_at(index, "img_file")
         img, meta = raster_to_ndarray(
-                                       image_file,
-                                       width=self.width,
-                                       height=self.height,
-                                       resolution=self.resolution,
-                                       band_indices=self.image_bands
-                                       )
+            image_file,
+            width=self.width,
+            height=self.height,
+            resolution=self.resolution,
+            band_indices=self.image_bands,
+        )
         img = img_as_float(img)  # pixels are normalized to [0, 1]
         to_tensor = ToPatchTensor()
         affine = meta["transform"]
         LOGGER.debug(affine)
-        sample = {"image": img, "index": np.asarray([index]), "affine": affine_to_ndarray(affine)}
+        sample = {
+            "image": img,
+            "index": np.asarray([index]),
+            "affine": affine_to_ndarray(affine),
+        }
         sample = to_tensor(**sample)
         return sample
-
-

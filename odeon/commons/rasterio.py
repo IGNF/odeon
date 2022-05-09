@@ -1,13 +1,15 @@
 from math import isclose
+
 import numpy as np
 import rasterio
 from rasterio import features
 from rasterio.windows import Window
+
 from odeon import LOGGER
 
 IMAGE_TYPE = {
-                "uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
-                "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
+    "uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
+    "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16],
 }
 
 
@@ -31,12 +33,14 @@ def rasterize_shape(tuples, meta, shape, fill=0, default_value=1):
     -------
 
     """
-    raster = features.rasterize(tuples,
-                                out_shape=shape,
-                                default_value=default_value,
-                                transform=meta["transform"],
-                                dtype=rasterio.uint8,
-                                fill=fill)
+    raster = features.rasterize(
+        tuples,
+        out_shape=shape,
+        default_value=default_value,
+        transform=meta["transform"],
+        dtype=rasterio.uint8,
+        fill=fill,
+    )
     return raster
 
 
@@ -122,7 +126,9 @@ def get_scale_factor_and_img_size(target_raster, resolution, width, height):
     """
     with rasterio.open(target_raster) as target:
 
-        return get_scale_factor_and_img_size_from_dataset(target, resolution, width, height)
+        return get_scale_factor_and_img_size_from_dataset(
+            target, resolution, width, height
+        )
 
 
 def get_scale_factor_and_img_size_from_dataset(target, resolution, width, height):
@@ -182,26 +188,23 @@ def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
 
     with rasterio.open(msk_raster) as dst:
 
-        clip = dst.read(window=window, out_shape=(meta["count"], meta["height"], meta["width"]), resampling=resampling)
-        # building the no label band
-
-        bands = clip[0:clip.shape[0]-1].astype(np.bool).astype(np.uint8).copy()
+        clip = dst.read(
+            window=window,
+            out_shape=(meta["count"], meta["height"], meta["width"]),
+            resampling=resampling,
+        )
+        bands = clip[0: clip.shape[0] - 1].astype(np.bool).astype(np.uint8).copy()
         other_band = np.sum(bands, axis=0, dtype=np.uint8)
         other_band = (other_band == 0).astype(np.uint8)
 
-        with rasterio.open(out_file, 'w', **meta) as raster_out:
-
-            # raster_out.write(clip)
-            # LOGGER.info(np.array([other_band]).shape)
-            # LOGGER.info(clip[0:clip.shape[0]-1].shape)
-
-            out = dst.read(window=window,
-                           out_shape=(meta["count"], meta["height"], meta["width"]),
-                           resampling=resampling)
-            out = np.vstack((out[0:out.shape[0]-1], np.array([other_band])))
-            # LOGGER.debug(out.shape)
+        with rasterio.open(out_file, "w", **meta) as raster_out:
+            out = dst.read(
+                window=window,
+                out_shape=(meta["count"], meta["height"], meta["width"]),
+                resampling=resampling,
+            )
+            out = np.vstack((out[0: out.shape[0] - 1], np.array([other_band])))
             raster_out.write(out)
-
         return window
 
 
@@ -270,7 +273,7 @@ def count_band_for_stacking(dict_of_raster):
 
 
 def normalize_array_in(array, dtype, max_type_val):
-    """ Normalize band based on the encoding type and the max value of the type
+    """Normalize band based on the encoding type and the max value of the type
     example: to convert in uint16 type will be uint16 and max type value will be 65535
 
     Parameters
@@ -323,7 +326,10 @@ def get_max_type(rasters):
             with rasterio.open(r) as src:
 
                 LOGGER.debug(f"raster: {raster}, type: {src.meta['dtype']}")
-                if src.meta["dtype"] in IMAGE_TYPE.keys() and IMAGE_TYPE[src.meta["dtype"]][0] > IMAGE_TYPE[dtype][0]:
+                if (
+                    src.meta["dtype"] in IMAGE_TYPE.keys()
+                    and IMAGE_TYPE[src.meta["dtype"]][0] > IMAGE_TYPE[dtype][0]
+                ):
 
                     dtype = src.meta["dtype"]
 
@@ -360,7 +366,9 @@ def ndarray_to_affine(affine):
     -------
     rasterio.Affine
     """
-    return rasterio.Affine(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5])
+    return rasterio.Affine(
+        affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]
+    )
 
 
 def get_number_of_band(dict_of_raster, dem):
@@ -436,7 +444,6 @@ def geoimage_load_tile(img_path, band_indices, window):
 
 
 class RIODatasetCollection:
-
     def __init__(self):
 
         self.collection = {}
@@ -465,4 +472,3 @@ class RIODatasetCollection:
 
             self.collection[key].close()
             del self.collection[key]
-

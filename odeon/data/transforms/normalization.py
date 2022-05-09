@@ -1,4 +1,5 @@
 import numpy as np
+
 from odeon.data.transforms import BasicTransform
 
 
@@ -29,7 +30,7 @@ class DeNormalize(BasicTransform):
         img *= std
         img += mean
         return img
-    
+
     def apply_to_img(self, img: np.ndarray) -> np.ndarray:
         return self._denormalize(img)
 

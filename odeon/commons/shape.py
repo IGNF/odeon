@@ -1,8 +1,9 @@
 import fiona
-from tqdm import tqdm
-from odeon import LOGGER
 import geopandas as gpd
 from shapely.geometry import box, mapping
+from tqdm import tqdm
+
+from odeon import LOGGER
 
 
 def stack_shape(shape_file, value=1):
@@ -38,21 +39,25 @@ def stack_shape(shape_file, value=1):
 
             for shape in tqdm(shapes):
 
-                tuple_shapes.append([shape['geometry'], value])
+                tuple_shapes.append([shape["geometry"], value])
 
         return tuple_shapes
 
     except fiona.errors.DataIOError as fed:
 
-        msg = f"an exception during the opening of vectore file {shape_file}," \
-              f" a driver or a path problem? detail: {fed}"
+        msg = (
+            f"an exception during the opening of vectore file {shape_file},"
+            f" a driver or a path problem? detail: {fed}"
+        )
         LOGGER.warning(msg)
         raise fiona.errors.DataIOError(msg)
 
     except fiona.errors.DriverIOError as fedio:
 
-        msg = f"an exception during the opening of vectore file {shape_file}," \
-              f" a driver or a path problem? detail: {fedio}"
+        msg = (
+            f"an exception during the opening of vectore file {shape_file},"
+            f" a driver or a path problem? detail: {fedio}"
+        )
         LOGGER.warning(msg)
         raise fiona.errors.DataIOError(msg)
 

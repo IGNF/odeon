@@ -16,14 +16,14 @@ Installation
 
 These instruction assume that you already have `conda <https://conda.io/>`_ installed.
 
-First, download and extract a copy of odeon from `repository <https://gitlab.com/dai-projets/odeon-landcover>`_
+First, download and extract a copy of odeon from `repository <https://gitlab.com/StephanePEILLET/odeon-landcover>`_
 Then navigate to the root of the odeon directory in a terminal and run the following:
 
 **Install and activate the environment**
 
 .. code-block:: console
 
-   $ clone repository https://gitlab.com/dai-projets/odeon-landcover
+   $ clone repository https://gitlab.com/StephanePEILLET/odeon-landcover
    $ cd odeon-landcover
    $ conda env create --file=environment.yml
    $ conda activate odeon
@@ -44,7 +44,7 @@ Odeon toolkit is run through main command:
      odeon: error: the following arguments are required: tool, -c/--config
 
 Each tool needs a specific JSON configuration file.
-Available schemas can be found in `odeon/scripts/json_defaults` folder.
+Available schemas can be found in `odeon/cli/json_defaults` folder.
 
 More information could be found in the documentation
 

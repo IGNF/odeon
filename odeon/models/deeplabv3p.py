@@ -1,8 +1,9 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from odeon.models.mobilenetv2 import MobileNetV2
 from torchvision.models.segmentation.deeplabv3 import ASPP
+
+from odeon.models.mobilenetv2 import MobileNetV2
 
 
 class Decoder(nn.Module):
@@ -20,14 +21,15 @@ class Decoder(nn.Module):
     NotImplementedError
         [description]
     """
+
     def __init__(self, num_classes, backbone):
 
         super(Decoder, self).__init__()
-        if backbone == 'resnet' or backbone == 'drn':
+        if backbone == "resnet" or backbone == "drn":
             low_level_inplanes = 256
-        elif backbone == 'xception':
+        elif backbone == "xception":
             low_level_inplanes = 128
-        elif backbone == 'MobileNetV2':
+        elif backbone == "MobileNetV2":
             low_level_inplanes = 24
         else:
 
@@ -36,22 +38,26 @@ class Decoder(nn.Module):
         self.conv1 = nn.Conv2d(low_level_inplanes, 48, 1, bias=False)
         self.bn1 = nn.BatchNorm2d(48)
         self.relu = nn.ReLU()
-        self.last_conv = nn.Sequential(nn.Conv2d(304, 256, kernel_size=3, stride=1, padding=1, bias=False),
-                                       nn.BatchNorm2d(256),
-                                       nn.ReLU(),
-                                       nn.Dropout(0.5),
-                                       nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
-                                       nn.BatchNorm2d(256),
-                                       nn.ReLU(),
-                                       nn.Dropout(0.1),
-                                       nn.Conv2d(256, num_classes, kernel_size=1, stride=1))
+        self.last_conv = nn.Sequential(
+            nn.Conv2d(304, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Conv2d(256, num_classes, kernel_size=1, stride=1),
+        )
 
     def forward(self, x, low_level_feat):
         low_level_feat = self.conv1(low_level_feat)
         low_level_feat = self.bn1(low_level_feat)
         low_level_feat = self.relu(low_level_feat)
 
-        x = F.interpolate(x, size=low_level_feat.size()[2:], mode='bilinear', align_corners=True)
+        x = F.interpolate(
+            x, size=low_level_feat.size()[2:], mode="bilinear", align_corners=True
+        )
         x = torch.cat((x, low_level_feat), dim=1)
         x = self.last_conv(x)
 
@@ -88,6 +94,6 @@ class DeeplabV3p(nn.Module):
         x = self.aspp(x)
         x = self.decoder(x, low_level_feat)
 
-        x = F.interpolate(x, size=input.size()[2:], mode='bilinear', align_corners=True)
+        x = F.interpolate(x, size=input.size()[2:], mode="bilinear", align_corners=True)
 
         return x

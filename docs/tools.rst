@@ -4,7 +4,7 @@ Main Functions
 
 There are five main function linked to each of the cli tools.
 
-.. currentmodule:: odeon.scripts
+.. currentmodule:: odeon.cli
 
 .. contents::
    :depth: 2

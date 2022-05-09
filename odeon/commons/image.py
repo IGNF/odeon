@@ -1,24 +1,29 @@
+import math
+
 import numpy as np
 import rasterio
-import math
 from rasterio.enums import Resampling
-from rasterio.windows import from_bounds, transform
 from rasterio.plot import reshape_as_image, reshape_as_raster
-from skimage.transform import resize
+from rasterio.windows import from_bounds, transform
 from skimage import img_as_float
-from odeon.commons.rasterio import get_scale_factor_and_img_size_from_dataset, get_center_from_bound
-from odeon.commons.rasterio import get_bounds, create_patch_from_center
+from skimage.transform import resize
+
 from odeon import LOGGER
+from odeon.commons.rasterio import (create_patch_from_center, get_bounds,
+                                    get_center_from_bound,
+                                    get_scale_factor_and_img_size_from_dataset)
 
 
-def raster_to_ndarray_from_dataset(src,
-                                   width,
-                                   height,
-                                   resolution,
-                                   band_indices=None,
-                                   resampling=Resampling.bilinear,
-                                   window=None,
-                                   boundless=True):
+def raster_to_ndarray_from_dataset(
+    src,
+    width,
+    height,
+    resolution,
+    band_indices=None,
+    resampling=Resampling.bilinear,
+    window=None,
+    boundless=True,
+):
 
     """Load and transform an image into a ndarray according to parameters:
     - center-cropping to fit width, height
@@ -49,10 +54,9 @@ def raster_to_ndarray_from_dataset(src,
     """
 
     " get the width and height at the target resolution "
-    _, _, scaled_width, scaled_height = get_scale_factor_and_img_size_from_dataset(src,
-                                                                                   resolution=resolution,
-                                                                                   width=width,
-                                                                                   height=height)
+    _, _, scaled_width, scaled_height = get_scale_factor_and_img_size_from_dataset(
+        src, resolution=resolution, width=width, height=height
+    )
 
     scaled_height, scaled_width = math.ceil(scaled_height), math.ceil(scaled_width)
 
@@ -62,16 +66,20 @@ def raster_to_ndarray_from_dataset(src,
 
     if window is None:
 
-        img = src.read(indexes=band_indices,
-                       out_shape=(len(band_indices), scaled_height, scaled_width),
-                       resampling=resampling)
+        img = src.read(
+            indexes=band_indices,
+            out_shape=(len(band_indices), scaled_height, scaled_width),
+            resampling=resampling,
+        )
     else:
 
-        img = src.read(indexes=band_indices,
-                       window=window,
-                       out_shape=(len(band_indices), scaled_height, scaled_width),
-                       resampling=resampling,
-                       boundless=boundless)
+        img = src.read(
+            indexes=band_indices,
+            window=window,
+            out_shape=(len(band_indices), scaled_height, scaled_width),
+            resampling=resampling,
+            boundless=boundless,
+        )
 
     " reshape img from gdal band format to numpy ndarray format "
     img = reshape_as_image(img)
@@ -82,11 +90,11 @@ def raster_to_ndarray_from_dataset(src,
     if scaled_width >= width and scaled_height >= height:
 
         if scaled_width > width or scaled_height > height:
-            " handling case of dest_res > src_res, example from 0.5 to 0.2 "
+            "handling case of dest_res > src_res, example from 0.5 to 0.2"
             img = crop_center(img, width, height)
 
     if scaled_width < width or scaled_height > height:
-        " handling case of dest_res < src_res, example from 0.2 to 0.5 "
+        "handling case of dest_res < src_res, example from 0.2 to 0.5"
         img = resize(img, (width, height))
 
     meta = src.meta.copy()
@@ -97,8 +105,15 @@ def raster_to_ndarray_from_dataset(src,
         side_x = (img.shape[0] * resolution[0]) / 2
         side_y = (img.shape[1] * resolution[1]) / 2
         bounds = src.bounds
-        center_x, center_y = get_center_from_bound(bounds.left, bounds.bottom, bounds.right, bounds.top)
-        left, bottom, right, top = center_x - side_x, center_y - side_y, center_x + side_x, center_y + side_y
+        center_x, center_y = get_center_from_bound(
+            bounds.left, bounds.bottom, bounds.right, bounds.top
+        )
+        left, bottom, right, top = (
+            center_x - side_x,
+            center_y - side_y,
+            center_x + side_x,
+            center_y + side_y,
+        )
         window = from_bounds(left, bottom, right, top, src.transform)
         affine = transform(window, src.transform)
         meta["transform"] = affine
@@ -106,13 +121,15 @@ def raster_to_ndarray_from_dataset(src,
     return img, meta
 
 
-def raster_to_ndarray(image_file,
-                      width,
-                      height,
-                      resolution,
-                      band_indices=None,
-                      resampling=Resampling.bilinear,
-                      window=None):
+def raster_to_ndarray(
+    image_file,
+    width,
+    height,
+    resolution,
+    band_indices=None,
+    resampling=Resampling.bilinear,
+    window=None,
+):
     """Simple helper function to call raster_to_ndarray_from_dataset from
     a raster path file contrary to a rasterio.Dataset
 
@@ -149,7 +166,9 @@ def raster_to_ndarray(image_file,
         if height is None:
             height = src.height
 
-        return raster_to_ndarray_from_dataset(src, width, height, resolution, band_indices, resampling, window)
+        return raster_to_ndarray_from_dataset(
+            src, width, height, resolution, band_indices, resampling, window
+        )
 
 
 def crop_center(img, cropx, cropy):
@@ -181,7 +200,7 @@ def crop_center(img, cropx, cropy):
 
     startx = x // 2 - (cropx // 2)
     starty = y // 2 - (cropy // 2)
-    return img[starty:starty + cropy, startx:startx + cropx]
+    return img[starty: starty + cropy, startx: startx + cropx]
 
 
 def substract_margin(img, margin_x, margin_y):
@@ -210,13 +229,14 @@ def substract_margin(img, margin_x, margin_y):
 
         y, x, _ = img.shape
 
-    return img[0 + margin_y: y - margin_y, 0 + margin_x:x - margin_x]
+    return img[0 + margin_y: y - margin_y, 0 + margin_x: x - margin_x]
 
 
 class TypeConverter:
     """Simple class to handle conversion of output format
     in detection notably.
     """
+
     def __init__(self):
 
         self._from = "float32"
@@ -282,8 +302,12 @@ class TypeConverter:
 
                 if img.max() > 1:
 
-                    info = np.idebug(img.dtype)  # Get the information of the incoming image type
-                    img = img.astype(np.float32) / info.max  # normalize the data to 0 - 1
+                    info = np.idebug(
+                        img.dtype
+                    )  # Get the information of the incoming image type
+                    img = (
+                        img.astype(np.float32) / info.max
+                    )  # normalize the data to 0 - 1
 
                 img = 255 * img  # scale by 255
                 return img.astype(np.uint8)
@@ -310,7 +334,9 @@ def ndarray_to_affine(affine):
     -------
     rasterio.Affine
     """
-    return rasterio.Affine(affine[0], affine[1], affine[2], affine[3], affine[4], affine[5])
+    return rasterio.Affine(
+        affine[0], affine[1], affine[2], affine[3], affine[4], affine[5]
+    )
 
 
 class CollectionDatasetReader:
@@ -321,14 +347,17 @@ class CollectionDatasetReader:
     NDArray
         stacked bands of multiple rasters
     """
+
     @staticmethod
-    def get_stacked_window_collection(dict_of_raster,
-                                      bounds,
-                                      width,
-                                      height,
-                                      resolution,
-                                      dem=False,
-                                      resampling=Resampling.bilinear):
+    def get_stacked_window_collection(
+        dict_of_raster,
+        bounds,
+        width,
+        height,
+        resolution,
+        dem=False,
+        resampling=Resampling.bilinear,
+    ):
         """Stack multiple raster band in one raster, with a specific output format and resolution
         and output bounds. It can handle the DEM = DSM - DTM computation if the dict of raster
         band includes a band called "DTM" and a band called "DSM", but you must set the dem parameter
@@ -365,52 +394,72 @@ class CollectionDatasetReader:
         handle_dem = False
         stacked_bands = None
 
-        if "DSM" in dict_of_raster.keys() and "DTM" in dict_of_raster.keys() and dem is True:
+        if (
+            "DSM" in dict_of_raster.keys()
+            and "DTM" in dict_of_raster.keys()
+            and dem is True
+        ):
             handle_dem = True
 
         for key, value in dict_of_raster.items():
             if (key not in ["DSM", "DTM"]) or handle_dem is False:
                 src = value["connection"]
-                window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], src.meta["transform"])
+                window = from_bounds(
+                    bounds[0], bounds[1], bounds[2], bounds[3], src.meta["transform"]
+                )
                 band_indices = value["bands"]
-                img, _ = raster_to_ndarray_from_dataset(src,
-                                                        width,
-                                                        height,
-                                                        resolution,
-                                                        band_indices=band_indices,
-                                                        resampling=resampling,
-                                                        window=window)
+                img, _ = raster_to_ndarray_from_dataset(
+                    src,
+                    width,
+                    height,
+                    resolution,
+                    band_indices=band_indices,
+                    resampling=resampling,
+                    window=window,
+                )
 
                 # pixels are normalized to [0, 1]
                 img = img_as_float(img)
 
                 LOGGER.debug(f"type of img: {type(img)}, shape {img.shape}")
 
-                stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
-                LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
+                stacked_bands = (
+                    img if stacked_bands is None else np.dstack([stacked_bands, img])
+                )
+                LOGGER.debug(
+                    f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}"
+                )
 
         if handle_dem:
             dsm_ds = dict_of_raster["DSM"]["connection"]
             dtm_ds = dict_of_raster["DTM"]["connection"]
-            dsm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
-            dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
+            dsm_window = from_bounds(
+                bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"]
+            )
+            dtm_window = from_bounds(
+                bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"]
+            )
             band_indices = dict_of_raster["DSM"]["bands"]
 
-            dsm_img, _ = raster_to_ndarray_from_dataset(dsm_ds,
-                                                        width,
-                                                        height,
-                                                        resolution,
-                                                        band_indices=band_indices,
-                                                        resampling=resampling,
-                                                        window=dsm_window)
+            dsm_img, _ = raster_to_ndarray_from_dataset(
+                dsm_ds,
+                width,
+                height,
+                resolution,
+                band_indices=band_indices,
+                resampling=resampling,
+                window=dsm_window,
+            )
 
-            dtm_img, _ = raster_to_ndarray_from_dataset(dtm_ds,
-                                                        width,
-                                                        height,
-                                                        resolution,
-                                                        band_indices=band_indices,
-                                                        resampling=resampling,
-                                                        window=dtm_window)
+            dtm_img, _ = raster_to_ndarray_from_dataset(
+                dtm_ds,
+                width,
+                height,
+                resolution,
+                band_indices=band_indices,
+                resampling=resampling,
+                window=dtm_window,
+            )
 
             # raw dem = dsm - dtm
             img = dsm_img - dtm_img
@@ -439,20 +488,26 @@ class CollectionDatasetReader:
             # normalization.
             img = img / 255
             # LOGGER.debug(f"img min: {img.min()}, img max: {img.max()}, img shape: {img.shape}")
-            stacked_bands = img if stacked_bands is None else np.dstack([stacked_bands, img])
-            LOGGER.debug(f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}")
+            stacked_bands = (
+                img if stacked_bands is None else np.dstack([stacked_bands, img])
+            )
+            LOGGER.debug(
+                f"type of stacked bands: {type(stacked_bands)}, shape {stacked_bands.shape}"
+            )
 
         return stacked_bands
 
     @staticmethod
-    def stack_window_raster(center,
-                            dict_of_raster,
-                            meta,
-                            dem,
-                            compute_only_masks=False,
-                            raster_out=None,
-                            meta_msk=None,
-                            output_type="uint8"):
+    def stack_window_raster(
+        center,
+        dict_of_raster,
+        meta,
+        dem,
+        compute_only_masks=False,
+        raster_out=None,
+        meta_msk=None,
+        output_type="uint8",
+    ):
         """stack band at window level of geotif layer and create a
         couple patch image and patch mask
 
@@ -481,38 +536,42 @@ class CollectionDatasetReader:
         """
         resampling = Resampling.bilinear
 
-        bounds = get_bounds(center.x,
-                            center.y,
-                            meta['width'],
-                            meta['height'],
-                            meta['resolution'][0],
-                            meta['resolution'][1])
+        bounds = get_bounds(
+            center.x,
+            center.y,
+            meta["width"],
+            meta["height"],
+            meta["resolution"][0],
+            meta["resolution"][1],
+        )
 
-        window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], meta['transform'])
+        window = from_bounds(
+            bounds[0], bounds[1], bounds[2], bounds[3], meta["transform"]
+        )
 
         # Adapt meta for the patch
         meta_img_patch = meta.copy()
-        meta_img_patch['transform'] = transform(window, meta['transform'])
+        meta_img_patch["transform"] = transform(window, meta["transform"])
 
         meta_msk_patch = meta_msk.copy()
-        meta_msk_patch["transform"] = transform(window, meta_msk['transform'])
+        meta_msk_patch["transform"] = transform(window, meta_msk["transform"])
 
         # Creation of masks tiles from an input window.
-        create_patch_from_center(center["msk_file"],
-                                 raster_out,
-                                 meta_msk_patch,
-                                 window,
-                                 resampling)
+        create_patch_from_center(
+            center["msk_file"], raster_out, meta_msk_patch, window, resampling
+        )
 
         if not compute_only_masks:
-            img = CollectionDatasetReader.get_stacked_window_collection(dict_of_raster,
-                                                                        bounds,
-                                                                        meta_img_patch['width'],
-                                                                        meta_img_patch['height'],
-                                                                        meta_img_patch['resolution'],
-                                                                        dem,
-                                                                        resampling=resampling)
+            img = CollectionDatasetReader.get_stacked_window_collection(
+                dict_of_raster,
+                bounds,
+                meta_img_patch["width"],
+                meta_img_patch["height"],
+                meta_img_patch["resolution"],
+                dem,
+                resampling=resampling,
+            )
             raster_img = (reshape_as_raster(img) * 255).astype(output_type)
 
-            with rasterio.open(center["img_file"], 'w', **meta_img_patch) as dst:
+            with rasterio.open(center["img_file"], "w", **meta_img_patch) as dst:
                 dst.write(raster_img)

@@ -3,13 +3,17 @@ this modules is the main entry point of sample_sys and performs a
 systematic sampling on a list of polygon geo-referenced
 """
 from odeon import LOGGER
-from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.core import BaseTool
-from odeon.commons.sampling import get_roi_limits, get_roi_limits_with_filter
-from odeon.commons.sampling import CountFunctor
-from odeon.commons.sampling import apply_tile_functor, sum_area
-from odeon.commons.sampling import SampleFunctor
 from odeon.commons.exception import OdeonError
+from odeon.commons.logger.logger import get_new_logger, get_simple_handler
+from odeon.commons.sampling import (
+    CountFunctor,
+    SampleFunctor,
+    apply_tile_functor,
+    get_roi_limits,
+    get_roi_limits_with_filter,
+    sum_area,
+)
 
 
 class SampleSys(BaseTool):
@@ -47,22 +51,23 @@ class SampleSys(BaseTool):
 
     """
 
-    def __init__(self,
-                 mask_path,
-                 output_path,
-                 output_type,
-                 sample_type,
-                 number_of_sample,
-                 invert,
-                 buffer_size,
-                 extent_path,
-                 filter_field,
-                 filter_value,
-                 resolution,
-                 tile_size_mo,
-                 patch_size,
-                 patch_min_density
-                 ):
+    def __init__(
+        self,
+        mask_path,
+        output_path,
+        output_type,
+        sample_type,
+        number_of_sample,
+        invert,
+        buffer_size,
+        extent_path,
+        filter_field,
+        filter_value,
+        resolution,
+        tile_size_mo,
+        patch_size,
+        patch_min_density,
+    ):
         """
 
         Parameters
@@ -93,7 +98,9 @@ class SampleSys(BaseTool):
         self.extent_path = extent_path
         self.filter_field = filter_field if filter_field != "" else None
         self.filter_value = filter_value if filter_value != "" else None
-        self.resolution = resolution if isinstance(resolution, list) else [resolution, resolution]
+        self.resolution = (
+            resolution if isinstance(resolution, list) else [resolution, resolution]
+        )
         self.tile_size_mo = tile_size_mo
         self.patch_size = patch_size
         self.patch_min_density = patch_min_density
@@ -110,14 +117,18 @@ class SampleSys(BaseTool):
 
             try:
 
-                geoms, list_bbox, limit_crs = get_roi_limits_with_filter(self.extent_path,
-                                                                         self.filter_value,
-                                                                         self.filter_field)
+                geoms, list_bbox, limit_crs = get_roi_limits_with_filter(
+                    self.extent_path, self.filter_value, self.filter_field
+                )
                 self.limit_geoms.append(geoms)
 
             except OdeonError as error:
 
-                raise OdeonError(error.error_code, "something went wrong during sampling", stack_trace=error)
+                raise OdeonError(
+                    error.error_code,
+                    "something went wrong during sampling",
+                    stack_trace=error,
+                )
 
         else:
             geoms, list_bbox, limit_crs = get_roi_limits(self.extent_path)
@@ -126,7 +137,9 @@ class SampleSys(BaseTool):
         # si buffer on applique un buffer négatif à chaque géométrie de la liste
         if self.buffer_size != 0:
 
-            self.limit_geoms = [geom.buffer(-self.buffer_size) for geom in self.limit_geoms]
+            self.limit_geoms = [
+                geom.buffer(-self.buffer_size) for geom in self.limit_geoms
+            ]
 
     def __call__(self):
         """Operate the two phases systematic sampling
@@ -147,24 +160,25 @@ class SampleSys(BaseTool):
 
         if self.sample_type == "pixel":
 
-            count_functor = CountFunctor(self.mask_path,
-                                         self.resolution,
-                                         self.invert)
+            count_functor = CountFunctor(self.mask_path, self.resolution, self.invert)
 
         else:
 
-            count_functor = CountFunctor(self.mask_path,
-                                         self.resolution,
-                                         self.invert,
-                                         self.patch_size,
-                                         self.patch_min_density,
-                                         )
-        apply_tile_functor(count_functor,
-                           self.limit_geoms,
-                           self.tile_size_mo,
-                           self.resolution,
-                           patch_size=patch_size,
-                           with_tqdm=True)
+            count_functor = CountFunctor(
+                self.mask_path,
+                self.resolution,
+                self.invert,
+                self.patch_size,
+                self.patch_min_density,
+            )
+        apply_tile_functor(
+            count_functor,
+            self.limit_geoms,
+            self.tile_size_mo,
+            self.resolution,
+            patch_size=patch_size,
+            with_tqdm=True,
+        )
 
         count_functor.close()
         count_msg = f"count {self.sample_type} = {count_functor.count}"
@@ -209,14 +223,17 @@ class SampleSys(BaseTool):
                 self.patch_size,
                 self.output_path,
                 self.output_type,
-                self.patch_min_density)
+                self.patch_min_density,
+            )
 
-        apply_tile_functor(sample_functor,
-                           self.limit_geoms,
-                           self.tile_size_mo,
-                           self.resolution,
-                           patch_size=patch_size,
-                           with_tqdm=True)
+        apply_tile_functor(
+            sample_functor,
+            self.limit_geoms,
+            self.tile_size_mo,
+            self.resolution,
+            patch_size=patch_size,
+            with_tqdm=True,
+        )
 
         LOGGER.info(f"total of patch = {sample_functor.tot_patch}")
         LOGGER.info(f"total of sample = {sample_functor.tot_sample}")

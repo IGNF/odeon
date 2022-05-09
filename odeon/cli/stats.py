@@ -7,49 +7,54 @@ The commons/Statistics object then will compute descriptive statistics on a data
 The input parameters pass to the Stats object will come from a configuration file.
 """
 
-import os
 import csv
-import torch
-import rasterio
+import os
 from datetime import datetime
+
+import rasterio
+import torch
+
 from odeon import LOGGER
 from odeon.commons.core import BaseTool
-from odeon.commons.exception import OdeonError, ErrorCodes
+from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.statistics import Statistics
-from odeon.data.transforms.base import Compose 
-from odeon.data.transforms.geometric import Rotation90, Rotation
+from odeon.data.datasets.patch import PatchDataset
+from odeon.data.transforms.base import Compose
+from odeon.data.transforms.geometric import Rotation, Rotation90
 from odeon.data.transforms.radiometric import Radiometry
 from odeon.data.transforms.tensor import ToDoubleTensor
-from odeon.data.datasets.patch import PatchDataset
 
 BATCH_SIZE = 1
 NUM_WORKERS = 1
-BIT_DEPTH = '8 bits'
+BIT_DEPTH = "8 bits"
 GET_SKEWNESS_KURTOSIS = False
 GET_RADIO_STATS = True
 
 
 class Stats(BaseTool):
     """
-        Class Stats to create dataset and use the commons.statistics module.
+    Class Stats to create dataset and use the commons.statistics module.
     """
-    def __init__(self,
-                 input_path,
-                 output_path,
-                 output_type=None,
-                 bands_labels=None,
-                 class_labels=None,
-                 image_bands=None,
-                 mask_bands=None,
-                 data_augmentation=None,
-                 bins=None,
-                 nbr_bins=None,
-                 get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
-                 bit_depth=BIT_DEPTH,
-                 batch_size=BATCH_SIZE,
-                 num_workers=NUM_WORKERS,
-                 get_radio_stats=GET_RADIO_STATS,
-                 plot_stacked=False):
+
+    def __init__(
+        self,
+        input_path,
+        output_path,
+        output_type=None,
+        bands_labels=None,
+        class_labels=None,
+        image_bands=None,
+        mask_bands=None,
+        data_augmentation=None,
+        bins=None,
+        nbr_bins=None,
+        get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
+        bit_depth=BIT_DEPTH,
+        batch_size=BATCH_SIZE,
+        num_workers=NUM_WORKERS,
+        get_radio_stats=GET_RADIO_STATS,
+        plot_stacked=False,
+    ):
 
         """
             Init function of Stats class.
@@ -97,22 +102,30 @@ class Stats(BaseTool):
         self.input_path = input_path
 
         if not os.path.exists(output_path):
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Output folder ${output_path} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_DIR_NOT_EXIST,
+                f"Output folder ${output_path} does not exist.",
+            )
         elif not os.path.isdir(output_path):
-            raise OdeonError(ErrorCodes.ERR_DIR_NOT_EXIST,
-                             f"Output path ${output_path} should be a folder.")
+            raise OdeonError(
+                ErrorCodes.ERR_DIR_NOT_EXIST,
+                f"Output path ${output_path} should be a folder.",
+            )
         else:
-            name_output_path = os.path.join(output_path,
-                                            'stats_report_' + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"))
+            name_output_path = os.path.join(
+                output_path,
+                "stats_report_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S"),
+            )
             os.makedirs(name_output_path)
             self.output_path = name_output_path
 
-        if output_type in ['md', 'json', 'html', 'terminal']:
+        if output_type in ["md", "json", "html", "terminal"]:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html or directly displayed on the terminal.')
-            self.output_type = 'html'
+            LOGGER.error(
+                "ERROR: the output file can only be in md, json, html or directly displayed on the terminal."
+            )
+            self.output_type = "html"
 
         self.bins = bins
         self.nbr_bins = nbr_bins
@@ -123,19 +136,31 @@ class Stats(BaseTool):
         self.num_workers = num_workers
 
         if not os.path.exists(self.input_path):
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"file ${self.input_path} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_FILE_NOT_EXIST,
+                f"file ${self.input_path} does not exist.",
+            )
         else:
-            if os.path.splitext(self.input_path)[1] == '.csv':
-                self.image_files, self.mask_files = self.read_csv_sample_file(self.input_path)
+            if os.path.splitext(self.input_path)[1] == ".csv":
+                self.image_files, self.mask_files = self.read_csv_sample_file(
+                    self.input_path
+                )
             elif os.path.isdir(self.input_path):
-                self.image_files, self.mask_files = self.list_files_from_dir(self.input_path)
+                self.image_files, self.mask_files = self.list_files_from_dir(
+                    self.input_path
+                )
             else:
-                LOGGER.error('ERROR: the input path shoud point to a csv file or to a dataset directories.')
+                LOGGER.error(
+                    "ERROR: the input path shoud point to a csv file or to a dataset directories."
+                )
 
         # Bands obtained by opening the first sample of the dataset
-        read_img_bands, self.img_heigth, self.img_width = self.get_raster_info(self.image_files[0])
-        read_msk_bands, self.msk_heigth, self.msk_width = self.get_raster_info(self.mask_files[0])
+        read_img_bands, self.img_heigth, self.img_width = self.get_raster_info(
+            self.image_files[0]
+        )
+        read_msk_bands, self.msk_heigth, self.msk_width = self.get_raster_info(
+            self.mask_files[0]
+        )
 
         if image_bands is not None:
             self.check_raster_bands(read_img_bands, image_bands)
@@ -150,21 +175,31 @@ class Stats(BaseTool):
         self.image_bands, self.mask_bands = image_bands, mask_bands
 
         if self.img_heigth != self.msk_heigth or self.img_width != self.msk_width:
-            LOGGER.warning(f"""WARNING: images and masks dimensions are not the same.
+            LOGGER.warning(
+                f"""WARNING: images and masks dimensions are not the same.
                                         images: {self.img_heigth} x {self.img_width}
-                                        masks: {self.msk_heigth} x {self.msk_width}""")
+                                        masks: {self.msk_heigth} x {self.msk_width}"""
+            )
 
         if class_labels is not None and len(class_labels) != len(self.mask_bands):
-            LOGGER.error('ERROR: parameter class_labels should have a number of values equal to the number of classes.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter class_labels is incorrect.")
+            LOGGER.error(
+                "ERROR: parameter class_labels should have a number of values equal to the number of classes."
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "The input parameter class_labels is incorrect.",
+            )
         else:
             self.class_labels = class_labels
 
         if bands_labels is not None and len(bands_labels) != len(self.image_bands):
-            LOGGER.error('ERROR: parameter bands_labels should have a number of values equal to the number of bands.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter bands_labels is incorrect.")
+            LOGGER.error(
+                "ERROR: parameter bands_labels should have a number of values equal to the number of bands."
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "The input parameter bands_labels is incorrect.",
+            )
         else:
             self.bands_labels = bands_labels
 
@@ -177,40 +212,50 @@ class Stats(BaseTool):
             transformation_dict = {
                 "rotation90": Rotation90(),
                 "rotation": Rotation(),
-                "radiometry": Radiometry()
+                "radiometry": Radiometry(),
             }
             transformation_conf = data_augmentation
-            transformation_keys = transformation_conf \
-                if isinstance(transformation_conf, list) else [transformation_conf]
+            transformation_keys = (
+                transformation_conf
+                if isinstance(transformation_conf, list)
+                else [transformation_conf]
+            )
 
-            self.transformation_functions = list({
-                value for key, value in transformation_dict.items()
-                if key in transformation_keys
-            })
+            self.transformation_functions = list(
+                {
+                    value
+                    for key, value in transformation_dict.items()
+                    if key in transformation_keys
+                }
+            )
             self.transformation_functions.append(ToDoubleTensor())
             self.transform = Compose(self.transformation_functions)
 
-        self.dataset = PatchDataset(self.image_files,
-                                    self.mask_files,
-                                    transform=self.transform,
-                                    width=min(self.img_width, self.msk_width),
-                                    height=min(self.img_heigth, self.msk_heigth),
-                                    image_bands=self.image_bands,
-                                    mask_bands=self.mask_bands)
+        self.dataset = PatchDataset(
+            self.image_files,
+            self.mask_files,
+            transform=self.transform,
+            width=min(self.img_width, self.msk_width),
+            height=min(self.img_heigth, self.msk_heigth),
+            image_bands=self.image_bands,
+            mask_bands=self.mask_bands,
+        )
 
-        self.statistics = Statistics(dataset=self.dataset,
-                                     output_path=self.output_path,
-                                     output_type=self.output_type,
-                                     bands_labels=self.bands_labels,
-                                     class_labels=self.class_labels,
-                                     get_skewness_kurtosis=self.get_skewness_kurtosis,
-                                     bit_depth=self.bit_depth,
-                                     bins=self.bins,
-                                     nbr_bins=self.nbr_bins,
-                                     batch_size=self.batch_size,
-                                     num_workers=self.num_workers,
-                                     get_radio_stats=self.get_radio_stats,
-                                     plot_stacked=self.plot_stacked)
+        self.statistics = Statistics(
+            dataset=self.dataset,
+            output_path=self.output_path,
+            output_type=self.output_type,
+            bands_labels=self.bands_labels,
+            class_labels=self.class_labels,
+            get_skewness_kurtosis=self.get_skewness_kurtosis,
+            bit_depth=self.bit_depth,
+            bins=self.bins,
+            nbr_bins=self.nbr_bins,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            get_radio_stats=self.get_radio_stats,
+            plot_stacked=self.plot_stacked,
+        )
 
     def __call__(self):
         """
@@ -258,8 +303,8 @@ class Stats(BaseTool):
             A list of image pathes and a list of mask pathes.
         """
 
-        path_img = os.path.join(input_path, 'img')
-        path_msk = os.path.join(input_path, 'msk')
+        path_img = os.path.join(input_path, "img")
+        path_msk = os.path.join(input_path, "msk")
 
         image_files, mask_files = [], []
 
@@ -269,7 +314,9 @@ class Stats(BaseTool):
                 mask_files.append(os.path.join(path_msk, msk))
 
             else:
-                LOGGER.warning(f'Problem of matching names between image {img} and mask {msk}.')
+                LOGGER.warning(
+                    f"Problem of matching names between image {img} and mask {msk}."
+                )
 
         return image_files, mask_files
 
@@ -286,7 +333,7 @@ class Stats(BaseTool):
         int
             Number of bands in the raster.
         """
-        with rasterio.open(path_raster, 'r') as raster:
+        with rasterio.open(path_raster, "r") as raster:
             return list(range(1, raster.count + 1)), raster.height, raster.width
 
     def check_raster_bands(self, raster_band, proposed_bands):
@@ -301,13 +348,15 @@ class Stats(BaseTool):
         """
         if isinstance(proposed_bands, list) and len(proposed_bands) > 1:
             if not all([band in raster_band for band in proposed_bands]):
-                LOGGER.error(f'ERROR: the bands in the configuration file do not correspond\
-                to the available bands in the image. The bands in the image are : {raster_band}.')
+                LOGGER.error(
+                    f"ERROR: the bands in the configuration file do not correspond\
+                to the available bands in the image. The bands in the image are : {raster_band}."
+                )
         else:
-            LOGGER.error('ERROR: bands must be a list with a length greater than 1.')
+            LOGGER.error("ERROR: bands must be a list with a length greater than 1.")
 
     def check_device(self, proposed_device):
-        """ Check if the device pass in the configuration file in available.
+        """Check if the device pass in the configuration file in available.
         If not, use of the cpu.
 
         Parameters
@@ -315,44 +364,60 @@ class Stats(BaseTool):
         proposed_device: int/list
             Device(s) in the configuration file to use for the Stats tool.
         """
-        default_device = 'cpu'
+        default_device = "cpu"
         # check if device as the good format
-        if proposed_device == 'cpu':
+        if proposed_device == "cpu":
             pass
-        elif proposed_device.startswith('cuda:'):
-            id_device = proposed_device.split(':')[1]
+        elif proposed_device.startswith("cuda:"):
+            id_device = proposed_device.split(":")[1]
             cuda_available = torch.cuda.is_available()
             devices_available = list(range(torch.cuda.device_count()))
 
             if cuda_available and id_device in devices_available:
                 # If verbosity
-                LOGGER.info(f'INFO: device used : {default_device}')
-                LOGGER.info(f"""GPU: {torch.cuda.get_device_name(id_device)}
+                LOGGER.info(f"INFO: device used : {default_device}")
+                LOGGER.info(
+                    f"""GPU: {torch.cuda.get_device_name(id_device)}
                 Memory Usage:
                 Allocated:, {round(torch.cuda.memory_allocated(0)/1024**3,1)} GB
-                Cached:   , {round(torch.cuda.memory_reserved(0)/1024**3,1)} GB""")
+                Cached:   , {round(torch.cuda.memory_reserved(0)/1024**3,1)} GB"""
+                )
                 return proposed_device
 
             else:
-                LOGGER.warning(f'WARNING: The device {proposed_device} is not available.\
-                    The gpus available are: {devices_available}.')
+                LOGGER.warning(
+                    f"WARNING: The device {proposed_device} is not available.\
+                    The gpus available are: {devices_available}."
+                )
 
         else:
-            LOGGER.warning("WARNING: device should be of the form 'cpu' or \
-                'cuda: X' with X the id of the selected GPU.")
+            LOGGER.warning(
+                "WARNING: device should be of the form 'cpu' or \
+                'cuda: X' with X the id of the selected GPU."
+            )
 
-        LOGGER.info(f'INFO: device used : {default_device}')
+        LOGGER.info(f"INFO: device used : {default_device}")
         return default_device
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     input_path = "/home/SPeillet/OCSGE/outputs/generation/train"
     output_path = "/home/SPeillet/OCSGE/"
-    stats = Stats(input_path,
-                  output_path,
-                  output_type='html',
-                  bands_labels=['rouge', 'vert', 'bleu'],
-                  class_labels=['batiments', 'route', 'eau', 'herbacee', 'ligneux', 'mineraux', 'autre'],
-                  get_skewness_kurtosis=True,
-                  get_radio_stats=True)
+    stats = Stats(
+        input_path,
+        output_path,
+        output_type="html",
+        bands_labels=["rouge", "vert", "bleu"],
+        class_labels=[
+            "batiments",
+            "route",
+            "eau",
+            "herbacee",
+            "ligneux",
+            "mineraux",
+            "autre",
+        ],
+        get_skewness_kurtosis=True,
+        get_radio_stats=True,
+    )
     stats()

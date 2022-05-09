@@ -1,1 +1,1 @@
-from .json_logs import JSONLogger
+from .json_logs import JSONLogger  # noqa

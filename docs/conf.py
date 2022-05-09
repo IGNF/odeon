@@ -24,7 +24,7 @@ from sphinx_markdown_parser.transform import AutoStructify
 # -- Project information -----------------------------------------------------
 
 project = 'odeon-landcover'
-copyright = '2020, IGN'
+copyright = '2022, IGN'
 author = 'IGN'
 
 # The full version, including alpha/beta/rc tags
@@ -87,8 +87,8 @@ html_theme_options = {
     'base_url': 'https://gitlab.com/StephanePEILLET/odeon-landcover',
 
     # Set the color and the accent color
-    'color_primary': 'blue',
-    'color_accent': 'light-blue',
+    'color_primary': 'purple',
+    'color_accent': 'light-purple',
 
     # Set the repo location to get a badge with stats
     'repo_url': 'https://gitlab.com/StephanePEILLET/odeon-landcover',

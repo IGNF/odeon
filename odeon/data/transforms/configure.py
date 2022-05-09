@@ -1,22 +1,25 @@
-import albumentations as A
 from typing import List
+
+import albumentations as A
+
 from odeon import LOGGER
 from odeon.data.transforms import (
+    CHW_to_HWC,
     Compose,
     DeNormalize,
-    Rotation90,
-    Radiometry,
-    ScaleImageToFloat, 
     FloatImageToByte,
+    HWC_to_CHW,
+    Radiometry,
+    Rotation90,
+    ScaleImageToFloat,
     ToDoubleTensor,
-    CHW_to_HWC,
-    HWC_to_CHW
 )
 
 
-def configure_transforms(data_aug:dict, normalization_weights:dict=None, verbosity:bool=False)-> dict:
-
-    def _parse_data_augmentation(list_tfm: List[str])-> List:
+def configure_transforms(
+    data_aug: dict, normalization_weights: dict = None, verbosity: bool = False
+) -> dict:
+    def _parse_data_augmentation(list_tfm: List[str]) -> List:
         tfm_dict = {"rotation90": Rotation90(), "radiometry": Radiometry()}
         list_tfm = list_tfm if isinstance(list_tfm, list) else [list_tfm]
         tfm_func = [tfm_dict[tfm] for tfm in list_tfm]
@@ -29,17 +32,30 @@ def configure_transforms(data_aug:dict, normalization_weights:dict=None, verbosi
             tfm_func = _parse_data_augmentation(data_aug[split_name])
 
         # Part to define how to normalize the data
-        if normalization_weights is not None and split_name in normalization_weights.keys():
-            tfm_func.append(A.Normalize(mean=normalization_weights[split_name]["mean"],
-                                        std=normalization_weights[split_name]["std"]))
+        if (
+            normalization_weights is not None
+            and split_name in normalization_weights.keys()
+        ):
+            tfm_func.append(
+                A.Normalize(
+                    mean=normalization_weights[split_name]["mean"],
+                    std=normalization_weights[split_name]["std"],
+                )
+            )
 
-            inv_tfm_func.append(DeNormalize(mean=normalization_weights[split_name]["mean"],
-                                            std=normalization_weights[split_name]["std"]))
+            inv_tfm_func.append(
+                DeNormalize(
+                    mean=normalization_weights[split_name]["mean"],
+                    std=normalization_weights[split_name]["std"],
+                )
+            )
         else:
             tfm_func.append(ScaleImageToFloat())
             inv_tfm_func.append(FloatImageToByte())
 
-        tfm_func.append(ToDoubleTensor())  # To transform float type arrays to double type tensors
+        tfm_func.append(
+            ToDoubleTensor()
+        )  # To transform float type arrays to double type tensors
         inv_tfm_func.extend([HWC_to_CHW(img_only=True)])
         transforms[split_name] = Compose(tfm_func)
         inv_transforms[split_name] = Compose(inv_tfm_func)

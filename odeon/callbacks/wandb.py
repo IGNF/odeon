@@ -1,21 +1,26 @@
 import subprocess
 from pathlib import Path
-from typing import List
+
 import matplotlib.pyplot as plt
 from pytorch_lightning import Callback, Trainer
 from pytorch_lightning.loggers import LoggerCollection, WandbLogger
 from pytorch_lightning.utilities import rank_zero_only
+
 from odeon import LOGGER
-from odeon.commons.exception import OdeonError, ErrorCodes
+from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.metric.plots import plot_confusion_matrix
 
 try:
     import wandb
 except ModuleNotFoundError as error:
-    LOGGER.error("ERROR: WANDB callbacks have been called but wandb package is not installed")
-    raise OdeonError(ErrorCodes.ERR_CALLBACK_ERROR,
-                     "something went wrong with WANDB calbacks",
-                     stack_trace=error)
+    LOGGER.error(
+        "ERROR: WANDB callbacks have been called but wandb package is not installed"
+    )
+    raise OdeonError(
+        ErrorCodes.ERR_CALLBACK_ERROR,
+        "something went wrong with WANDB calbacks",
+        stack_trace=error,
+    )
 
 
 def get_wandb_logger(trainer: Trainer) -> WandbLogger:
@@ -40,7 +45,6 @@ def get_wandb_logger(trainer: Trainer) -> WandbLogger:
 
 
 class MetricsWandb(Callback):
-
     @rank_zero_only
     def add_metrics(self, trainer, pl_module, metric_collection, loss):
         logger = get_wandb_logger(trainer=trainer)
@@ -52,10 +56,12 @@ class MetricsWandb(Callback):
 
     @rank_zero_only
     def on_validation_epoch_end(self, trainer, pl_module):
-        self.add_metrics(trainer=trainer,
-                         pl_module=pl_module,
-                         metric_collection=pl_module.val_epoch_metrics,
-                         loss=pl_module.val_epoch_loss)
+        self.add_metrics(
+            trainer=trainer,
+            pl_module=pl_module,
+            metric_collection=pl_module.val_epoch_metrics,
+            loss=pl_module.val_epoch_loss,
+        )
 
 
 class UploadCodeAsArtifact(Callback):
@@ -81,7 +87,9 @@ class UploadCodeAsArtifact(Callback):
         if self.use_git:
             # get .git folder path
             git_dir_path = Path(
-                subprocess.check_output(["git", "rev-parse", "--git-dir"]).strip().decode("utf8")
+                subprocess.check_output(["git", "rev-parse", "--git-dir"])
+                .strip()
+                .decode("utf8")
             ).resolve()
 
             for path in Path(self.code_dir).resolve().rglob("*"):
@@ -154,8 +162,9 @@ class LogConfusionMatrix(Callback):
             logger = get_wandb_logger(trainer)
             experiment = logger.experiment
             confusion_matrix = pl_module.val_epoch_metrics["cm_macro"].cpu().numpy()
-            fig = plot_confusion_matrix(confusion_matrix,
-                                        pl_module.hparams.class_labels)
+            fig = plot_confusion_matrix(
+                confusion_matrix, pl_module.hparams.class_labels
+            )
 
             # names should be uniqe or else charts from different experiments in wandb will overlap
             experiment.log({f"confusion_matrix/{experiment.name}": fig}, commit=False)

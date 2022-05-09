@@ -3,9 +3,10 @@ Logger class in an individual module with singleton pattern: one instance
 
 
 """
+import datetime
 import logging
 import os
-import datetime
+
 from odeon.commons.folder_manager import create_folder
 
 
@@ -27,7 +28,7 @@ class ColoredFormatter(logging.Formatter):
         logging.INFO: grey + format + reset,
         logging.WARNING: yellow + format + reset,
         logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
+        logging.CRITICAL: bold_red + format + reset,
     }
 
     def format(self, record):
@@ -100,14 +101,18 @@ def get_file_handler(logger: logging.Logger, dir_name, level=logging.WARNING):
     :param level: min level to log in default: WARNING
     :return: logging.FileHandler
     """
-    formatter = logging.Formatter('%(asctime)s \t %(name)s  \t [%(levelname)s | '
-                                  '%(filename)s:%(lineno)s] > %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s \t %(name)s  \t [%(levelname)s | "
+        "%(filename)s:%(lineno)s] > %(message)s"
+    )
     now = datetime.datetime.now()
     if not os.path.isdir(dir_name):
         create_folder(dir_name)
 
     fh = logging.FileHandler(
-        os.path.join(dir_name, "_".join(["log", logger.name, now.strftime("%Y-%m-%d")]) + ".log")
+        os.path.join(
+            dir_name, "_".join(["log", logger.name, now.strftime("%Y-%m-%d")]) + ".log"
+        )
     )
     fh.setLevel(level)
     fh.setFormatter(formatter)

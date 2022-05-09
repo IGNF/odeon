@@ -8,9 +8,10 @@ JSON logger for basic experiment logging that does not require opening ports
 import json
 import logging
 import os
-import numpy as np
 from argparse import Namespace
 from typing import Any, Dict, Optional, Union
+
+import numpy as np
 import torch
 from pytorch_lightning.core.saving import save_hparams_to_yaml
 from pytorch_lightning.loggers.base import LightningLoggerBase, rank_zero_experiment
@@ -18,6 +19,8 @@ from pytorch_lightning.utilities import rank_zero_warn
 from pytorch_lightning.utilities.distributed import rank_zero_only
 
 log = logging.getLogger(__name__)
+
+INDENT = 2
 
 
 class ExperimentWriter:
@@ -52,7 +55,9 @@ class ExperimentWriter:
         """Record hparams."""
         self.hparams.update(params)
 
-    def log_metrics(self, metrics_dict: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(
+        self, metrics_dict: Dict[str, float], step: Optional[int] = None
+    ) -> None:
         """Record metrics."""
 
         def _handle_value(value):
@@ -83,7 +88,7 @@ class ExperimentWriter:
             return
 
         with open(self.metrics_file_path, "w") as f:
-            json.dump(self.metrics, f)
+            json.dump(self.metrics, f, indent=INDENT)
 
 
 class JSONLogger(LightningLoggerBase):
@@ -138,7 +143,9 @@ class JSONLogger(LightningLoggerBase):
         constructor's version parameter instead of ``None`` or an int.
         """
         # create a pseudo standard path
-        version = self.version if isinstance(self.version, str) else f"version_{self.version}"
+        version = (
+            self.version if isinstance(self.version, str) else f"version_{self.version}"
+        )
         log_dir = os.path.join(self.root_dir, version)
         return log_dir
 
@@ -177,7 +184,9 @@ class JSONLogger(LightningLoggerBase):
         self.experiment.log_hparams(params)
 
     @rank_zero_only
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(
+        self, metrics: Dict[str, float], step: Optional[int] = None
+    ) -> None:
         metrics = self._add_prefix(metrics)
         self.experiment.log_metrics(metrics, step)
         if step is not None and (step + 1) % self._flush_logs_every_n_steps == 0:

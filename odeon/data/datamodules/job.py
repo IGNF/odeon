@@ -1,8 +1,10 @@
 "module of Jobs classes, typically detection jobs"
 import os
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
+
 from odeon import LOGGER
 from odeon.commons.shape import create_box_from_bounds
 
@@ -18,7 +20,9 @@ class PatchJobDetection(BaseDetectionJob):
     It simply encapsulates a pandas.DataFrame
     """
 
-    def __init__(self, df: pd.DataFrame, path, recover=False, file_name="detection_job.csv"):
+    def __init__(
+        self, df: pd.DataFrame, path, recover=False, file_name="detection_job.csv"
+    ):
         """Job class used for patch based detection
         It simply encapsulates a pandas.DataFrame
 
@@ -100,13 +104,12 @@ class PatchJobDetection(BaseDetectionJob):
 
 class ZoneDetectionJob(PatchJobDetection):
     """Job class used for zone based detection with output by dalle
-        It simply encapsulates a geopandas.DataFrame
+    It simply encapsulates a geopandas.DataFrame
     """
-    def __init__(self,
-                 df: pd.DataFrame,
-                 path,
-                 recover=False,
-                 file_name="detection_job.shp"):
+
+    def __init__(
+        self, df: pd.DataFrame, path, recover=False, file_name="detection_job.shp"
+    ):
         """Job class used for zone based detection with output by dalle
         It simply encapsulates a geopandas.DataFrame
 
@@ -123,7 +126,9 @@ class ZoneDetectionJob(PatchJobDetection):
             file name of the saved job, by default "detection_job.csv"
         """
 
-        super(ZoneDetectionJob, self).__init__(df, path, recover=recover, file_name=file_name)
+        super(ZoneDetectionJob, self).__init__(
+            df, path, recover=recover, file_name=file_name
+        )
 
     def __str__(self):
 
@@ -140,7 +145,9 @@ class ZoneDetectionJob(PatchJobDetection):
         LOGGER.debug(df_grouped)
         LOGGER.debug(df_grouped.index.values.tolist())
         LOGGER.debug(df_grouped.columns)
-        job_done_id = df_grouped[df_grouped["job_done", "sum"] == df_grouped["job_done", "count"]].index.values.tolist()
+        job_done_id = df_grouped[
+            df_grouped["job_done", "sum"] == df_grouped["job_done", "count"]
+        ].index.values.tolist()
         LOGGER.debug(job_done_id)
         LOGGER.debug(len(job_done_id))
         LOGGER.debug(self._df["output_id"].isin(job_done_id))
@@ -155,7 +162,9 @@ class ZoneDetectionJob(PatchJobDetection):
 
         else:
 
-            return self._df[~self._df["output_id"].isin(self._job_done["output_id"].values)]
+            return self._df[
+                ~self._df["output_id"].isin(self._job_done["output_id"].values)
+            ]
 
     def save_job(self):
 
@@ -194,7 +203,9 @@ class ZoneDetectionJob(PatchJobDetection):
 
         LOGGER.debug(f"dalle {output_id} done")
         self._df.loc[self._df["output_id"] == output_id, "dalle_done"] = 1
-        self._job_done = pd.concat([self._job_done, self._df[self._df["output_id"].isin([output_id])]])
+        self._job_done = pd.concat(
+            [self._job_done, self._df[self._df["output_id"].isin([output_id])]]
+        )
         self._df = self._df[~self._df["output_id"].isin([output_id])]
 
     @staticmethod
@@ -226,17 +237,11 @@ class ZoneDetectionJob(PatchJobDetection):
             or the generated dalle it output_dalle_size has been set.
         """
 
-        output_size_u = [
-            output_size * resolution[0],
-            output_size * resolution[1]
-        ]
-        overlap_u = [
-            overlap * resolution[0],
-            overlap * resolution[1]
-        ]
+        output_size_u = [output_size * resolution[0], output_size * resolution[1]]
+        overlap_u = [overlap * resolution[0], overlap * resolution[1]]
         step = [
             output_size_u[0] - (2 * overlap_u[0]),
-            output_size_u[1] - (2 * overlap_u[1])
+            output_size_u[1] - (2 * overlap_u[1]),
         ]
         tmp_list = []
         write_gdf = None
@@ -267,18 +272,20 @@ class ZoneDetectionJob(PatchJobDetection):
                         row = int((i - min_x) // resolution[1]) + 1
 
                         row_d = {
-                                    "id": f"{name}-{row}-{col}",
-                                    "name": name,
-                                    "job_done": False,
-                                    "left": left,
-                                    "bottom": bottom,
-                                    "right": right,
-                                    "top": top,
-                                    "affine": "",
-                                    "patch_count": 0,
-                                    "nb_patch_done": 0,
-                                    "geometry": create_box_from_bounds(i,  i + out_dalle_size, j, j + out_dalle_size)
-                                }
+                            "id": f"{name}-{row}-{col}",
+                            "name": name,
+                            "job_done": False,
+                            "left": left,
+                            "bottom": bottom,
+                            "right": right,
+                            "top": top,
+                            "affine": "",
+                            "patch_count": 0,
+                            "nb_patch_done": 0,
+                            "geometry": create_box_from_bounds(
+                                i, i + out_dalle_size, j, j + out_dalle_size
+                            ),
+                        }
                         tmp_list.append(row_d)
 
                 write_gdf = gpd.GeoDataFrame(tmp_list, crs=gdf.crs, geometry="geometry")
@@ -308,39 +315,46 @@ class ZoneDetectionJob(PatchJobDetection):
                     bottom = j + overlap_u[1]
                     top = j + output_size_u[1] - overlap_u[1]
 
-                    col, row = int((j - min_y) // resolution[0]) + 1, int((i - min_x) // resolution[1]) + 1
+                    col, row = (
+                        int((j - min_y) // resolution[0]) + 1,
+                        int((i - min_x) // resolution[1]) + 1,
+                    )
                     if out_dalle_size is not None:
                         row_d = {
-                                    "id": str(f"{idx + 1}-{row}-{col}"),
-                                    "output_id": df_row["id"],
-                                    "dalle_done": 0,
-                                    "job_done": 0,
-                                    "left": left,
-                                    "bottom": bottom,
-                                    "right": right,
-                                    "top": top,
-                                    "left_o": df_row["left"],
-                                    "bottom_o": df_row["bottom"],
-                                    "right_o": df_row["right"],
-                                    "top_o": df_row["top"],
-                                    "geometry": create_box_from_bounds(i, i + output_size_u[0], j, j + output_size_u[1])
-                                }
+                            "id": str(f"{idx + 1}-{row}-{col}"),
+                            "output_id": df_row["id"],
+                            "dalle_done": 0,
+                            "job_done": 0,
+                            "left": left,
+                            "bottom": bottom,
+                            "right": right,
+                            "top": top,
+                            "left_o": df_row["left"],
+                            "bottom_o": df_row["bottom"],
+                            "right_o": df_row["right"],
+                            "top_o": df_row["top"],
+                            "geometry": create_box_from_bounds(
+                                i, i + output_size_u[0], j, j + output_size_u[1]
+                            ),
+                        }
                     else:
                         row_d = {
-                                    "id": str(f"{idx + 1}-{row}-{col}"),
-                                    "output_id": str(f"{idx + 1}-{row}-{col}"),
-                                    "dalle_done": 0,
-                                    "job_done": 0,
-                                    "left": left,
-                                    "bottom": bottom,
-                                    "right": right,
-                                    "top": top,
-                                    "left_o": left,
-                                    "bottom_o": bottom,
-                                    "right_o": right,
-                                    "top_o": top,
-                                    "geometry": create_box_from_bounds(i, i + output_size_u[0], j, j + output_size_u[1])
-                                }
+                            "id": str(f"{idx + 1}-{row}-{col}"),
+                            "output_id": str(f"{idx + 1}-{row}-{col}"),
+                            "dalle_done": 0,
+                            "job_done": 0,
+                            "left": left,
+                            "bottom": bottom,
+                            "right": right,
+                            "top": top,
+                            "left_o": left,
+                            "bottom_o": bottom,
+                            "right_o": right,
+                            "top_o": top,
+                            "geometry": create_box_from_bounds(
+                                i, i + output_size_u[0], j, j + output_size_u[1]
+                            ),
+                        }
                     tmp_list.append(row_d)
                     if out_dalle_size is not None:
                         write_gdf.at[idx, "patch_count"] += 1
@@ -352,10 +366,12 @@ class ZoneDetectionJob(PatchJobDetection):
 
 class ZoneDetectionJobNoDalle(PatchJobDetection):
     """Job class used for zone based detection with output by patch
-        It simply encapsulates a geopandas.DataFrame
+    It simply encapsulates a geopandas.DataFrame
     """
 
-    def __init__(self, df: pd.DataFrame, path, recover=False, file_name="detection_job.shp"):
+    def __init__(
+        self, df: pd.DataFrame, path, recover=False, file_name="detection_job.shp"
+    ):
         """Job class used for zone based detection with output by patch
         It simply encapsulates a geopandas.DataFrame
 
@@ -371,7 +387,9 @@ class ZoneDetectionJobNoDalle(PatchJobDetection):
         file_name : str, optional
             file name of the saved job, by default "detection_job.csv"
         """
-        super(ZoneDetectionJobNoDalle, self).__init__(df, path, recover, file_name=file_name)
+        super(ZoneDetectionJobNoDalle, self).__init__(
+            df, path, recover, file_name=file_name
+        )
 
     @classmethod
     def read_file(cls, file_name):

@@ -4,16 +4,17 @@ directly in the terminal. The created report will be located in the path defined
 configuration file of the tool on which the report is made.
 """
 import os
+
 import numpy as np
 import pandas as pd
+
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 
-HTML_FILE = 'jupyter_layout.html'
+HTML_FILE = "jupyter_layout.html"
 PADDING = 1
 
 
 class Report(object):
-
     def __init__(self, input_object):
         """Init function for the report class
 
@@ -28,7 +29,7 @@ class Report(object):
         self.padding = PADDING
         self.round_decimals = self.input_object.decimals
         self.output_path = input_object.output_path
-        if self.input_object.output_type == 'html':
+        if self.input_object.output_type == "html":
             dir_path = os.path.dirname(os.path.realpath(__file__))
             with open(os.path.join(dir_path, self.html_file), "r") as reader:
                 self.begin_html = reader.read()
@@ -46,11 +47,11 @@ class Report(object):
         configuration file. Also can directly display the report in the terminal.
         """
         self.create_data()
-        if self.input_object.output_type == 'html':
+        if self.input_object.output_type == "html":
             self.to_html()
-        elif self.input_object.output_type == 'json':
+        elif self.input_object.output_type == "json":
             self.to_json()
-        elif self.input_object.output_type == 'md':
+        elif self.input_object.output_type == "md":
             self.to_md()
         else:
             self.to_terminal()
@@ -71,9 +72,17 @@ class Report(object):
         if round_decimals is None:
             round_decimals = self.round_decimals
         if to_percent:
-            return df.apply(lambda x: pd.to_numeric(x * 100, downcast="float").round(decimals=round_decimals - 2))
+            return df.apply(
+                lambda x: pd.to_numeric(x * 100, downcast="float").round(
+                    decimals=round_decimals - 2
+                )
+            )
         else:
-            return df.apply(lambda x: pd.to_numeric(x, downcast="float").round(decimals=round_decimals))
+            return df.apply(
+                lambda x: pd.to_numeric(x, downcast="float").round(
+                    decimals=round_decimals
+                )
+            )
 
     def longest(self, input_list):
         """Return the longest element in a list.
@@ -128,14 +137,14 @@ class Report(object):
                 String with padding.
             """
             if isinstance(input_str, float) and np.isnan(input_str):
-                input_str = 'Nan'
+                input_str = "Nan"
             input_str = str(input_str)
             delta = col_len - len(input_str)
             if delta % 2 == 0:
-                left, right = delta//2, delta//2
+                left, right = delta // 2, delta // 2
             else:
-                left, right = (delta+1)//2, delta//2
-            return left * ' ' + input_str + right * ' '
+                left, right = (delta + 1) // 2, delta // 2
+            return left * " " + input_str + right * " "
 
         def get_len_cols(df):
             """Get the length of every column in a dataframe.
@@ -158,20 +167,40 @@ class Report(object):
 
         len_cols = get_len_cols(df)
 
-        first_line = '|' + (len(self.longest(df.index)) + 2 * padding) * ' ' + '|' + \
-            '|'.join([add_delta(len_cols[i], x) for i, x in enumerate(df.columns)]) + '|'
+        first_line = (
+            "|"
+            + (len(self.longest(df.index)) + 2 * padding) * " "
+            + "|"
+            + "|".join([add_delta(len_cols[i], x) for i, x in enumerate(df.columns)])
+            + "|"
+        )
 
-        sep = '|' + (len(self.longest(df.index)) + 2 * padding) * '-' + '|' + \
-            '|'.join([len_col * '-' for len_col in len_cols]) + '|'
+        sep = (
+            "|"
+            + (len(self.longest(df.index)) + 2 * padding) * "-"
+            + "|"
+            + "|".join([len_col * "-" for len_col in len_cols])
+            + "|"
+        )
 
         output_mk = [first_line, sep]
 
         for index in df.index:
-            line = '|' + add_delta(len(self.longest(df.index)) + 2 * padding, index) + '|' + \
-                '|'.join([add_delta(len_cols[i], df.loc[index, col]) for i, col in enumerate(df.columns)]) + '|'
+            line = (
+                "|"
+                + add_delta(len(self.longest(df.index)) + 2 * padding, index)
+                + "|"
+                + "|".join(
+                    [
+                        add_delta(len_cols[i], df.loc[index, col])
+                        for i, col in enumerate(df.columns)
+                    ]
+                )
+                + "|"
+            )
             output_mk.append(line)
 
-        return '\n'.join(output_mk)
+        return "\n".join(output_mk)
 
     def df_to_html(self, df):
         """Create from a dataframe a string containing the value of the dataframe in a html table.
@@ -187,8 +216,14 @@ class Report(object):
             String with table in html.
         """
         html = "<table>"
-        thead = "<thead><tr>" + "<th>" + len(self.longest(df.index)) * ' ' + "</th>" + \
-            ''.join([f"<th>{col}</th>" for col in df.columns]) + "</tr></thead>"
+        thead = (
+            "<thead><tr>"
+            + "<th>"
+            + len(self.longest(df.index)) * " "
+            + "</th>"
+            + "".join([f"<th>{col}</th>" for col in df.columns])
+            + "</tr></thead>"
+        )
         tbody = "<tbody>"
         for idx in df.index:
             tbody += f"<tr><th>{idx}</th>"
@@ -199,16 +234,13 @@ class Report(object):
         return html + thead + tbody + "</table>"
 
     def to_json(self):
-        """Create a report in the json format.
-        """
+        """Create a report in the json format."""
         pass
 
     def to_md(self):
-        """Create a report with the markdown format.
-        """
+        """Create a report with the markdown format."""
         pass
 
     def to_html(self):
-        """Create a report in the html format.
-        """
+        """Create a report in the html format."""
         pass

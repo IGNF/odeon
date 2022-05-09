@@ -30,42 +30,45 @@ Statistics class to compute descriptive statistics on a dataset.
 """
 
 import os
-from odeon import LOGGER
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+from cycler import cycler
 from scipy.stats import entropy
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from cycler import cycler
+
+from odeon import LOGGER
+from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.reports.report_factory import Report_Factory
-from odeon.commons.exception import OdeonError, ErrorCodes
 
 BATCH_SIZE = 1
 NUM_WORKERS = 1
-BIT_DEPTH = '8 bits'
+BIT_DEPTH = "8 bits"
 GET_SKEWNESS_KURTOSIS = False
 GET_RADIO_STATS = False
 MOVING_AVERAGE = 3
 DECIMALS = 3
 
 
-class Statistics():
-
-    def __init__(self,
-                 dataset,
-                 output_path,
-                 output_type=None,
-                 bands_labels=None,
-                 class_labels=None,
-                 get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
-                 bit_depth=BIT_DEPTH,
-                 bins=None,
-                 nbr_bins=None,
-                 batch_size=BATCH_SIZE,
-                 num_workers=NUM_WORKERS,
-                 get_radio_stats=GET_RADIO_STATS,
-                 plot_stacked=False):
+class Statistics:
+    def __init__(
+        self,
+        dataset,
+        output_path,
+        output_type=None,
+        bands_labels=None,
+        class_labels=None,
+        get_skewness_kurtosis=GET_SKEWNESS_KURTOSIS,
+        bit_depth=BIT_DEPTH,
+        bins=None,
+        nbr_bins=None,
+        batch_size=BATCH_SIZE,
+        num_workers=NUM_WORKERS,
+        get_radio_stats=GET_RADIO_STATS,
+        plot_stacked=False,
+    ):
         """
         Init function of Statistics class.
 
@@ -109,16 +112,18 @@ class Statistics():
         self.dataset = dataset
 
         if not os.path.exists(output_path):
-            raise OdeonError(ErrorCodes.ERR_FILE_NOT_EXIST,
-                             f"Output folder ${output_path} does not exist.")
+            raise OdeonError(
+                ErrorCodes.ERR_FILE_NOT_EXIST,
+                f"Output folder ${output_path} does not exist.",
+            )
         else:
             self.output_path = output_path
 
-        if output_type in ['md', 'json', 'html']:
+        if output_type in ["md", "json", "html"]:
             self.output_type = output_type
         else:
-            LOGGER.error('ERROR: the output file can only be in md, json, html')
-            self.output_type = 'html'
+            LOGGER.error("ERROR: the output file can only be in md, json, html")
+            self.output_type = "html"
         self.decimals = DECIMALS
         self.nbr_bands = len(self.dataset.image_bands)
         self.nbr_classes = len(self.dataset.mask_bands)
@@ -126,76 +131,101 @@ class Statistics():
         self.nbr_total_pixel = len(self.dataset) * self.nbr_pixels_per_patch
 
         if bands_labels is not None and len(bands_labels) != self.nbr_bands:
-            LOGGER.error('ERROR: parameter bands_labels should have a number of values equal to the number of bands .')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter bands_labels is incorrect.")
+            LOGGER.error(
+                "ERROR: parameter bands_labels should have a number of values equal to the number of bands ."
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "The input parameter bands_labels is incorrect.",
+            )
         elif bands_labels is None:
-            self.bands_labels = [f'band {i}' for i in range(1, self.nbr_bands+1)]
+            self.bands_labels = [f"band {i}" for i in range(1, self.nbr_bands + 1)]
         else:
             self.bands_labels = bands_labels
 
         if class_labels is not None and len(class_labels) != self.nbr_classes:
-            LOGGER.error('ERROR: parameter class_labels should have a number of values equal to the number of classes.')
-            raise OdeonError(ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                             "The input parameter class_labels is incorrect.")
+            LOGGER.error(
+                "ERROR: parameter class_labels should have a number of values equal to the number of classes."
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "The input parameter class_labels is incorrect.",
+            )
         elif class_labels is None:
-            self.class_labels = [f'class {i}' for i in range(1, self.nbr_classes+1)]
+            self.class_labels = [f"class {i}" for i in range(1, self.nbr_classes + 1)]
         else:
             self.class_labels = class_labels
 
-        self.depth_dict = {'keep':  1,
-                           '8 bits': 255,
-                           '12 bits': 4095,
-                           '14 bits': 16383,
-                           '16 bits': 65535}
+        self.depth_dict = {
+            "keep": 1,
+            "8 bits": 255,
+            "12 bits": 4095,
+            "14 bits": 16383,
+            "16 bits": 65535,
+        }
 
         if bit_depth in self.depth_dict.keys():
             self.bit_depth = bit_depth
         else:
             self.bit_depth = BIT_DEPTH
-            LOGGER.warning(f"""WARNING: the pixel depth input in the configuration file is not correct.
+            LOGGER.warning(
+                f"""WARNING: the pixel depth input in the configuration file is not correct.
                             For the rest of the computations we will consider that the images in your
-                            input dataset are in {BIT_DEPTH}.""")
+                            input dataset are in {BIT_DEPTH}."""
+            )
         self.zeros_pixels = 0
         self.nbr_bins = nbr_bins
         self.bins = self.get_bins(bins)
         self.get_skewness_kurtosis = get_skewness_kurtosis
 
         # To compute the stats for the images bands.
-        self.min = [float('inf')] * self.nbr_bands
-        self.max = [-float('inf')] * self.nbr_bands
-        self._sum = self._sumSq = self.means = self.std = np.zeros(self.nbr_bands)  # Vars to compute the mean and std.
+        self.min = [float("inf")] * self.nbr_bands
+        self.max = [-float("inf")] * self.nbr_bands
+        self._sum = self._sumSq = self.means = self.std = np.zeros(
+            self.nbr_bands
+        )  # Vars to compute the mean and std.
         if self.get_skewness_kurtosis:
             self.skewness = np.zeros(self.nbr_bands)
             self.kurtosis = np.zeros(self.nbr_bands)
 
         self.batch_size = batch_size
         self.num_workers = num_workers
-        assert self.batch_size <= len(self.dataset), "batch_size must be lower than the length of the dataset"
+        assert self.batch_size <= len(
+            self.dataset
+        ), "batch_size must be lower than the length of the dataset"
 
         if len(self.dataset) % self.batch_size == 0:
-            self.nbr_batches = len(self.dataset)//self.batch_size
+            self.nbr_batches = len(self.dataset) // self.batch_size
         else:
-            self.nbr_batches = len(self.dataset)//self.batch_size + 1
+            self.nbr_batches = len(self.dataset) // self.batch_size + 1
 
         # Labels for histograms
         if len(self.bins) <= 20:
             self.labels = []
             for i in range(len(self.bins)):
                 if i < len(self.bins) - 1:
-                    self.labels.append(f'{str(self.bins[i])}-{str(self.bins[i+1])}')
+                    self.labels.append(f"{str(self.bins[i])}-{str(self.bins[i+1])}")
 
         # Stats radiometry
         self.get_radio_stats = get_radio_stats
         if self.get_radio_stats:
-            self.df_radio = pd.DataFrame(index=self.class_labels, columns=self.bands_labels, dtype=object)
-            self.df_radio = self.df_radio.applymap(lambda x: np.zeros(len(self.bins) - 1))
+            self.df_radio = pd.DataFrame(
+                index=self.class_labels, columns=self.bands_labels, dtype=object
+            )
+            self.df_radio = self.df_radio.applymap(
+                lambda x: np.zeros(len(self.bins) - 1)
+            )
 
         self.plot_stacked = plot_stacked
 
         # Dataframes creation
-        self.df_dataset, self.df_bands_stats, self.df_classes_stats, self.df_global_stats, self.bands_hists =\
-            self.create_data_for_stats()
+        (
+            self.df_dataset,
+            self.df_bands_stats,
+            self.df_classes_stats,
+            self.df_global_stats,
+            self.bands_hists,
+        ) = self.create_data_for_stats()
 
     def run(self):
         """
@@ -230,11 +260,16 @@ class Statistics():
         """
         max_pixel_value = self.depth_dict[self.bit_depth]
         if bins is None and self.nbr_bins is not None:
-            bins = [round((i/self.nbr_bins) * max_pixel_value, 3) for i in range(self.nbr_bins)]
+            bins = [
+                round((i / self.nbr_bins) * max_pixel_value, 3)
+                for i in range(self.nbr_bins)
+            ]
             bins.append(max_pixel_value)
 
         elif bins is None and self.nbr_bins is None:
-            bins = np.arange(start=0, stop=self.depth_dict[self.bit_depth] + 1, step=MOVING_AVERAGE)
+            bins = np.arange(
+                start=0, stop=self.depth_dict[self.bit_depth] + 1, step=MOVING_AVERAGE
+            )
 
         if isinstance(bins, list):
             bins = np.array(bins)
@@ -252,29 +287,43 @@ class Statistics():
         # Creation of the dataframe for the global stats
         # If we are in the multiclass case, we calculate the stats also without the last class.
         if self.nbr_classes > 2:
-            df_global_stats = pd.DataFrame(index=['all classes', 'without last class'],
-                                           columns=['share multilabel', 'avg nb class in patch', 'avg entropy'])
-            df_global_stats.loc['without last class', 'share multilabel'] = 0
+            df_global_stats = pd.DataFrame(
+                index=["all classes", "without last class"],
+                columns=["share multilabel", "avg nb class in patch", "avg entropy"],
+            )
+            df_global_stats.loc["without last class", "share multilabel"] = 0
         else:  # If we are in a binary case
-            df_global_stats = pd.DataFrame(index=['all classes'],
-                                           columns=['share multilabel', 'avg nb class in patch', 'avg entropy'])
-        df_global_stats.loc['all classes', 'share multilabel'] = 0
+            df_global_stats = pd.DataFrame(
+                index=["all classes"],
+                columns=["share multilabel", "avg nb class in patch", "avg entropy"],
+            )
+        df_global_stats.loc["all classes", "share multilabel"] = 0
 
-        df_dataset = pd.DataFrame(index=range(len(self.dataset)), columns=self.class_labels)
+        df_dataset = pd.DataFrame(
+            index=range(len(self.dataset)), columns=self.class_labels
+        )
 
         if self.get_skewness_kurtosis:
-            header_bands = ['min', 'max', 'mean', 'std', 'skewness', 'kurtosis']
+            header_bands = ["min", "max", "mean", "std", "skewness", "kurtosis"]
         else:
-            header_bands = ['min', 'max', 'mean', 'std']
+            header_bands = ["min", "max", "mean", "std"]
 
         df_bands_stats = pd.DataFrame(index=self.bands_labels, columns=header_bands)
 
-        df_classes_stats = pd.DataFrame(index=self.class_labels,
-                                        columns=['regu L1', 'regu L2', 'pixel freq', 'freq 5% pixel', 'auc'])
+        df_classes_stats = pd.DataFrame(
+            index=self.class_labels,
+            columns=["regu L1", "regu L2", "pixel freq", "freq 5% pixel", "auc"],
+        )
 
         bands_hists = [np.zeros(len(self.bins) - 1) for _ in range(self.nbr_bands)]
 
-        return df_dataset, df_bands_stats, df_classes_stats, df_global_stats, bands_hists
+        return (
+            df_dataset,
+            df_bands_stats,
+            df_classes_stats,
+            df_global_stats,
+            bands_hists,
+        )
 
     def scan_dataset(self):
         """
@@ -282,16 +331,22 @@ class Statistics():
         and compute directly global statistics.
         """
         nb_class_in_patch, list_entropy = [], []
-        if self.nbr_classes > 2:  # If nbr classes > 2, we compute stats without last class.
+        if (
+            self.nbr_classes > 2
+        ):  # If nbr classes > 2, we compute stats without last class.
             nb_class_in_patch_wlc, list_entropy_wlc = [], []
 
         # Pass over the data to collect stats, hist, sum and counts.
-        stat_dataloader = DataLoader(self.dataset, self.batch_size, shuffle=False, num_workers=self.num_workers)
+        stat_dataloader = DataLoader(
+            self.dataset, self.batch_size, shuffle=False, num_workers=self.num_workers
+        )
 
         index = 0
-        for sample in tqdm(stat_dataloader, desc='First pass', leave=True):
-            for image, mask in zip(sample['image'], sample['mask']):
-                image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
+        for sample in tqdm(stat_dataloader, desc="First pass", leave=True):
+            for image, mask in zip(sample["image"], sample["mask"]):
+                image = self.to_pixel_input_range(
+                    image.numpy().swapaxes(0, 2).swapaxes(0, 1)
+                )
                 self.zeros_pixels += np.count_nonzero(np.sum(image, axis=2) == 0)
                 mask = mask.numpy().swapaxes(0, 2).swapaxes(0, 1)
                 for idx_band in range(self.nbr_bands):
@@ -309,16 +364,21 @@ class Statistics():
 
                     # Cumulative addition by band of the histograms of each image.
                     current_bins_counts = np.histogram(vect_band, self.bins)[0]
-                    self.bands_hists[idx_band] = np.add(self.bands_hists[idx_band], current_bins_counts)
+                    self.bands_hists[idx_band] = np.add(
+                        self.bands_hists[idx_band], current_bins_counts
+                    )
 
                 for idx_class, name_class in enumerate(self.class_labels):
                     vect_class = mask[:, :, idx_class].flatten()
-                    self.df_dataset.loc[index, name_class] = np.count_nonzero(vect_class)
+                    self.df_dataset.loc[index, name_class] = np.count_nonzero(
+                        vect_class
+                    )
                 index += 1
 
                 # Information storage for statistics.
-                self.df_global_stats.loc['all classes', 'share multilabel'] += \
-                    np.count_nonzero(np.sum(mask.copy(), axis=2) > 1)
+                self.df_global_stats.loc[
+                    "all classes", "share multilabel"
+                ] += np.count_nonzero(np.sum(mask.copy(), axis=2) > 1)
                 # Sum of each band to get the total pixels present per class in a mask.
                 vect_sum_class = np.sum(mask, axis=(0, 1))
                 nb_class_in_patch.append(np.count_nonzero(vect_sum_class))
@@ -326,19 +386,26 @@ class Statistics():
                 if all(np.equal(vect_sum_class, np.zeros(self.nbr_classes))):
                     sample_entropy = 0  # A vector of 0 passing to the entropy function returns Nans vector.
                 else:
-                    vect_normalize = vect_sum_class/self.nbr_pixels_per_patch
+                    vect_normalize = vect_sum_class / self.nbr_pixels_per_patch
                     sample_entropy = entropy(vect_normalize)
                 list_entropy.append(sample_entropy)
 
                 if self.nbr_classes > 2:
-                    self.df_global_stats.loc['without last class', 'share multilabel'] += \
-                         np.count_nonzero(np.sum(mask[:, :, :(self.nbr_classes - 1)], axis=2) > 1)
+                    self.df_global_stats.loc[
+                        "without last class", "share multilabel"
+                    ] += np.count_nonzero(
+                        np.sum(mask[:, :, : (self.nbr_classes - 1)], axis=2) > 1
+                    )
                     nb_class_in_patch_wlc.append(np.count_nonzero(vect_sum_class[:-1]))
 
-                    if all(np.equal(vect_sum_class[:-1], np.zeros(self.nbr_classes-1))):
+                    if all(
+                        np.equal(vect_sum_class[:-1], np.zeros(self.nbr_classes - 1))
+                    ):
                         sample_entropy_wlc = 0
                     else:
-                        vect_normalize_wlc = vect_sum_class[:-1]/self.nbr_pixels_per_patch
+                        vect_normalize_wlc = (
+                            vect_sum_class[:-1] / self.nbr_pixels_per_patch
+                        )
                         sample_entropy_wlc = entropy(vect_normalize_wlc)
                     list_entropy_wlc.append(sample_entropy_wlc)
 
@@ -348,40 +415,61 @@ class Statistics():
                     for i, class_i in enumerate(self.class_labels):
                         for j, band_j in enumerate(self.bands_labels):
                             img_filter = image[:, :, j][mask[:, :, i] == 1]
-                            self.df_radio.loc[class_i, band_j] += np.histogram(img_filter,
-                                                                               bins=self.bins)[0]
+                            self.df_radio.loc[class_i, band_j] += np.histogram(
+                                img_filter, bins=self.bins
+                            )[0]
 
         self.means = self._sum / self.nbr_total_pixel
 
         # Second pass to compute variance:
-        for sample in tqdm(stat_dataloader, desc='Second pass', leave=True):
-            for image, _ in zip(sample['image'], sample['mask']):
-                image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
+        for sample in tqdm(stat_dataloader, desc="Second pass", leave=True):
+            for image, _ in zip(sample["image"], sample["mask"]):
+                image = self.to_pixel_input_range(
+                    image.numpy().swapaxes(0, 2).swapaxes(0, 1)
+                )
                 for idx_band in range(self.nbr_bands):
                     vect_band = image[:, :, idx_band].flatten()
-                    self._sumSq[idx_band] += np.sum(np.square(vect_band - self.means[idx_band]))
+                    self._sumSq[idx_band] += np.sum(
+                        np.square(vect_band - self.means[idx_band])
+                    )
 
         self.std = np.sqrt((self._sumSq / (self.nbr_total_pixel - 1)))
 
         # Third pass to compute sknewness and kurtosis
         if self.get_skewness_kurtosis:
-            for sample in tqdm(stat_dataloader, desc='Third pass', leave=True):
-                for image, _ in zip(sample['image'], sample['mask']):
-                    image = self.to_pixel_input_range(image.numpy().swapaxes(0, 2).swapaxes(0, 1))
+            for sample in tqdm(stat_dataloader, desc="Third pass", leave=True):
+                for image, _ in zip(sample["image"], sample["mask"]):
+                    image = self.to_pixel_input_range(
+                        image.numpy().swapaxes(0, 2).swapaxes(0, 1)
+                    )
                     for idx_band in range(self.nbr_bands):
                         vect_band = image[:, :, idx_band].flatten()
-                        vect_band_std = (vect_band - self.means[idx_band]) / self.std[idx_band]
+                        vect_band_std = (vect_band - self.means[idx_band]) / self.std[
+                            idx_band
+                        ]
                         self.skewness[idx_band] += np.sum(np.power(vect_band_std, 3))
                         self.kurtosis[idx_band] += np.sum(np.power(vect_band_std, 4))
 
-        self.df_global_stats.loc['all classes', 'share multilabel'] /= self.nbr_total_pixel
-        self.df_global_stats.loc['all classes', 'avg nb class in patch'] = np.mean(nb_class_in_patch)
-        self.df_global_stats.loc['all classes', 'avg entropy'] = np.nanmean(list_entropy)
+        self.df_global_stats.loc[
+            "all classes", "share multilabel"
+        ] /= self.nbr_total_pixel
+        self.df_global_stats.loc["all classes", "avg nb class in patch"] = np.mean(
+            nb_class_in_patch
+        )
+        self.df_global_stats.loc["all classes", "avg entropy"] = np.nanmean(
+            list_entropy
+        )
 
         if self.nbr_classes > 2:
-            self.df_global_stats.loc['without last class', 'share multilabel'] /= self.nbr_total_pixel
-            self.df_global_stats.loc['without last class', 'avg nb class in patch'] = np.mean(nb_class_in_patch_wlc)
-            self.df_global_stats.loc['without last class', 'avg entropy'] = np.nanmean(list_entropy_wlc)
+            self.df_global_stats.loc[
+                "without last class", "share multilabel"
+            ] /= self.nbr_total_pixel
+            self.df_global_stats.loc[
+                "without last class", "avg nb class in patch"
+            ] = np.mean(nb_class_in_patch_wlc)
+            self.df_global_stats.loc["without last class", "avg entropy"] = np.nanmean(
+                list_entropy_wlc
+            )
 
     def compute_stats(self):
         """
@@ -389,42 +477,57 @@ class Statistics():
         """
         # Statistics on image bands
         for i, name_band in enumerate(self.bands_labels):
-            self.df_bands_stats.loc[name_band, 'min'] = self.min[i]
-            self.df_bands_stats.loc[name_band, 'max'] = self.max[i]
-            self.df_bands_stats.loc[name_band, 'mean'] = self.means[i]
-            self.df_bands_stats.loc[name_band, 'std'] = self.std[i]
+            self.df_bands_stats.loc[name_band, "min"] = self.min[i]
+            self.df_bands_stats.loc[name_band, "max"] = self.max[i]
+            self.df_bands_stats.loc[name_band, "mean"] = self.means[i]
+            self.df_bands_stats.loc[name_band, "std"] = self.std[i]
             if self.get_skewness_kurtosis:
-                self.df_bands_stats.loc[name_band, 'skewness'] = self.skewness[i] / self.nbr_total_pixel
-                self.df_bands_stats.loc[name_band, 'kurtosis'] = self.kurtosis[i] / self.nbr_total_pixel
+                self.df_bands_stats.loc[name_band, "skewness"] = (
+                    self.skewness[i] / self.nbr_total_pixel
+                )
+                self.df_bands_stats.loc[name_band, "kurtosis"] = (
+                    self.kurtosis[i] / self.nbr_total_pixel
+                )
 
         self.zeros_pixels /= self.nbr_total_pixel
 
         # Divide the histogram binscounts by the number of images in the dataset. Division element wise.
-        self.bands_hists = [(band_hist/len(self.dataset)).astype(int) for band_hist in self.bands_hists]
+        self.bands_hists = [
+            (band_hist / len(self.dataset)).astype(int)
+            for band_hist in self.bands_hists
+        ]
 
         # Statistics on classes in masks
         for col in self.df_dataset.columns:
             # Ratio of the number of pixels belonging to a class to the total number of pixels in the dataset.
             class_freq = self.df_dataset[col].sum() / self.nbr_total_pixel
-            self.df_classes_stats.loc[col, 'pixel freq'] = class_freq
+            self.df_classes_stats.loc[col, "pixel freq"] = class_freq
             # For the rest of the stats, if the class is not present in any of the masks then the stats are set to zero
 
             # Frequency ratio for each class with L1 normalization
-            self.df_classes_stats.loc[col, 'regu L1'] = 1 / (class_freq) if class_freq != 0 else 0
+            self.df_classes_stats.loc[col, "regu L1"] = (
+                1 / (class_freq) if class_freq != 0 else 0
+            )
 
             # Frequency ratio for each class with L2 normalization
-            self.df_classes_stats.loc[col, 'regu L2'] = \
+            self.df_classes_stats.loc[col, "regu L2"] = (
                 1 / np.sqrt((class_freq)) if class_freq != 0 else 0
+            )
 
             # Frequency at which a class is part of at least 5% of an image
-            self.df_classes_stats.loc[col, 'freq 5% pixel'] = \
-                (self.df_dataset[col][self.df_dataset[col] > 0.05 * self.nbr_pixels_per_patch].count())\
-                / len(self.dataset)
+            self.df_classes_stats.loc[col, "freq 5% pixel"] = (
+                self.df_dataset[col][
+                    self.df_dataset[col] > 0.05 * self.nbr_pixels_per_patch
+                ].count()
+            ) / len(self.dataset)
 
             # Area under the Lorenz curve of the pixel distribution by class
             x = self.df_dataset[col]
-            self.df_classes_stats.loc[col, 'auc'] = \
-                2 * np.sum(np.cumsum(np.sort(x))/np.sum(x))/len(self.dataset) if np.sum(x != 0) else 0
+            self.df_classes_stats.loc[col, "auc"] = (
+                2 * np.sum(np.cumsum(np.sort(x)) / np.sum(x)) / len(self.dataset)
+                if np.sum(x != 0)
+                else 0
+            )
 
     def to_pixel_input_range(self, value):
         """Pixels of image in the input dataset are normalize to the range 0 to 1.
@@ -442,7 +545,15 @@ class Statistics():
         """
         return value * self.depth_dict[self.bit_depth]
 
-    def plot_hists(self, bincounts, n_cols=3, size_row=6, size_col=6, name_plot=None, display_stats=False):
+    def plot_hists(
+        self,
+        bincounts,
+        n_cols=3,
+        size_row=6,
+        size_col=6,
+        name_plot=None,
+        display_stats=False,
+    ):
         """
         Plot histograms from bincounts.
         The histograms are saved in an image with '.png' format.
@@ -469,31 +580,62 @@ class Statistics():
         str
             Path where the output image will be stored.
         """
-        default_cycler = cycler(color=['tab:red', 'tab:green', 'tab:blue', 'darkviolet', 'darkolivegreen',
-                                       'orange', 'coral', 'crimson', 'darkmagenta', 'midnightblue', 'cadetblue'])
-        plt.rc('axes', prop_cycle=default_cycler)
+        default_cycler = cycler(
+            color=[
+                "tab:red",
+                "tab:green",
+                "tab:blue",
+                "darkviolet",
+                "darkolivegreen",
+                "orange",
+                "coral",
+                "crimson",
+                "darkmagenta",
+                "midnightblue",
+                "cadetblue",
+            ]
+        )
+        plt.rc("axes", prop_cycle=default_cycler)
 
         if not self.plot_stacked:
             n_plot = self.nbr_bands
             n_rows = ((n_plot - 1) // n_cols) + 1
-            fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(size_col * n_cols, size_row * n_rows))
+            fig, axes = plt.subplots(
+                nrows=n_rows,
+                ncols=n_cols,
+                figsize=(size_col * n_cols, size_row * n_rows),
+            )
             axes = axes.ravel()
             axes_to_del = len(axes) - n_plot
             for i, ax_prop in enumerate(zip(self.bands_labels, default_cycler)):
                 band_label, c = ax_prop[0], ax_prop[1]
                 bincount = bincounts[i]
                 if display_stats:
-                    mean = np.round(self.df_bands_stats.loc[band_label, "mean"], self.decimals)
-                    std = np.round(self.df_bands_stats.loc[band_label, "std"], self.decimals)
-                    axes[i].axvline(mean, label=f"Mean: {str(mean)}", linestyle='--', alpha=0.5)
-                    axes[i].axvspan(mean - std, mean + std, label=f"Std: {str(std)}",
-                                    linestyle='--', alpha=0.5, color="lightblue")
-                    axes[i].legend(loc='upper right')
-                axes[i].hist(self.bins[:-1],
-                             weights=bincount,
-                             bins=self.bins,
-                             color=c['color'],
-                             alpha=0.7)
+                    mean = np.round(
+                        self.df_bands_stats.loc[band_label, "mean"], self.decimals
+                    )
+                    std = np.round(
+                        self.df_bands_stats.loc[band_label, "std"], self.decimals
+                    )
+                    axes[i].axvline(
+                        mean, label=f"Mean: {str(mean)}", linestyle="--", alpha=0.5
+                    )
+                    axes[i].axvspan(
+                        mean - std,
+                        mean + std,
+                        label=f"Std: {str(std)}",
+                        linestyle="--",
+                        alpha=0.5,
+                        color="lightblue",
+                    )
+                    axes[i].legend(loc="upper right")
+                axes[i].hist(
+                    self.bins[:-1],
+                    weights=bincount,
+                    bins=self.bins,
+                    color=c["color"],
+                    alpha=0.7,
+                )
                 axes[i].set_ylabel("Pixel count")
                 axes[i].set_xlabel("Pixel distribution")
                 if len(self.bins) <= 20:
@@ -501,26 +643,35 @@ class Statistics():
                     axes[i].set_xticklabels(self.labels)
                     plt.setp(axes[i].get_xticklabels(), rotation=35)
                 axes[i].set_title(f"{band_label.capitalize()}", fontsize=13)
-                axes[i].grid(b=True, which='major', linestyle='-')
+                axes[i].grid(b=True, which="major", linestyle="-")
                 axes[i].minorticks_on()
-                axes[i].grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
+                axes[i].grid(
+                    b=True, which="minor", color="#999999", linestyle="-", alpha=0.2
+                )
             if axes_to_del != 0:
                 for i in range(axes_to_del):
                     fig.delaxes(axes[n_plot + i])
         else:
             plt.figure(figsize=(12, 6))
             for i, plot_prop in enumerate(zip(self.bands_labels, default_cycler)):
-                band_label, color = plot_prop[0], plot_prop[1]['color']
+                band_label, color = plot_prop[0], plot_prop[1]["color"]
                 # if display_stats:
                 #     mean = np.around(self.df_bands_stats.loc[band_label, "mean"], decimals=self.decimals)
                 #     plt.axvline(mean, label=f"Mean {band_label}: {str(mean)}",
                 #                 linestyle='--', alpha=0.5, color=color)
-                plt.hist(self.bins[:-1], weights=bincounts[i], bins=self.bins,
-                         histtype='step', label=band_label, alpha=0.7, color=color)
-            plt.grid(b=True, which='major', linestyle='-')
+                plt.hist(
+                    self.bins[:-1],
+                    weights=bincounts[i],
+                    bins=self.bins,
+                    histtype="step",
+                    label=band_label,
+                    alpha=0.7,
+                    color=color,
+                )
+            plt.grid(b=True, which="major", linestyle="-")
             plt.minorticks_on()
-            plt.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
-            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.grid(b=True, which="minor", color="#999999", linestyle="-", alpha=0.2)
+            plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
             plt.ylabel("Pixel count")
             plt.xlabel("Pixel distribution")
 
@@ -529,7 +680,7 @@ class Statistics():
         plt.savefig(output_path)
         return output_path
 
-    def plot_hists_bands(self, name_plot='stats_hists.png'):
+    def plot_hists_bands(self, name_plot="stats_hists.png"):
         """Plot histograms for the image bands distributions.
         The histograms are saved in an image with '.png' format.
 
@@ -551,6 +702,11 @@ class Statistics():
         """
         output_paths = {}
         for class_i in self.class_labels:
-            bincounts = [self.df_radio.loc[class_i, band_label] for band_label in self.bands_labels]
-            output_paths[class_i] = self.plot_hists(bincounts, name_plot=f"radio_{'_'.join(class_i.split(' '))}.png")
+            bincounts = [
+                self.df_radio.loc[class_i, band_label]
+                for band_label in self.bands_labels
+            ]
+            output_paths[class_i] = self.plot_hists(
+                bincounts, name_plot=f"radio_{'_'.join(class_i.split(' '))}.png"
+            )
         return output_paths

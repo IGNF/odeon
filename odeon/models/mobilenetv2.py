@@ -2,9 +2,9 @@ from torch import nn
 from torchvision.models import MobileNetV2
 
 try:
-    from torchvision.models.mobilenetv2 import _make_divisible, ConvBNReLU
+    from torchvision.models.mobilenetv2 import ConvBNReLU, _make_divisible
 except ModuleNotFoundError:
-    from torchvision.models.mobilenet import _make_divisible, ConvBNReLU
+    from torchvision.models.mobilenet import ConvBNReLU, _make_divisible
 
 
 class MobileNetV2(MobileNetV2):
@@ -27,13 +27,16 @@ class MobileNetV2(MobileNetV2):
     block : [type], optional
         cf. <torchvision.models.MobileNetV2>, by default None
     """
-    def __init__(self,
-                 n_channels,
-                 n_classes,
-                 width_mult=1.0,
-                 inverted_residual_setting=None,
-                 round_nearest=8,
-                 block=None):
+
+    def __init__(
+        self,
+        n_channels,
+        n_classes,
+        width_mult=1.0,
+        inverted_residual_setting=None,
+        round_nearest=8,
+        block=None,
+    ):
         super(MobileNetV2, self).__init__()
 
         # replace original first layer which is made for 3-channels images

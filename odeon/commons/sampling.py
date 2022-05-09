@@ -1,12 +1,14 @@
-from odeon import LOGGER
 import math
-from tqdm import tqdm
-import numpy as np
+
 import fiona
-from shapely.geometry import shape, box, Point, mapping
+import numpy as np
 import rasterio
 from rasterio import features
-from odeon.commons.exception import OdeonError, ErrorCodes
+from shapely.geometry import Point, box, mapping, shape
+from tqdm import tqdm
+
+from odeon import LOGGER
+from odeon.commons.exception import ErrorCodes, OdeonError
 
 
 class BaseFunctor:
@@ -28,7 +30,7 @@ class BaseFunctor:
         """
 
         self.pixel_size = resolution
-        self.feat_layer = fiona.open(mask_shp, 'r')
+        self.feat_layer = fiona.open(mask_shp, "r")
         self.count = 0
         self.invert = invert
 
@@ -58,22 +60,22 @@ class BaseFunctor:
 
         if len(feat_gen) == 0:
 
-            raise OdeonError(error_code=ErrorCodes.ERR_EMPTY_ITERABLE_OBJECT,
-                             message="empty list, there is no geometry in the object feat_bbox_select")
+            raise OdeonError(
+                error_code=ErrorCodes.ERR_EMPTY_ITERABLE_OBJECT,
+                message="empty list, there is no geometry in the object feat_bbox_select",
+            )
 
         tile_shape = (
             int(round((max_x - min_x) / self.pixel_size[0])),
             int(round((max_y - min_y) / self.pixel_size[1])),
         )
         tile_affine = rasterio.transform.from_origin(
-            min_x,
-            max_y,
-            self.pixel_size[0],
-            self.pixel_size[1])
+            min_x, max_y, self.pixel_size[0], self.pixel_size[1]
+        )
 
-        image = features.rasterize(feat_gen,
-                                   out_shape=tile_shape,
-                                   transform=tile_affine)
+        image = features.rasterize(
+            feat_gen, out_shape=tile_shape, transform=tile_affine
+        )
 
         if self.invert:
 
@@ -83,8 +85,10 @@ class BaseFunctor:
 
             if not bbox_tile.intersects(mask):
 
-                raise OdeonError(error_code=ErrorCodes.ERR_INTERSECTION_ERROR,
-                                 message=f"the bounding box {bbox_tile} does not intersects the mask {mask}")
+                raise OdeonError(
+                    error_code=ErrorCodes.ERR_INTERSECTION_ERROR,
+                    message=f"the bounding box {bbox_tile} does not intersects the mask {mask}",
+                )
 
             feat_mask = [mask]
             img_mask = rasterio.features.geometry_mask(
@@ -92,7 +96,8 @@ class BaseFunctor:
                 out_shape=tile_shape,
                 transform=tile_affine,
                 all_touched=True,
-                invert=True)
+                invert=True,
+            )
 
         else:
 
@@ -153,16 +158,18 @@ class SampleFunctor(BaseFunctor):
     The size of tile should be a multiple of the patch size.
     """
 
-    def __init__(self,
-                 mask_shp,
-                 resolution,
-                 invert,
-                 num_sample,
-                 patch_count,
-                 patch_size,
-                 out_sample,
-                 out_shp_type=None,
-                 density_threshold=None):
+    def __init__(
+        self,
+        mask_shp,
+        resolution,
+        invert,
+        num_sample,
+        patch_count,
+        patch_size,
+        out_sample,
+        out_shp_type=None,
+        density_threshold=None,
+    ):
         """
 
         Parameters
@@ -190,21 +197,19 @@ class SampleFunctor(BaseFunctor):
         self.out_crs = self.feat_layer.crs
         self.tot_patch = 0
         self.tot_sample = 0
-        self.f_coord = open(out_sample, 'w')
+        self.f_coord = open(out_sample, "w")
 
         if patch_size is not None:
 
-            patch_size_p = [
-                patch_size * resolution[0],
-                patch_size * resolution[1]
-            ]
+            patch_size_p = [patch_size * resolution[0], patch_size * resolution[1]]
 
         else:
 
             patch_size_p = None
 
         self.feat_sample, self.write_sample = init_out_shp(
-            self.f_coord, self.out_crs, patch_size_p, out_shp_type)
+            self.f_coord, self.out_crs, patch_size_p, out_shp_type
+        )
         self.patch_size = patch_size
         self.density_threshold = density_threshold
         self.patch_stride = max(int(patch_count / num_sample), 1)
@@ -228,17 +233,14 @@ class SampleFunctor(BaseFunctor):
         try:
             if mask is not None:
 
-                image, img_mask, tile_size, tile_affine = super(SampleFunctor, self).__call__(min_x,
-                                                                                              min_y,
-                                                                                              max_x,
-                                                                                              max_y,
-                                                                                              mask=mask)
+                image, img_mask, tile_size, tile_affine = super(
+                    SampleFunctor, self
+                ).__call__(min_x, min_y, max_x, max_y, mask=mask)
             else:
 
-                image, img_mask, tile_size, tile_affine = super(SampleFunctor, self).__call__(min_x,
-                                                                                              min_y,
-                                                                                              max_x,
-                                                                                              max_y)
+                image, img_mask, tile_size, tile_affine = super(
+                    SampleFunctor, self
+                ).__call__(min_x, min_y, max_x, max_y)
 
             if self.density_threshold:
 
@@ -276,9 +278,13 @@ class SampleFunctor(BaseFunctor):
         nb_patch_x = int(tile_size[0] / self.patch_size)
         nb_patch_y = int(tile_size[1] / self.patch_size)
 
-        if (nb_patch_x * self.patch_size != tile_size[0]) or (nb_patch_y * self.patch_size != tile_size[1]):
+        if (nb_patch_x * self.patch_size != tile_size[0]) or (
+            nb_patch_y * self.patch_size != tile_size[1]
+        ):
 
-            LOGGER.warning(f"tile size {tile_size} is not a multiple of patch size {self.patch_size}")
+            LOGGER.warning(
+                f"tile size {tile_size} is not a multiple of patch size {self.patch_size}"
+            )
 
         image_masked = np.logical_and(image, img_mask).astype(rasterio.uint8)
         patch_array = np.zeros((nb_patch_x, nb_patch_y))
@@ -300,7 +306,9 @@ class SampleFunctor(BaseFunctor):
 
         patch_count = patch_array.sum()
 
-        if (self.tot_patch + patch_count) < (self.tot_sample * self.patch_stride + self.patch_stride):
+        if (self.tot_patch + patch_count) < (
+            self.tot_sample * self.patch_stride + self.patch_stride
+        ):
 
             self.tot_patch += patch_count
 
@@ -308,7 +316,9 @@ class SampleFunctor(BaseFunctor):
 
         # si oui
         pix_i, pix_j = np.where(patch_array)
-        sample_idx = int((self.tot_sample * self.patch_stride + self.patch_stride) - self.tot_patch)
+        sample_idx = int(
+            (self.tot_sample * self.patch_stride + self.patch_stride) - self.tot_patch
+        )
         # LOGGER.info("pix_count = {0}".format(pix_count))
         try:
 
@@ -318,12 +328,19 @@ class SampleFunctor(BaseFunctor):
                 sample_i = pix_i[sample_idx]
                 sample_j = pix_j[sample_idx]
 
-                coord_x_min, coord_y_min = tile_affine * (sample_j * self.patch_size, sample_i * self.patch_size)
+                coord_x_min, coord_y_min = tile_affine * (
+                    sample_j * self.patch_size,
+                    sample_i * self.patch_size,
+                )
                 dist_to_center = [
                     self.patch_size * self.pixel_size[0] / 2,
-                    self.patch_size * self.pixel_size[1] / 2
+                    self.patch_size * self.pixel_size[1] / 2,
                 ]
-                self.write_sample(coord_x_min + dist_to_center[0], coord_y_min + dist_to_center[1], self.tot_sample)
+                self.write_sample(
+                    coord_x_min + dist_to_center[0],
+                    coord_y_min + dist_to_center[1],
+                    self.tot_sample,
+                )
                 sample_idx += self.patch_stride
                 self.tot_sample += 1
 
@@ -354,14 +371,18 @@ class SampleFunctor(BaseFunctor):
         pix_count = image[img_mask].sum()
 
         # we check if we need new pixels in the current tile
-        if (self.tot_patch + pix_count) < (self.tot_sample * self.patch_stride + self.patch_stride):
+        if (self.tot_patch + pix_count) < (
+            self.tot_sample * self.patch_stride + self.patch_stride
+        ):
 
             self.tot_patch += pix_count
             return
 
         # if we need new pixel
         pix_i, pix_j = np.where(np.logical_and(image, img_mask).astype(np.uint8))
-        sample_idx = int((self.tot_sample * self.patch_stride + self.patch_stride) - self.tot_patch)
+        sample_idx = int(
+            (self.tot_sample * self.patch_stride + self.patch_stride) - self.tot_patch
+        )
 
         try:
 
@@ -411,7 +432,9 @@ class CountFunctor(BaseFunctor):
     La taille des dalles de traitements dans être un nombre entier de la taille de patch
     """
 
-    def __init__(self, mask_shp, resolution, invert, patch_size=None, density_threshold=None):
+    def __init__(
+        self, mask_shp, resolution, invert, patch_size=None, density_threshold=None
+    ):
         """constructeur du foncteur de comptage de patch d'entrainement
 
         Parameters
@@ -435,34 +458,31 @@ class CountFunctor(BaseFunctor):
     def __call__(self, min_x, min_y, max_x, max_y, mask=None):
         """operateur sur une dalle définie par les coordonnées [min_x,max_x][min_y, max_y]
 
-                Parameters
-                ----------
-                min_x : float
-                min_y : float
-                max_x : float
-                max_y : float
-                mask : NDArray
+        Parameters
+        ----------
+        min_x : float
+        min_y : float
+        max_x : float
+        max_y : float
+        mask : NDArray
 
-                Returns
-                -------
+        Returns
+        -------
 
         """
         try:
 
             if mask is not None:
 
-                image, img_mask, tile_size, tile_affine = super(CountFunctor, self).__call__(min_x,
-                                                                                             min_y,
-                                                                                             max_x,
-                                                                                             max_y,
-                                                                                             mask=mask)
+                image, img_mask, tile_size, tile_affine = super(
+                    CountFunctor, self
+                ).__call__(min_x, min_y, max_x, max_y, mask=mask)
 
             else:
 
-                image, img_mask, tile_size, tile_affine = super(CountFunctor, self).__call__(min_x,
-                                                                                             min_y,
-                                                                                             max_x,
-                                                                                             max_y)
+                image, img_mask, tile_size, tile_affine = super(
+                    CountFunctor, self
+                ).__call__(min_x, min_y, max_x, max_y)
 
             if self.density_threshold is not None:
 
@@ -500,10 +520,14 @@ class CountFunctor(BaseFunctor):
         nb_patch_x = int(tile_size[0] / self.patch_size)
         nb_patch_y = int(tile_size[1] / self.patch_size)
 
-        if (nb_patch_x * self.patch_size != tile_size[0]) or (nb_patch_y * self.patch_size != tile_size[1]):
+        if (nb_patch_x * self.patch_size != tile_size[0]) or (
+            nb_patch_y * self.patch_size != tile_size[1]
+        ):
 
-            LOGGER.warning(f"tile size {tile_size} is not \
-                            a multiple of patch size {self.patch_size} on one of its axis")
+            LOGGER.warning(
+                f"tile size {tile_size} is not \
+                            a multiple of patch size {self.patch_size} on one of its axis"
+            )
 
         image_masked = np.logical_and(image, img_mask).astype(rasterio.uint8)
 
@@ -566,8 +590,14 @@ def init_out_shp(out_sample, out_crs, patch_size_p, out_shp_type=None):
 
     if out_shp_type == "pixel":
 
-        sample_schema = {'geometry': 'Point', 'properties': {'id_sample': 'int'}}
-        feat_sample = fiona.open(out_sample_shp, 'w', crs=out_crs, driver='ESRI Shapefile', schema=sample_schema)
+        sample_schema = {"geometry": "Point", "properties": {"id_sample": "int"}}
+        feat_sample = fiona.open(
+            out_sample_shp,
+            "w",
+            crs=out_crs,
+            driver="ESRI Shapefile",
+            schema=sample_schema,
+        )
         LOGGER.info("export shapefile des échantillons au format point/pixel")
 
         def write(x, y, id_sample):
@@ -576,13 +606,26 @@ def init_out_shp(out_sample, out_crs, patch_size_p, out_shp_type=None):
 
     elif out_shp_type == "patch":
 
-        sample_schema = {'geometry': 'Polygon', 'properties': {'id_sample': 'int'}}
-        feat_sample = fiona.open(out_sample_shp, 'w', crs=out_crs, driver='ESRI Shapefile', schema=sample_schema)
+        sample_schema = {"geometry": "Polygon", "properties": {"id_sample": "int"}}
+        feat_sample = fiona.open(
+            out_sample_shp,
+            "w",
+            crs=out_crs,
+            driver="ESRI Shapefile",
+            schema=sample_schema,
+        )
         LOGGER.info("export shapefile des échantillons au format polygones/patch")
 
         def write(x, y, id_sample):
 
-            write_sample(out_sample, x, y, id_sample=id_sample, out_shp=feat_sample, patch_size_p=patch_size_p)
+            write_sample(
+                out_sample,
+                x,
+                y,
+                id_sample=id_sample,
+                out_shp=feat_sample,
+                patch_size_p=patch_size_p,
+            )
 
     else:
 
@@ -595,7 +638,7 @@ def init_out_shp(out_sample, out_crs, patch_size_p, out_shp_type=None):
     return feat_sample, write
 
 
-def get_roi_limits_with_filter(file, value, field_name='INSEE_DEP'):
+def get_roi_limits_with_filter(file, value, field_name="INSEE_DEP"):
     """
     return the geometry, the bbox and the crs of a filtered polygon
     the filtering is based on a field property of the shape file schema
@@ -623,7 +666,7 @@ def get_roi_limits_with_filter(file, value, field_name='INSEE_DEP'):
     bbox = None
     out_crs = None
 
-    with fiona.open(file, 'r') as layer_dep:
+    with fiona.open(file, "r") as layer_dep:
 
         out_crs = layer_dep.crs
         schema = layer_dep.schema
@@ -633,11 +676,11 @@ def get_roi_limits_with_filter(file, value, field_name='INSEE_DEP'):
 
             for feat in layer_dep:
 
-                test_value = feat['properties'][field_name]
+                test_value = feat["properties"][field_name]
 
                 if str(test_value) == str(value):
 
-                    geom = shape(feat['geometry'])
+                    geom = shape(feat["geometry"])
                     bbox = geom.bounds
                     break
 
@@ -645,8 +688,10 @@ def get_roi_limits_with_filter(file, value, field_name='INSEE_DEP'):
 
         else:
 
-            raise OdeonError(ErrorCodes.ERR_FIELD_NOT_FOUND,
-                             f"the field {field_name} has not been found in your shape file {file}")
+            raise OdeonError(
+                ErrorCodes.ERR_FIELD_NOT_FOUND,
+                f"the field {field_name} has not been found in your shape file {file}",
+            )
 
 
 def get_roi_limits(roi_shp):
@@ -667,13 +712,13 @@ def get_roi_limits(roi_shp):
 
     geom_list = []
     bbox_list = []
-    with fiona.open(roi_shp, 'r') as layer_roi:
+    with fiona.open(roi_shp, "r") as layer_roi:
 
         out_crs = layer_roi.crs
 
         for feat in layer_roi:
 
-            geom = shape(feat['geometry'])
+            geom = shape(feat["geometry"])
             bbox = geom.bounds
             geom_list.append(geom)
             bbox_list.append(bbox)
@@ -698,7 +743,7 @@ def sum_area(in_shp_path):
 
     area = 0
 
-    with fiona.open(in_shp_path, 'r') as in_feat:
+    with fiona.open(in_shp_path, "r") as in_feat:
 
         for feat in in_feat:
 
@@ -708,12 +753,9 @@ def sum_area(in_shp_path):
     return area
 
 
-def write_sample(out_sample,
-                 coord_x,
-                 coord_y,
-                 id_sample=None,
-                 out_shp=None,
-                 patch_size_p=None):
+def write_sample(
+    out_sample, coord_x, coord_y, id_sample=None, out_shp=None, patch_size_p=None
+):
     """
     add a sample to a csv file and optionnally to a shape file
     in a point or polygon (depending on the input params) shapely format
@@ -740,28 +782,27 @@ def write_sample(out_sample,
 
     if id_sample is not None and out_shp is not None and patch_size_p is not None:
 
-        dist_to_center = [
-            patch_size_p[0] / 2,
-            patch_size_p[1] / 2
-        ]
+        dist_to_center = [patch_size_p[0] / 2, patch_size_p[1] / 2]
         coord_x_min = coord_x - dist_to_center[0]
         coord_y_min = coord_y - dist_to_center[1]
         coord_x_max = coord_x + dist_to_center[0]
         coord_y_max = coord_y + dist_to_center[1]
         patch = box(coord_x_min, coord_y_min, coord_x_max, coord_y_max)
         out_shp.write(
-            {'properties': {'id_sample': id_sample},
-             'geometry': mapping(patch)})
+            {"properties": {"id_sample": id_sample}, "geometry": mapping(patch)}
+        )
 
     elif id_sample is not None and out_shp is not None and patch_size_p is None:
 
         point = Point(float(coord_x), float(coord_y))
         out_shp.write(
-            {'properties': {'id_sample': id_sample},
-             'geometry': mapping(point)})
+            {"properties": {"id_sample": id_sample}, "geometry": mapping(point)}
+        )
 
 
-def get_processing_tiles_limits(geom_list, mem_tile_size_mo, resolution, patch_size=None):
+def get_processing_tiles_limits(
+    geom_list, mem_tile_size_mo, resolution, patch_size=None
+):
     """compute the processing limits by tiles coupled with a list of ROI
 
     Parameters
@@ -795,19 +836,16 @@ def get_processing_tiles_limits(geom_list, mem_tile_size_mo, resolution, patch_s
 
     length_tile_size_p = [
         length_tile_size * resolution[0],
-        length_tile_size * resolution[1]
+        length_tile_size * resolution[1],
     ]
     LOGGER.debug(patch_size)
 
     if patch_size is not None:
 
-        patch_size_p = [
-            patch_size * resolution[0],
-            patch_size * resolution[1]
-        ]
+        patch_size_p = [patch_size * resolution[0], patch_size * resolution[1]]
         length_tile_size_p = [
             int(length_tile_size_p[0] // patch_size_p[0]) * patch_size_p[0],
-            int(length_tile_size_p[1] // patch_size_p[1]) * patch_size_p[1]
+            int(length_tile_size_p[1] // patch_size_p[1]) * patch_size_p[1],
         ]
 
     LOGGER.info("memory length_tile_size = {0}".format(length_tile_size))
@@ -829,7 +867,9 @@ def get_processing_tiles_limits(geom_list, mem_tile_size_mo, resolution, patch_s
     return tiles_limits, length_tile_size_p, num_tiles, length_tile_size
 
 
-def apply_tile_functor(functor, geom_list, mem_tile_size_mo, resolution, patch_size=None, with_tqdm=False):
+def apply_tile_functor(
+    functor, geom_list, mem_tile_size_mo, resolution, patch_size=None, with_tqdm=False
+):
     """apply a computation treatment (a functor object) to a tile on a list of geometry/ROI
 
     Each geometry/ROI is divided in tile (the tile size is based on the mem_tile_size_mo param)
@@ -856,7 +896,8 @@ def apply_tile_functor(functor, geom_list, mem_tile_size_mo, resolution, patch_s
 
     """
     _, length_tile_size_p, num_tiles, length_tile_size = get_processing_tiles_limits(
-        geom_list, mem_tile_size_mo, resolution, patch_size)
+        geom_list, mem_tile_size_mo, resolution, patch_size
+    )
 
     LOGGER.info("memory length_tile_size = {0}".format(length_tile_size))
     LOGGER.info("memory length_tile_size_m = {0}".format(length_tile_size_p))

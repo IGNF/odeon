@@ -11,9 +11,11 @@ Notes
 """
 
 import json
-from jsonschema import Draft7Validator, validators, exceptions
-from odeon import LOGGER
 import sys
+
+from jsonschema import Draft7Validator, exceptions, validators
+
+from odeon import LOGGER
 
 
 class JsonInterpreter:
@@ -40,6 +42,7 @@ class JsonInterpreter:
         validate __init__ based on a json schema
 
     """
+
     @staticmethod
     def extend_with_default(validator_class):
         """
@@ -55,12 +58,16 @@ class JsonInterpreter:
                     instance.setdefault(prop, sub_schema["default"])
 
             for error in validate_properties(
-                    validator, properties, instance, schema,
+                validator,
+                properties,
+                instance,
+                schema,
             ):
                 yield error
 
         return validators.extend(
-            validator_class, {"properties": set_defaults},
+            validator_class,
+            {"properties": set_defaults},
         )
 
     def __init__(self, json_file: json):
@@ -71,7 +78,9 @@ class JsonInterpreter:
         self.__dict__ = json.load(json_file)
         self._path = json_file
         # use of last json schema draft, the 7 (https://json-schema.org)
-        self.DefaultValidatingDraft7Validator = JsonInterpreter.extend_with_default(Draft7Validator)
+        self.DefaultValidatingDraft7Validator = JsonInterpreter.extend_with_default(
+            Draft7Validator
+        )
 
     def is_valid(self, json_schema):
         """
@@ -84,7 +93,11 @@ class JsonInterpreter:
             self.DefaultValidatingDraft7Validator(json_schema).validate(self.__dict__)
             return True
         except exceptions.ValidationError as ve:
-            LOGGER.error("validation error with  you json file {} \n detail: {}".format(self._path, ve))
+            LOGGER.error(
+                "validation error with  you json file {} \n detail: {}".format(
+                    self._path, ve
+                )
+            )
             return False
 
     def get_section(self, section):
@@ -95,11 +108,11 @@ class JsonInterpreter:
         if section in self.__dict__:
             return self.__dict__[section]
 
-#######################################################################
-#
-#   OLD FUNCTIONS; LEGACY
-#
-#######################################################################
+    #######################################################################
+    #
+    #   OLD FUNCTIONS; LEGACY
+    #
+    #######################################################################
 
     def get_image(self):
         """

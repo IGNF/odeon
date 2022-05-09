@@ -1,6 +1,6 @@
-from odeon.commons.reports.report_stats import Report_Stats
 from odeon.commons.reports.report_binary import Report_Binary
 from odeon.commons.reports.report_multiclass import Report_Multiclass
+from odeon.commons.reports.report_stats import Report_Stats
 
 
 def Report_Factory(input_object):
@@ -16,7 +16,9 @@ def Report_Factory(input_object):
     Stats_Report/Metric_Report
         An object making the report.
     """
-    reports = {"Statistics": Report_Stats,
-               "MetricsBinary": Report_Binary,
-               "MetricsMulticlass": Report_Multiclass}
+    reports = {
+        "Statistics": Report_Stats,
+        "MetricsBinary": Report_Binary,
+        "MetricsMulticlass": Report_Multiclass,
+    }
     return reports[input_object.__class__.__name__](input_object)

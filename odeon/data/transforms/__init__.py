@@ -1,13 +1,13 @@
-from .base import BasicTransform, Compose
-from .geometric import Rotation, Rotation90
-from .radiometric import Radiometry
-from .scale import ScaleImageToFloat, FloatImageToByte
-from .normalization import DeNormalize
-from .tensor import (
-    HWC_to_CHW,
+from .base import BasicTransform, Compose  # noqa
+from .geometric import Rotation, Rotation90  # noqa
+from .normalization import DeNormalize  # noqa
+from .radiometric import Radiometry  # noqa
+from .scale import FloatImageToByte, ScaleImageToFloat  # noqa
+from .tensor import ToDoubleTensor  # noqa
+from .tensor import (  # noqa
     CHW_to_HWC,
-    ToWindowTensor,
-    ToDoubleTensor,
+    HWC_to_CHW,
     ToPatchTensor,
-    ToSingleTensor
+    ToSingleTensor,
+    ToWindowTensor,
 )
