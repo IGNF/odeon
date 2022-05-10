@@ -79,6 +79,7 @@ and a long config with a detailed description of each part:
 
 .. tabs::
 
+
    .. tab:: Data Source
      
       .. code-block:: json
@@ -115,6 +116,7 @@ and a long config with a detailed description of each part:
               }
           }
 
+
    .. tab:: Output Setup
       
       .. code-block:: json
@@ -129,6 +131,7 @@ and a long config with a detailed description of each part:
               "save_history": true
             }
          }
+
 
    .. tab:: Train Setup
 
@@ -161,6 +164,7 @@ and a long config with a detailed description of each part:
               }
           }
 
+
    .. tab:: Device Setup
 
       .. code-block:: json
@@ -171,7 +175,8 @@ and a long config with a detailed description of each part:
             }
         }
 
-  .. tab:: Full Configuration
+
+   .. tab:: Full Configuration
 
       .. code-block:: json
 
@@ -245,6 +250,7 @@ and a long config with a detailed description of each part:
                 "device": 1
                 }
         }
+
 
 Data source
 -----------
