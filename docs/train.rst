@@ -1,5 +1,5 @@
 ============
-Train how-to
+Train - How To
 ============
 
 Summary
