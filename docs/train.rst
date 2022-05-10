@@ -45,7 +45,7 @@ The JSON configuration file in input of CLI command contains 4 sections:
 * `Device setup <Device setup_>`_
 
 Here is a short example of a configuration file needed for train process,
-the full config and also details part:
+and a long config with a detailed description of each part:
 
 .. details:: Minimal configuration file
 
@@ -76,80 +76,6 @@ the full config and also details part:
               }
         }
 
-.. details:: Full configuration file
-
-   .. code-block:: json
-
-      { 
-        "data_source": {
-            "train_file": "/path/to/train_folds.csv",
-            "val_file": "/path/to/val_folds.csv",
-            "test_file": "/path/to/test_folds.csv",
-            "image_bands": [1, 2, 3],
-            "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
-            "class_labels": [
-                "batiment","zone_impermeable","zone_permeable","piscine","sol_nu","surface_eau","neige","coupe",
-                "peuplement_feuillus","peuplement_coniferes", "lande_ligneuse","vigne","culture","terre_arable",
-                "autre"
-            ],
-            "normalization_weights": {
-                  "train": {
-                      "mean": [0.45368713, 0.46235293, 0.3989958],
-                      "std": [0.1898824, 0.15448096, 0.1556343]
-                  },
-                  "val": {
-                      "mean": [0.43193138, 0.4490423, 0.390175],
-                      "std": [0.11976098, 0.10639796, 0.11044782]
-                  },
-                  "test":{
-                      "mean": [0.4442997, 0.45902625, 0.39637628],
-                      "std": [0.12020385, 0.10600946, 0.10955668]
-                  }
-            },
-            "data_augmentation": {
-                "train": ["rotation90"],
-                "val": [],
-                "test": []
-            },
-        "output_setup": {
-              "output_folder": "/path/to/output/folder/",
-              "model_filename": "filename.ckpt",
-              "name_exp_log": "ocsge_test_32",
-              "use_tensorboard": true,
-              "use_wandb": false,
-              "log_learning_rate": true,
-              "save_history": true
-            },
-        "train_setup": {
-              "model_name": "unet",
-              "epochs": 3,
-              "batch_size": 3,
-              "loss": "ce",
-              "lr": 0.01,
-              "optimizer_config": {
-                  "optimizer": "sgd",
-                  "momentum": 0.5
-              },
-              "scheduler_config": {
-                  "scheduler": "reducelronplateau",
-                  "patience": 1,
-                  "cooldown": 0,
-                  "factor": 0.5,
-                  "min_lr": 1e-7
-              },
-              "early_stopping": {
-                    "patience": 30,
-                    "monitor": "val_loss"
-              },
-              "continue_training": false,
-              "deterministic": true,
-              "testing": true
-            },
-        "device_setup": {
-              "accelerator": "gpu",
-              "device": 1
-            }
-      }
 
 .. tabs::
 
@@ -245,6 +171,80 @@ the full config and also details part:
             }
         }
 
+  .. tab:: Full Configuration
+
+      .. code-block:: json
+
+          { 
+            "data_source": {
+                "train_file": "/path/to/train_folds.csv",
+                "val_file": "/path/to/val_folds.csv",
+                "test_file": "/path/to/test_folds.csv",
+                "image_bands": [1, 2, 3],
+                "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
+                "class_labels": [
+                    "batiment","zone_impermeable","zone_permeable","piscine","sol_nu","surface_eau","neige","coupe",
+                    "peuplement_feuillus","peuplement_coniferes", "lande_ligneuse","vigne","culture","terre_arable",
+                    "autre"
+                ],
+                "normalization_weights": {
+                      "train": {
+                          "mean": [0.45368713, 0.46235293, 0.3989958],
+                          "std": [0.1898824, 0.15448096, 0.1556343]
+                      },
+                      "val": {
+                          "mean": [0.43193138, 0.4490423, 0.390175],
+                          "std": [0.11976098, 0.10639796, 0.11044782]
+                      },
+                      "test":{
+                          "mean": [0.4442997, 0.45902625, 0.39637628],
+                          "std": [0.12020385, 0.10600946, 0.10955668]
+                      }
+                },
+                "data_augmentation": {
+                    "train": ["rotation90"],
+                    "val": [],
+                    "test": []
+                },
+            "output_setup": {
+                "output_folder": "/path/to/output/folder/",
+                "model_filename": "filename.ckpt",
+                "name_exp_log": "ocsge_test_32",
+                "use_tensorboard": true,
+                "use_wandb": false,
+                "log_learning_rate": true,
+                "save_history": true
+                },
+            "train_setup": {
+                "model_name": "unet",
+                "epochs": 3,
+                "batch_size": 3,
+                "loss": "ce",
+                "lr": 0.01,
+                "optimizer_config": {
+                    "optimizer": "sgd",
+                    "momentum": 0.5
+                },
+                "scheduler_config": {
+                    "scheduler": "reducelronplateau",
+                    "patience": 1,
+                    "cooldown": 0,
+                    "factor": 0.5,
+                    "min_lr": 1e-7
+                },
+                "early_stopping": {
+                      "patience": 30,
+                      "monitor": "val_loss"
+                },
+                "continue_training": false,
+                "deterministic": true,
+                "testing": true
+                },
+            "device_setup": {
+                "accelerator": "gpu",
+                "device": 1
+                }
+        }
 
 Data source
 -----------
