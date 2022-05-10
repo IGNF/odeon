@@ -50,30 +50,31 @@ the full config and also details part:
 .. details:: Minimal configuration file
 
    .. code-block:: json
-      { 
-        "data_source": {
-            "train_file": "/path/to/train_folds.csv",
-            "val_file": "/path/to/val_folds.csv",
-            "test_file": "/path/to/test_folds.csv",
-            "image_bands": [1, 2, 3],
-            "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
-            },
-        "output_setup": {
-              "output_folder": "/path/to/output/folder/",
-              "name_exp_log": "ocsge_test_32"
-            },
-        "train_setup": {
-              "model_name": "unet",
-              "epochs": 3,
-              "batch_size": 3,
-              "loss": "ce",
-              "lr": 0.01
-            },
-        "device_setup": {
-              "accelerator": "gpu",
-              "device": 1
-            }
-      }
+
+        { 
+          "data_source": {
+              "train_file": "/path/to/train_folds.csv",
+              "val_file": "/path/to/val_folds.csv",
+              "test_file": "/path/to/test_folds.csv",
+              "image_bands": [1, 2, 3],
+              "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+              },
+          "output_setup": {
+                "output_folder": "/path/to/output/folder/",
+                "name_exp_log": "ocsge_test_32"
+              },
+          "train_setup": {
+                "model_name": "unet",
+                "epochs": 3,
+                "batch_size": 3,
+                "loss": "ce",
+                "lr": 0.01
+              },
+          "device_setup": {
+                "accelerator": "gpu",
+                "device": 1
+              }
+        }
 
 .. details:: Full configuration file
 
@@ -186,7 +187,7 @@ the full config and also details part:
                   "val": [],
                   "test": []
               }
-            }
+          }
 
    .. tab:: Output Setup
       
@@ -204,34 +205,35 @@ the full config and also details part:
          }
 
    .. tab:: Train Setup
+
       .. code-block:: json
 
-        { "train_setup": {
-              "model_name": "unet",
-              "epochs": 3,
-              "batch_size": 3,
-              "loss": "ce",
-              "lr": 0.01,
-              "optimizer_config": {
-                  "optimizer": "sgd",
-                  "momentum": 0.5
-              },
-              "scheduler_config": {
-                  "scheduler": "reducelronplateau",
-                  "patience": 1,
-                  "cooldown": 0,
-                  "factor": 0.5,
-                  "min_lr": 1e-7
-              },
-              "early_stopping": {
-                    "patience": 30,
-                    "monitor": "val_loss"
-              },
-              "continue_training": false,
-              "deterministic": true,
-              "testing": true
-            }
-        }
+         { "train_setup": {
+                "model_name": "unet",
+                "epochs": 3,
+                "batch_size": 3,
+                "loss": "ce",
+                "lr": 0.01,
+                "optimizer_config": {
+                    "optimizer": "sgd",
+                    "momentum": 0.5
+                },
+                "scheduler_config": {
+                    "scheduler": "reducelronplateau",
+                    "patience": 1,
+                    "cooldown": 0,
+                    "factor": 0.5,
+                    "min_lr": 1e-7
+                },
+                "early_stopping": {
+                      "patience": 30,
+                      "monitor": "val_loss"
+                },
+                "continue_training": false,
+                "deterministic": true,
+                "testing": true
+              }
+          }
 
    .. tab:: Device Setup
 
