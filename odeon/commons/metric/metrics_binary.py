@@ -10,8 +10,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from odeon.commons.metric.metrics import (DEFAULTS_VARS, Metrics,
-                                          get_metrics_from_obs)
+from odeon.commons.metric.metrics import DEFAULTS_VARS, Metrics, get_metrics_from_obs
 
 FIGSIZE = (8, 6)
 

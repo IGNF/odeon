@@ -9,8 +9,7 @@ from torch.utils.data import DataLoader, Subset
 
 from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.rasterio import get_number_of_band
-from odeon.data.datamodules.job import (ZoneDetectionJob,
-                                        ZoneDetectionJobNoDalle)
+from odeon.data.datamodules.job import ZoneDetectionJob, ZoneDetectionJobNoDalle
 from odeon.data.datasets import ZoneDetectionDataset
 
 RANDOM_SEED = 42

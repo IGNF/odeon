@@ -3,10 +3,17 @@ from typing import List
 import albumentations as A
 
 from odeon import LOGGER
-from odeon.data.transforms import (CHW_to_HWC, Compose, DeNormalize,
-                                   FloatImageToByte, HWC_to_CHW, Radiometry,
-                                   Rotation90, ScaleImageToFloat,
-                                   ToDoubleTensor)
+from odeon.data.transforms import (
+    CHW_to_HWC,
+    Compose,
+    DeNormalize,
+    FloatImageToByte,
+    HWC_to_CHW,
+    Radiometry,
+    Rotation90,
+    ScaleImageToFloat,
+    ToDoubleTensor,
+)
 
 
 def configure_transforms(

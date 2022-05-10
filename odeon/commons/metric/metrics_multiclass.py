@@ -10,8 +10,7 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
-from odeon.commons.metric.metrics import (DEFAULTS_VARS, Metrics,
-                                          get_metrics_from_obs)
+from odeon.commons.metric.metrics import DEFAULTS_VARS, Metrics, get_metrics_from_obs
 from odeon.commons.metric.plots import plot_hists
 
 

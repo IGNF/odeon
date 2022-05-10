@@ -1,5 +1,6 @@
 import os
 from datetime import date
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -9,17 +10,25 @@ from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 from odeon import LOGGER
-from odeon.callbacks import (ContinueTraining, ExoticCheckPoint, GraphAdder,
-                             HistogramAdder, HistorySaver, HParamsAdder,
-                             LightningCheckpoint, MetricsAdder,
-                             PatchPredictionWriter, PredictionsAdder)
+from odeon.callbacks import (
+    ContinueTraining,
+    ExoticCheckPoint,
+    GraphAdder,
+    HistogramAdder,
+    HistorySaver,
+    HParamsAdder,
+    LightningCheckpoint,
+    MetricsAdder,
+    PatchPredictionWriter,
+    PredictionsAdder,
+)
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.guard import dirs_exist, file_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.data.datamodules import SegDataModule
 from odeon.loggers import JSONLogger
-from odeon.models.base import model_list
+from odeon.models.base import MODEL_LIST
 from odeon.modules import SegmentationTask
 
 " A logger for big message "
@@ -29,7 +38,7 @@ STD_OUT_LOGGER.addHandler(ch)
 RANDOM_SEED = 42
 PERCENTAGE_VAL = 0.3
 VAL_CHECK_INTERVAL = 1.0
-BATCH_SIZE = 5
+BATCH_SIZE = 3
 NUM_EPOCHS = 1000
 LEARNING_RATE = 0.001
 NUM_WORKERS = 4
@@ -58,52 +67,215 @@ class TrainCLI(BaseTool):
 
     def __init__(
         self,
-        verbosity,
-        model_name,
-        output_folder,
-        train_file,
-        val_file=None,
-        test_file=None,
-        percentage_val=PERCENTAGE_VAL,
-        image_bands=None,
-        mask_bands=None,
-        class_labels=None,
-        resolution=None,
-        model_filename=None,
-        model_out_ext=None,
-        normalization_weights=None,
-        epochs=NUM_EPOCHS,
-        batch_size=BATCH_SIZE,
-        save_history=True,
-        continue_training=False,
-        loss="ce",
-        class_imbalance=None,
-        optimizer_config=None,
-        scheduler_config=None,
-        data_augmentation=None,
-        device=None,
-        accelerator=ACCELERATOR,
-        num_nodes=NUM_NODES,
-        num_processes=None,
-        random_seed=RANDOM_SEED,
-        deterministic=False,
-        lr=LEARNING_RATE,
-        num_workers=NUM_WORKERS,
-        strategy=None,
-        val_check_interval=VAL_CHECK_INTERVAL,
-        name_exp_log=None,
-        version_name=None,
-        use_tensorboard=True,
-        use_wandb=False,
-        log_learning_rate=False,
-        early_stopping=EARLY_STOPPING_CONFIG,
-        save_top_k=NUM_CKPT_SAVED,
-        get_prediction=False,
-        prediction_output_type="uint8",
-        testing=False,
-        progress=PROGRESS,
-    ):
+        verbosity: bool,
+        model_name: str,
+        output_folder: str,
+        train_file: str,
+        val_file: Optional[str] = None,
+        test_file: Optional[str] = None,
+        percentage_val: Optional[float] = PERCENTAGE_VAL,
+        image_bands: Optional[List[int]] = None,
+        mask_bands: Optional[List[int]] = None,
+        class_labels: Optional[List[str]] = None,
+        resolution: Optional[Union[float, List[float]]] = None,
+        model_filename: Optional[str] = None,
+        model_out_ext: Optional[str] = None,
+        normalization_weights: Optional[Dict[str, List[float]]] = None,
+        epochs: Optional[int] = NUM_EPOCHS,
+        batch_size: Optional[int] = BATCH_SIZE,
+        save_history: Optional[bool] = True,
+        continue_training: Optional[bool] = False,
+        loss: Optional[str] = "ce",
+        class_imbalance: Optional[List[float]] = None,
+        optimizer_config: Optional[Dict] = None,
+        scheduler_config: Optional[Dict] = None,
+        early_stopping: Optional[Dict] = EARLY_STOPPING_CONFIG,
+        data_augmentation: Optional[Dict[str, Union[str, List[str]]]] = None,
+        device: Optional[Union[str, List[int], List[str]]] = None,
+        accelerator: Optional[str] = ACCELERATOR,
+        num_nodes: Optional[int] = NUM_NODES,
+        num_processes: Optional[int] = None,
+        random_seed: Optional[int] = RANDOM_SEED,
+        deterministic: Optional[bool] = False,
+        lr: Optional[float] = LEARNING_RATE,
+        num_workers: Optional[int] = NUM_WORKERS,
+        strategy: Optional[str] = None,
+        val_check_interval: Optional[float] = VAL_CHECK_INTERVAL,
+        name_exp_log: Optional[str] = None,
+        version_name: Optional[str] = None,
+        use_tensorboard: Optional[bool] = True,
+        use_wandb: Optional[bool] = False,
+        log_learning_rate: Optional[bool] = False,
+        save_top_k: Optional[int] = NUM_CKPT_SAVED,
+        get_prediction: Optional[bool] = False,
+        prediction_output_type: Optional[str] = "uint8",
+        testing: Optional[bool] = False,
+        progress: Optional[float] = PROGRESS,
+    ) -> None:
+        """
+            Init function of the CLI used for the train tool.
 
+        Parameters
+        ----------
+        verbosity: bool
+            Verbose level of the outputs.
+        model_name: str
+            Name of the architecture model to use to do the training. Available models are "unet",
+            "lightunet", "resnet18", "resnet34", "resnet50", "resnet101", "resnet150", "deeplab".
+        output_folder: str
+            Path where the output files will be stored. Outputs files will be at least the training
+            model (.ckpt or .pth). In addition, one could logs training metrics in tensorboard, and/or
+            a single file dictionary, and/or in Weight & Biases (wandb). If a csv file for the test
+            split is provided, metrics will be computed or predictions could be also done with trained
+            model (using the one with the best validation metrics at an epoch).
+        train_file: str
+            Path to the csv file containing the data in the train split which should be used for the training.
+        val_file: str, optional
+            Path to the csv file containing the data for in the validation split which should be used for the training.
+            If None, the data for validation split will be obtained by splitting the data in the train file using
+            the percentage_val parameter, by default None.
+        test_file: str, optional
+            Path to the csv file containing the data for in the test split which should be used for the training.
+            If provided, metrics will be computed on those data or predictions will be made if the, by default None.
+        percentage_val: float, optional
+            If the validation file (val_file) is not provided this parameter will be used to split the training
+            data into a training split and a validation split. For example, if percentage_val = 0.3, then 0.7
+            of data from train_file will be used in the train split and 0.3 will be used for the validation split,
+            by default 0.3.
+        image_bands: List[int], optional
+            List of the channel of the image to use for the training. Only specified bands of input images will be used
+            in training. If not provided, all the bands of the image will be selected, by default None.
+        mask_bands: List[int], optional
+            List of the band of the mask (classes) to use for the training. Only specified bands of input masks will be
+            used in training. If this parameter is not provided, all the bands of the mask will be selected,
+            by default None.
+        class_labels: List[str], optional
+            List of the labels for each class used for the training. Should have the same number of value as mask_band
+            parameter. If None, labels will be "class 1", "class 2" ... to "class n" for every class selected,
+            by default None.
+        resolution: Union[float, Tuple[float], List[float]], optional
+            Resolution of the image in the dataset. Could be define for the whole dataset or for each split.
+        model_out_ext: str, optional
+            Define the output type of the model which could be ".ckpt" or ".pth". If not provided the output trained
+            model will be of type ".ckpt", by default None.
+        model_filename: str, optional
+            Name for the output trained model. The name of the output depend on the extension type of the output model
+            (could be define in model_out_ext). If model type is ".ckpt" there will multiple output trained models and
+            each will contains the basename of the input model_filename. If model type is ".pth" there will only one
+            trained model with name defined in the model_filename parameter, by default None.
+        normalization_weights: Dict[str, List[float]], optional
+            Dict of stats (mean, std) for each split (train/val/test) to do a mean std normalization: (X - mean) / std.
+            Those stats are in range 0-1 for each image band used in training. If not provided, the normalization will
+            be by scaling values in range 0-255 to 0-1, by default None.
+        epochs: int, optional
+            Number of epochs for which the training will be performed, by default 1000.
+        batch_size: int, optional
+            Number of samples used in a mini-batch, default 3.
+        save_history: bool, optional
+            Parameter to save the metrics of the training for the validation phase for each epoch (could be also done
+            for test phase if test_file is provided) in JSON file, by default True.
+        continue_training: bool, optional
+            Parameter to resume a training from a former trained model. A training could be resume from a checkpoint
+            file or from a .pth file. If the parameter is set to true, the model to resume will be search at the path:
+            output_folder/model_filename. The type of the model file will be automatically detected and if the file
+            is of type ".pth" other files (optimizer and history) could be passed (by putting thoses files at the
+            same location output_folder) to resume more precisely a training, by default False.
+        loss: str, optional
+            Loss function used for the training. Available parameters are "ce": cross-entropy loss, "bce":binary cross
+            entropy loss, "focal": focal loss, "combo": combo loss (a mix between "bce", "focal"), by default "ce".
+        class_imbalance: List[float], optional
+            A list of weights for each class. Weights will be used to balance the cost function.
+            Usable only when loss is set to "ce", default None.
+        optimizer_config: dict, optional
+            A dictionary containing parameters for the optimizer. Available optimizer are: "adam", "radam", "adamax",
+            "sgd", "rmsprop". The parameters of each optimizer are configurable by entering the name of the parameter
+            as a key and the associated value in the configuration dictionary (you can look at the pytorch
+            documentation of those classes at https://pytorch.org/docs/stable/optim.html), by default None.
+        scheduler_config: dict, optional
+            A dictionary containing parameters for the scheduler. Available scheduler are: "reducelronplateau",
+            "cycliclr", "cosineannealinglr", "cosineannealingwarmrestarts". The parameters of each scheduler are
+            configurable by entering the name of the parameter as a key and the associated value in the configuration
+            dictionary (you can look at the pytorch documentation of those classes at
+            https://pytorch.org/docs/stable/optim.html), by default None.
+        data_augmentation: Dict[str, List[str]], optional
+            Dictionary defining for each split the data augmentation transformation that one want to apply. Available
+            data augmentation are rotation90 and radiometry or both. Now data augmentation can only be applied to the
+            training set and not on the validation or test set. If nothing is defined the transformation on the data
+            will be only a normalization and casting of array to tensor, by default None.
+        device: Union[List[int], str, int], optional
+            Number(s) or id(s) of device(s) to use. Will be mapped to either gpus, tpu_cores, num_processes or ipus,
+            based on the accelerator type, by default None.
+        accelerator: str, optional
+            Supports passing different accelerator types (“cpu”, “gpu”, “tpu”, “ipu”, “hpu”, “auto”) as well as custom
+            accelerator instances, by default None.
+        num_nodes: int, optional
+            Number of GPU nodes for distributed training, by default 1.
+        num_processes: int, optional
+            Number of processes for distributed training with accelerator="cpu", by default 1.
+        random_seed: int, optional
+            Value used to initialize the random number generator. The random number generator needs a number to start
+            with (a seed value), to be able to generate a random number, by default 42.
+        deterministic: bool, optional
+            If True, sets whether PyTorch operations must use deterministic algorithms, by default False.
+        lr: float, optional
+            Learning rate for the training, by default 0.001.
+        num_workers: int, optional
+            How many subprocesses to use for data loading. 0 means that the data will be loaded in the main process,
+            by default 4.
+        strategy: str, optional
+            Supports different training strategies with aliases as well custom strategies. In order to do multi-gpus
+            training use the strategy ddp, by default None.
+        val_check_interval: float, optional
+            How often to check the validation set. Pass a float in the range [0.0, 1.0] to check after a fraction of
+            the training epoch. Pass an int to check after a fixed number of training batches, by default 1.
+        name_exp_log: str, optional
+            Name of the experience of the training (for example unet_ocsge). The folder will be inside the output
+            folder if it doesn't exists it will be created. If this parameter is not provided the name of the
+            experience will be the day the training have been launched(ex: 2022-06-17), by default None.
+        version_name: str, optional
+            Name of the version of the training (for example version_0) which will be inside the experience folder.
+            This system of version allows the user to have easily multiple versions of one experience, those versions
+            could be the same or with little tweaks in the configuration files. If this parameter is not provided the
+            name of the version will be the time at which the training have been launched (ex: 17-08-53),
+            by default None.
+        use_tensorboard: bool, optional
+            If set to by default True. The metrics of the training will be stored with tensorboard loggers. For a
+            training there will be a logger for the train and validation (and test if test_file is provided) phases.
+            Each logger will contains metrics, model graph, distributions and histograms of model's weights, and also
+            images with their related masks anf predictions, by defaut True.
+        use_wandb: bool, optional
+            If set to True, the metrics will be logged using Weight and Biases (wandb) logger. This WANDB logger allows
+            to save the metrics and also the code used for the training. The output files will be stored as local files
+            and also will be synchronized in the web application of WANDB (https://wandb.ai), by default False.
+        log_learning_rate: bool, optional
+            If set to True, the value of the learning rate (and its momentum) will be logged, by default False.
+        early_stopping: dict, optional
+            This parameter will set a condition (for example a threshold on a monitored metric) which will stop the
+            training if this condition is no more fulfilled. The default condition will be that the validation loss
+            ("monitor") must go down ("mode") with a delta of at least 0.00 ("min_delta") before the end of a
+            duration of 30 epochs ("patience"). This example will have for config,
+            by default {"patience": 30, "monitor": "val_loss", "mode": "min", "min_delta": 0.00}.
+        save_top_k: int, optional
+            Number of checkpoints saved by training (for a monitored metric). The checkpoints will be selected
+            according to a monitored metrics, here we watch two metrics: the validation loss (we keep the k models
+            with the lowest val_loss) and the mIoU (macro IoU/mean of IoU per class) on the validation set (we keep
+            the k models with the highest val_miou), so if k=3 we will save 6 checkpoints. This parameter is only
+            used if output trained model is of type ".ckpt", by default 3.
+        get_prediction: bool, optional
+            Parameter could be only used if the test_file is provided. The predictions will be made with the mode with
+            the best val_loss model and the predictions will be sotred in a predicitons folder inside the experience
+            folder, by default False.
+        prediction_output_type: str, optional
+            Type of the output predictions. This parameter will be used only if the parameter "get_prediction"
+            is set to True, by default "uint8".
+        testing: bool, optional
+            Have to be used for modifications testing or debugging. If set to True, only a subset of the data will
+            be used in the training pipeline, by default False.
+        progress: float, optional
+            Determines at which rate (in number of batches) the progress bars get updated. Set it to 0 to disable
+            the display. By default, the Trainer uses this implementation of the progress bar and sets the refresh
+            rate to the value provided to the progress_bar_refresh_rate argument in the Trainer, by default 1.
+        """
         self.verbosity = verbosity
         # Parameters for outputs
         self.output_folder = output_folder
@@ -381,9 +553,11 @@ class TrainCLI(BaseTool):
             callbacks.append(tensorboard_metrics)
 
         if self.use_wandb:
-            from odeon.callbacks.wandb import (LogConfusionMatrix,
-                                               MetricsWandb,
-                                               UploadCodeAsArtifact)
+            from odeon.callbacks.wandb import (
+                LogConfusionMatrix,
+                MetricsWandb,
+                UploadCodeAsArtifact,
+            )
 
             code_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
             callbacks.extend(
@@ -561,7 +735,7 @@ class TrainCLI(BaseTool):
             LOGGER.debug(f"DEBUG: version_name: {self.version_name}")
 
     def check(self):
-        if self.model_name not in model_list:
+        if self.model_name not in MODEL_LIST:
             raise OdeonError(
                 message=f"the model name {self.model_name} does not exist",
                 error_code=ErrorCodes.ERR_MODEL_ERROR,
@@ -604,7 +778,6 @@ class TrainCLI(BaseTool):
         return version_name
 
     def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
-
         def _get_value_monitor(input_str):
             return float(input_str.split(monitor)[-1][1:5])
 

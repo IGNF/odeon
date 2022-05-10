@@ -21,8 +21,7 @@ from odeon.commons.folder_manager import create_folder
 from odeon.commons.image import TypeConverter, substract_margin
 from odeon.commons.rasterio import RIODatasetCollection, ndarray_to_affine
 from odeon.commons.shape import create_polygon_from_bounds
-from odeon.data.datasets.patches import (PatchDetectionDataset,
-                                         ZoneDetectionDataset)
+from odeon.data.datasets.patches import PatchDetectionDataset, ZoneDetectionDataset
 from odeon.models.base import build_model, model_list
 
 NB_PROCESSOR = multiprocessing.cpu_count()

@@ -1,10 +1,12 @@
 import json
 import os.path as osp
 
-from odeon.commons.metric.plots import (plot_calibration_curves,
-                                        plot_confusion_matrix,
-                                        plot_norm_and_value_cms,
-                                        plot_roc_pr_curves)
+from odeon.commons.metric.plots import (
+    plot_calibration_curves,
+    plot_confusion_matrix,
+    plot_norm_and_value_cms,
+    plot_roc_pr_curves,
+)
 from odeon.commons.reports.report import Report
 
 

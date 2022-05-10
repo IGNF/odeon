@@ -2,9 +2,12 @@ from pathlib import Path
 
 import torch
 from torch import optim
-from torch.optim.lr_scheduler import (CosineAnnealingLR,
-                                      CosineAnnealingWarmRestarts, CyclicLR,
-                                      ReduceLROnPlateau)
+from torch.optim.lr_scheduler import (
+    CosineAnnealingLR,
+    CosineAnnealingWarmRestarts,
+    CyclicLR,
+    ReduceLROnPlateau,
+)
 
 PATIENCE = 2
 FACTOR = 0.5

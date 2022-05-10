@@ -6,9 +6,14 @@ from odeon import LOGGER
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import OdeonError
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.sampling import (CountFunctor, SampleFunctor,
-                                    apply_tile_functor, get_roi_limits,
-                                    get_roi_limits_with_filter, sum_area)
+from odeon.commons.sampling import (
+    CountFunctor,
+    SampleFunctor,
+    apply_tile_functor,
+    get_roi_limits,
+    get_roi_limits_with_filter,
+    sum_area,
+)
 
 
 class SampleSys(BaseTool):

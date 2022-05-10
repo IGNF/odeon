@@ -21,10 +21,14 @@ from odeon.commons.core import BaseTool
 from odeon.commons.dataframe import set_path_to_center, split_dataset_from_df
 from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.commons.folder_manager import build_directories
-from odeon.commons.guard import (dirs_exist, files_exist,
-                                 geo_projection_raster_guard,
-                                 geo_projection_vector_guard,
-                                 raster_bands_exist, vector_driver_guard)
+from odeon.commons.guard import (
+    dirs_exist,
+    files_exist,
+    geo_projection_raster_guard,
+    geo_projection_vector_guard,
+    raster_bands_exist,
+    vector_driver_guard,
+)
 from odeon.commons.image import CollectionDatasetReader
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.commons.rasterio import get_max_type

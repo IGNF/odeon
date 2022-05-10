@@ -6,7 +6,7 @@ from odeon import LOGGER
 from odeon.commons.exception import ErrorCodes, OdeonError
 from odeon.models import DeeplabV3p, LightUNet, UNet, UNetResNet
 
-model_list = [
+MODEL_LIST = [
     "unet",
     "lightunet",
     "resnet18",
