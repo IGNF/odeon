@@ -40,7 +40,7 @@ Configuration
 The JSON configuration file in input of CLI command contains 4 sections:
 
 * `Data source <Data source_>`_
-* `Training setup <Train setup_>`_
+* `Train setup <Train setup_>`_
 * `Output setup <Output setup_>`_
 * `Device setup <Device setup_>`_
 
@@ -298,7 +298,7 @@ Data source
   See `Augmentation description <Augmentation description_>`_.
 
 
-Training setup
+Train setup
 -----------
 
 * ``model_name (str)``: 
