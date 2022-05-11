@@ -20,6 +20,8 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 
 log = logging.getLogger(__name__)
 
+INDENT = 2
+
 
 class ExperimentWriter:
     r"""
@@ -86,7 +88,7 @@ class ExperimentWriter:
             return
 
         with open(self.metrics_file_path, "w") as f:
-            json.dump(self.metrics, f)
+            json.dump(self.metrics, f, indent=INDENT)
 
 
 class JSONLogger(LightningLoggerBase):

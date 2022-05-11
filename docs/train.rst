@@ -53,9 +53,9 @@ and a long config with a detailed description of each part:
 
         { 
           "data_source": {
-              "train_file": "/path/to/train_folds.csv",
-              "val_file": "/path/to/val_folds.csv",
-              "test_file": "/path/to/test_folds.csv",
+              "train_file": "/path/to/train_set.csv",
+              "val_file": "/path/to/val_set.csv",
+              "test_file": "/path/to/test_set.csv",
               "image_bands": [1, 2, 3],
               "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
               },
@@ -85,9 +85,9 @@ and a long config with a detailed description of each part:
       .. code-block:: json
 
          { "data_source": {
-              "train_file": "/path/to/train_folds.csv",
-              "val_file": "/path/to/val_folds.csv",
-              "test_file": "/path/to/test_folds.csv",
+              "train_file": "/path/to/train_set.csv",
+              "val_file": "/path/to/val_set.csv",
+              "test_file": "/path/to/test_set.csv",
               "image_bands": [1, 2, 3],
               "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
               "class_labels": [
@@ -125,10 +125,15 @@ and a long config with a detailed description of each part:
               "output_folder": "/path/to/output/folder/",
               "model_filename": "filename.ckpt",
               "name_exp_log": "ocsge_test_32",
+              "version_name": "version_lr_0.01",
+              "get_prediction": true,
+              "prediction_output_type": "uint8",
               "use_tensorboard": true,
               "use_wandb": false,
               "log_learning_rate": true,
-              "save_history": true
+              "save_history": true,
+              "save_top_k": 5,
+              "progress" : 1
             }
          }
 
@@ -142,6 +147,7 @@ and a long config with a detailed description of each part:
                 "epochs": 3,
                 "batch_size": 3,
                 "loss": "ce",
+                "class_imbalance": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
                 "lr": 0.01,
                 "optimizer_config": {
                     "optimizer": "sgd",
@@ -159,6 +165,8 @@ and a long config with a detailed description of each part:
                       "monitor": "val_loss"
                 },
                 "continue_training": false,
+                "random_seed": 42,
+                "val_check_interval": 0.5,
                 "deterministic": true,
                 "testing": true
               }
@@ -171,9 +179,13 @@ and a long config with a detailed description of each part:
 
          { "device_setup": {
               "accelerator": "gpu",
-              "device": 1
+              "device": 2
+              "num_nodes": 1,
+              "num_workers": 4,
+              "num_processes": 1,
+              "strategy": "ddp"
             }
-        }
+          }
 
 
    .. tab:: Full Configuration
@@ -182,9 +194,9 @@ and a long config with a detailed description of each part:
 
           { 
             "data_source": {
-                "train_file": "/path/to/train_folds.csv",
-                "val_file": "/path/to/val_folds.csv",
-                "test_file": "/path/to/test_folds.csv",
+                "train_file": "/path/to/train_set.csv",
+                "val_file": "/path/to/val_set.csv",
+                "test_file": "/path/to/test_set.csv",
                 "image_bands": [1, 2, 3],
                 "mask_bands": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15],
                 "class_labels": [
@@ -210,21 +222,27 @@ and a long config with a detailed description of each part:
                     "train": ["rotation90"],
                     "val": [],
                     "test": []
+                    }
                 },
             "output_setup": {
                 "output_folder": "/path/to/output/folder/",
                 "model_filename": "filename.ckpt",
                 "name_exp_log": "ocsge_test_32",
+                "version_name": "version_lr_0.01",
+                "get_prediction": false,
                 "use_tensorboard": true,
                 "use_wandb": false,
                 "log_learning_rate": true,
-                "save_history": true
+                "save_history": true,
+                "save_top_k": 3,
+                "progress" : 1
                 },
             "train_setup": {
                 "model_name": "unet",
                 "epochs": 3,
                 "batch_size": 3,
                 "loss": "ce",
+                "class_imbalance": [1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
                 "lr": 0.01,
                 "optimizer_config": {
                     "optimizer": "sgd",
@@ -242,6 +260,8 @@ and a long config with a detailed description of each part:
                       "monitor": "val_loss"
                 },
                 "continue_training": false,
+                "random_seed": 42,
+                "val_check_interval": 1.0,
                 "deterministic": true,
                 "testing": true
                 },
@@ -300,20 +320,20 @@ Data source
   Dictionary defining for each split the data augmentation transformation that one want to apply. Available
   data augmentation are rotation90 and radiometry or both. Now data augmentation can only be applied to the
   training set and not on the validation or test set. If nothing is defined the transformation on the data
-  will be only a normalization and casting of array to tensor, by default None.
+  will be only a normalization and casting of array to tensor, by default None.  
   See `Augmentation description <Augmentation description_>`_.
 
 
 Train setup
 -----------
 
-* ``model_name (str)``: 
+* ``model_name (str)``:
   Name of the architecture model to use to do the training. Available models are "unet",
   "lightunet", "resnet18", "resnet34", "resnet50", "resnet101", "resnet150", "deeplab".
-  See [Model description](#model-description).
+  See `Model description <Model description_>`_.
 
-* ``epochs (int, optional)``:
-   Number of epochs for which the training will be performed, by default 1000.
+* ``epochs (int, optional)``: 
+  Number of epochs for which the training will be performed, by default 1000.
 
 * ``batch_size (int, optional)``:
   Number of samples used in a mini-batch, default 3.
@@ -323,8 +343,8 @@ Train setup
   
 * ``loss (str, optional)``:
   Loss function used for the training. Available parameters are "ce": cross-entropy loss, "bce":binary cross
-  entropy loss, "focal": focal loss, "combo": combo loss (a mix between "bce", "focal"), by default "ce".
-  See `Losses description <Losses description_>`_. 
+  entropy loss, "focal": focal loss, "combo": combo loss (a mix between "bce", "focal"), by default "ce".  
+  See `Losses description <Losses description_>`_.
 
 * ``class imbalance (List[str], optional)``:
   A list of weights for each class. Weights will be used to balance the cost function.
@@ -334,7 +354,7 @@ Train setup
   A dictionary containing parameters for the optimizer. Available optimizer are: "adam", "radam", "adamax",
   "sgd", "rmsprop". The parameters of each optimizer are configurable by entering the name of the parameter
   as a key and the associated value in the configuration dictionary (you can look at the pytorch
-  documentation of those classes at https://pytorch.org/docs/stable/optim.html), by default None.
+  documentation of those classes at https://pytorch.org/docs/stable/optim.html), by default None.  
   See `Optimizer description <Optimizer description_>`_.
 
 * ``scheduler_config (Dict[str, Union[int, float, str], optional)``:
@@ -342,8 +362,8 @@ Train setup
   "cycliclr", "cosineannealinglr", "cosineannealingwarmrestarts". The parameters of each scheduler are
   configurable by entering the name of the parameter as a key and the associated value in the configuration
   dictionary (you can look at the pytorch documentation of those classes at
-  https://pytorch.org/docs/stable/optim.html). By default,` ReduceLROnPlateau <https://pytorch.org/docs/stable/optim.html?highlight=reducelronplateau#torch.optim.lr_scheduler.ReduceLROnPlateau>`_ 
-  is used as learning rate scheduler with `mode='min', factor=0.5, patience=10, min_lr=1e-7, cooldown=4`.
+  https://pytorch.org/docs/stable/optim.html). By default,`ReduceLROnPlateau <https://pytorch.org/docs/stable/optim.html?highlight=reducelronplateau#torch.optim.lr_scheduler.ReduceLROnPlateau_>`_ 
+  is used as learning rate scheduler with mode='min', factor=0.5, patience=10, min_lr=1e-7, cooldown=4`.
 
 * ``continue_training (boolean, optional)``:
   Parameter to resume a training from a former trained model. A training could be resume from a checkpoint
@@ -431,7 +451,8 @@ Output setup
 * ``save_history (boolean, optional)``:
   Parameter to save the metrics of the training for the validation phase for each epoch (could be also done
   for test phase if test_file is provided) in JSON file, by default True.
-  flag to activate the saving of history. See `History File Description <History file description_>`_.
+  flag to activate the saving of history.   
+  See `History File Description <History file description_>`_.
 
 * ``save_top_k (int, optional)``:
   Number of checkpoints saved by training (for a monitored metric). The checkpoints will be selected
@@ -634,6 +655,18 @@ Available optimizers:
   `SGD <https://pytorch.org/docs/stable/optim.html?highlight=adam#torch.optim.SGD>`_
 
 
+Scheduler description
+=====================
+
+Available scheduler:
+
+* ``adam``: 
+  `Adam <https://pytorch.org/docs/stable/optim.html?highlight=adam#torch.optim.Adam>`_
+
+* ``SGD``: 
+  `SGD <https://pytorch.org/docs/stable/optim.html?highlight=adam#torch.optim.SGD>`_
+
+
 Augmentation description
 ========================
 
@@ -655,16 +688,13 @@ Outputs
 The training loop writes in the output directory several files at the end
 of an epoch. An update of files is triggered when the model has improved
 in the current epoch (the calculated loss on validation dataset has decreased).
-The model and optimizer state is stored, an history file in JSON format
-(if ``save_history=True``) is updated and val/train losses and validation
-mIOU are plotted in PNG files.
+The model and optimizer state are stored in a checkpoint, an history file in JSON format
+(if ``save_history=True``) is updated with the metrics values.
 
 History file description
 ------------------------
 
-For each interesting epoch, the training duration (in seconds),
-the loss on train and validation dataset, the mean IOU on validation dataset
-and the learning rate are stored.
+For each epoch, all metrics, the loss and the learning rate will be saved in the history files.
 
 
 .. details:: history file example
@@ -672,41 +702,72 @@ and the learning rate are stored.
    .. code-block:: json
 
         {
-           "epoch": [0, 1, 2, 3],
-           "duration": [697.3998146057129, 630.2923035621643, 333.7448401451111, 170.40402102470398],
-           "train_loss": [0.08573817711723258, 0.06264573358604757, 0.059443122861200064, 0.05409131079048938],
-           "val_loss": [0.057551397948918746, 0.05338496420154115, 0.049542557676613794, 0.05130733864643844],
-           "val_mean_iou": [0.954076948658943, 0.9589184548841172, 0.9638415871794965, 0.9601857738692673],
-           "learning_rate": [0.001, 0.001, 0.001, 0.001]
+            # For each epoch (epoch id saved as str)
+            "0": {
+              "cm_macro": [...],
+              "cm_micro": [...],
+              # For a metric, there will be results for Overall, Average and per class strategy
+              "Overall/Accuracy": 0.0073115029372274876,
+              "Average/Accuracy": 86.66764831542969,
+              "class 1/Accuracy": 88.3169174194336, ..., "class n/Accuracy": 73.16143798828125, # this metric on other classes
+              # Same process for other metrics
+              ... 
+              "loss": 1.8587653636932373,
+              "learning rate": 0.01
+            }
+            ...,
+            "n": {
+                "cm_macro": [...],
+                "cm_micro": [...],
+                ...
         }
 
 
 
-Model and optimizer files description
---------------------------------------
 
-Model and optimizer state_dict are stored as .pth files:
+Checkpoint description
+---------------------
 
-.. code-block:: python
-   
-   torch.save(self.model.state_dict(), model_file)
-   torch.save(self.optimizer_function.state_dict(), optimizer_file)
+Checkpoints allows to put back the LightningModule (main element in the pipeline doing the training) at the precise state
+when the checkpoint have been saved. This checkpoint will contains the weights of the model and of the optimmizers, and all
+the parameters that have been passed to launched this former training.
+
+.. figure:: assets/train/checkpoint_description.png
+     :align: center
+     :figclass: align-center
+
 
 Tensorboard description
 --------------
 
-Example of plots:
+With a tensorboard logger will will save:
+ - the metrics evolution
+ - samples of images, masks and predictions
+ - the graph of the model
+ - distribution of the weights in the model
+ - histograms of the weights of the model
 
-.. figure:: assets/deeplab_loss.png
+
+Metrics example:
+
+.. figure:: assets/train/tensorboard_metrics_scalars.png
      :align: center
      :figclass: align-center
-     
-.. figure:: assets/deeplab_miou.png
+
+Images example
+
+.. figure:: assets/train/tensorboard_images_predictions.png
      :align: center
      :figclass: align-center
-     
 
+Distribution example:
 
-.. _Deeplabv3+: https://arxiv.org/abs/1802.02611
-.. _MobileNetV2: https://arxiv.org/pdf/1801.04381 
-.. _ResNet: https://arxiv.org/abs/1902.04049
+.. figure:: assets/train/tensorboard_weights_distribution.png
+     :align: center
+     :figclass: align-center
+
+Histogram example:
+
+.. figure:: assets/train/tensorboard_weights_histograms.png
+     :align: center
+     :figclass: align-center
