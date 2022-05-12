@@ -68,7 +68,13 @@
         "properties": {
           "path": {"type": "string"},
           "image_bands": {"type": "array"},
-          "mask_bands": {"type": "array"}
+          "mask_bands": {"type": "array"},
+          "normalization_weights": {
+              "mean": {"type": "array", "items": {"type": "number"}},
+              "std": {"type": "array", "items": {"type": "number"}}
+          },
+          "width": {"type": "integer"},
+          "height": {"type": "integer"}
         },
         "required": ["path"]
       },

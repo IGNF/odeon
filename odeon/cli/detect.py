@@ -1,7 +1,8 @@
+from ctypes import Union
 import os
 
 import torch
-import yaml
+from typing import List, Dict
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning.loggers import CSVLogger
@@ -46,7 +47,6 @@ class DetectCLI(BaseTool):
         resolution,
         # Output_param
         output_path,
-        hparams_file=None,
         output_type=DEFAULT_OUTPUT_TYPE,
         class_labels=None,
         sparse_mode=None,
@@ -72,7 +72,6 @@ class DetectCLI(BaseTool):
         # Model
         self.model_name = model_name
         self.model_filename = file_name
-        self.hparams_file = hparams_file
 
         # Image
         self.img_size_pixel = img_size_pixel
@@ -108,8 +107,6 @@ class DetectCLI(BaseTool):
             self.random_seed = None
             self.deterministic = False
 
-        self.model_ext = os.path.splitext(self.model_filename)[-1]
-        self.transforms = {"test": Compose([ToDoubleTensor()])}
 
         if zone is not None:
             self.mode = "zone"
@@ -117,7 +114,7 @@ class DetectCLI(BaseTool):
             self.data_module = ZoneDataModule(
                 zone=self.zone,
                 img_size_pixel=self.img_size_pixel,
-                transforms=self.transforms,
+                transforms=None,
                 width=None,
                 height=None,
                 batch_size=self.batch_size,
@@ -130,14 +127,27 @@ class DetectCLI(BaseTool):
             )
         else:
             self.mode = "dataset"
+
+            def _get(dataset:dict, key:str):
+
+                if key in dataset.keys():
+                    if key == "normalization_weights":
+                        return {"test": dataset[key]}
+                    else:
+                        return dataset[key]
+                else:
+                    return None
+
             self.dataset = dataset
             self.data_module = SegDataModule(
-                test_file=self.dataset["path"],
-                image_bands=self.dataset["image_bands"],
-                mask_bands=self.dataset["mask_bands"],
-                transforms=self.transforms,
-                width=None,
-                height=None,
+                test_file=_get(self.dataset, "path"),
+                image_bands=_get(self.dataset, "image_bands"),
+                mask_bands=_get(self.dataset, "mask_bands"),
+                class_labels=self.class_labels,
+                data_augmentation=None,
+                data_stats=_get(self.dataset, "normalization_weights"),
+                width=_get(self.dataset, "width"),
+                height=_get(self.dataset, "height"),
                 batch_size=self.batch_size,
                 num_workers=self.num_workers,
                 pin_memory=True,
@@ -146,22 +156,6 @@ class DetectCLI(BaseTool):
                 get_sample_info=True,
                 subset=self.testing,
             )
-
-        if class_labels is not None:
-            if len(class_labels) == self.data_module.num_classes:
-                self.class_labels = class_labels
-            else:
-                LOGGER.error(
-                    "ERROR: parameter labels should have a number of values equal to the number of classes."
-                )
-                raise OdeonError(
-                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                    "The input parameter labels is incorrect.",
-                )
-        else:
-            self.class_labels = [
-                f"class {i + 1}" for i in range(self.data_module.num_classes)
-            ]
 
         STD_OUT_LOGGER.info(
             f"Detection : \n"
@@ -191,14 +185,11 @@ class DetectCLI(BaseTool):
     def __call__(self):
         try:
             self.configure()
-            predict_ckpt = None
-            if self.model_ext == ".ckpt":
-                predict_ckpt = self.model_filename
-
             self.trainer.predict(
-                self.seg_module, datamodule=self.data_module, ckpt_path=predict_ckpt
+                model=self.seg_module,
+                datamodule=self.data_module,
+                ckpt_path=self.model_filename
             )
-
         except OdeonError as error:
             raise OdeonError(
                 ErrorCodes.ERR_DETECTION_ERROR,
@@ -219,35 +210,8 @@ class DetectCLI(BaseTool):
             )
 
     def configure(self):
-
-        if self.model_ext == ".ckpt":
-            self.init_params = torch.load(self.model_filename)["hyper_parameters"]
-            self.seg_module = SegmentationTask(**self.init_params)
-
-        elif self.model_ext == ".pth" and self.hparams_file is not None:
-            with open(self.hparams_file, "r") as stream:
-                try:
-                    self.init_params = yaml.safe_load(stream)
-                except yaml.YAMLError as error:
-                    raise OdeonError(
-                        ErrorCodes.ERR_DETECTION_ERROR,
-                        "something went wrong during detection configuration",
-                        stack_trace=error,
-                    )
-            self.seg_module = SegmentationTask(**self.init_params)
-            self.seg_module.setup()
-            model_state_dict = torch.load(os.path.join(self.model_filename))
-            self.seg_module.model.load_state_dict(state_dict=model_state_dict)
-            LOGGER.info(f"Prediction with file :{self.model_filename}")
-
-        else:
-            LOGGER.error(
-                "ERROR: Detection tool work only with .ckpt and .pth files. For .pth you have to declare a hparams_file"
-            )
-            raise OdeonError(
-                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                "The input parameter file_name is incorrect.",
-            )
+        self.init_params = torch.load(self.model_filename)["hyper_parameters"]
+        self.seg_module = SegmentationTask(**self.init_params)
 
         # Loggers definition
         loggers = []
@@ -256,14 +220,29 @@ class DetectCLI(BaseTool):
         )
         loggers.append(detect_csv_logger)
 
+
         # Callbacks definition
-        path_detections = os.path.join(self.output_folder, "detections")
-        custom_pred_writer = PatchPredictionWriter(
-            output_dir=path_detections,
-            output_type=self.output_type,
-            write_interval="batch",
-            img_size_pixel=self.img_size_pixel,
-        )
+        
+        # Writer definition
+        if self.mode == "dataset":
+            path_detections = os.path.join(self.output_folder, "detections")
+            custom_pred_writer = PatchPredictionWriter(
+                output_dir=path_detections,
+                output_type=self.output_type,
+                write_interval="batch",
+                img_size_pixel=self.img_size_pixel,
+            )
+        else:
+            # Zone mode
+            # path_detections = os.path.join(self.output_folder, "detections")
+            # custom_pred_writer = ZonePredictionWriter(
+            #     output_dir=path_detections,
+            #     output_type=self.output_type,
+            #     write_interval="batch",
+            #     img_size_pixel=self.img_size_pixel,
+            # )
+            pass
+
         self.callbacks = [custom_pred_writer]
 
         if self.get_metrics:

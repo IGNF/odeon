@@ -747,6 +747,9 @@ With a tensorboard logger will will save:
  - distribution of the weights in the model
  - histograms of the weights of the model
 
+For furthermore informations you can refer to the tensorboard documentation: https://www.tensorflow.org/tensorboard/get_started
+In pytorch, there is a wrapper code which will be applied over the orignal tensorboard in order to make it 
+work with their framework: https://pytorch.org/docs/stable/tensorboard.html.
 
 Metrics example:
 
