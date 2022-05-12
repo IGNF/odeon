@@ -1,13 +1,10 @@
-from ctypes import Union
 import os
 
 import torch
-from typing import List, Dict
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
 from pytorch_lightning.loggers import CSVLogger
 
-from odeon import LOGGER
 from odeon.callbacks.history import HistorySaver
 from odeon.callbacks.writer import PatchPredictionWriter
 from odeon.commons.core import BaseTool
@@ -16,8 +13,6 @@ from odeon.commons.guard import dirs_exist, files_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.data.datamodules.patch_datamodule import SegDataModule
 from odeon.data.datamodules.zone_datamodule import ZoneDataModule
-from odeon.data.transforms.base import Compose
-from odeon.data.transforms.tensor import ToDoubleTensor
 from odeon.modules.seg_module import SegmentationTask
 
 " A logger for big message "
@@ -107,7 +102,6 @@ class DetectCLI(BaseTool):
             self.random_seed = None
             self.deterministic = False
 
-
         if zone is not None:
             self.mode = "zone"
             self.zone = zone
@@ -128,7 +122,7 @@ class DetectCLI(BaseTool):
         else:
             self.mode = "dataset"
 
-            def _get(dataset:dict, key:str):
+            def _get(dataset: dict, key: str):
 
                 if key in dataset.keys():
                     if key == "normalization_weights":
@@ -220,9 +214,8 @@ class DetectCLI(BaseTool):
         )
         loggers.append(detect_csv_logger)
 
-
         # Callbacks definition
-        
+
         # Writer definition
         if self.mode == "dataset":
             path_detections = os.path.join(self.output_folder, "detections")
