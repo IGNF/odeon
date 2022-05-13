@@ -130,6 +130,7 @@
                 "log_learning_rate": {"type": "boolean", "default": false},
                 "save_history": {"type": "boolean", "default": true},
                 "save_top_k":  {"type": "integer", "default": 3},
+                "export_checkpoint": {"type": ["string", "array"]},
                 "progress":  {"type": "integer", "default": 1}
             }
         },
