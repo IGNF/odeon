@@ -1,5 +1,6 @@
 import os
 from datetime import date
+from time import gmtime, strftime
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -7,27 +8,27 @@ import torch
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 from odeon import LOGGER
 from odeon.callbacks import (
-    ContinueTraining,
-    ExoticCheckPoint,
     GraphAdder,
     HistogramAdder,
     HistorySaver,
     HParamsAdder,
-    LightningCheckpoint,
+    get_ckpt_path,
+    get_ckpt_filename,
     MetricsAdder,
     PatchPredictionWriter,
     PredictionsAdder,
 )
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import ErrorCodes, OdeonError
-from odeon.commons.guard import dirs_exist, file_exist
+from odeon.commons.guard import dirs_exist
 from odeon.commons.logger.logger import get_new_logger, get_simple_handler
 from odeon.data.datamodules import SegDataModule
-from odeon.loggers import JSONLogger
+from odeon.loggers import JSONLogger, OdeonLegacyLogger
 from odeon.models.base import MODEL_LIST
 from odeon.modules import SegmentationTask
 
@@ -107,6 +108,7 @@ class TrainCLI(BaseTool):
         use_wandb: Optional[bool] = False,
         log_learning_rate: Optional[bool] = False,
         save_top_k: Optional[int] = NUM_CKPT_SAVED,
+        export_checkpoint: Optional[Union[str, List[str]]] = None,
         get_prediction: Optional[bool] = False,
         prediction_output_type: Optional[str] = "uint8",
         testing: Optional[bool] = False,
@@ -156,8 +158,8 @@ class TrainCLI(BaseTool):
         resolution: Union[float, Tuple[float], List[float]], optional
             Resolution of the image in the dataset. Could be define for the whole dataset or for each split.
         model_out_ext: str, optional
-            Define the output type of the model which could be ".ckpt" or ".pth". If not provided the output trained
-            model will be of type ".ckpt", by default None.
+            Define the extension to use for model filename. If not provided the output trained
+            model will be of type ".ckpt" which is default extension for pytorch lightning, by default None.
         model_filename: str, optional
             Name for the output trained model. The name of the output depend on the extension type of the output model
             (could be define in model_out_ext). If model type is ".ckpt" there will multiple output trained models and
@@ -175,11 +177,9 @@ class TrainCLI(BaseTool):
             Parameter to save the metrics of the training for the validation phase for each epoch (could be also done
             for test phase if test_file is provided) in JSON file, by default True.
         continue_training: bool, optional
-            Parameter to resume a training from a former trained model. A training could be resume from a checkpoint
-            file or from a .pth file. If the parameter is set to true, the model to resume will be search at the path:
-            output_folder/model_filename. The type of the model file will be automatically detected and if the file
-            is of type ".pth" other files (optimizer and history) could be passed (by putting thoses files at the
-            same location output_folder) to resume more precisely a training, by default False.
+            Parameter to resume a training from a former trained model. A training could only be resume from a
+            checkpoint file (and not from a .pth file). If the parameter is set to true, the model to resume will
+            be search at the defaut checkpoint save path "odeon_{monitor}_ckpt" .by default False.
         loss: str, optional
             Loss function used for the training. Available parameters are "ce": cross-entropy loss, "bce":binary cross
             entropy loss, "focal": focal loss, "combo": combo loss (a mix between "bce", "focal"), by default "ce".
@@ -261,6 +261,9 @@ class TrainCLI(BaseTool):
             with the lowest val_loss) and the mIoU (macro IoU/mean of IoU per class) on the validation set (we keep
             the k models with the highest val_miou), so if k=3 we will save 6 checkpoints. This parameter is only
             used if output trained model is of type ".ckpt", by default 3.
+        export_checkpoint: Union[str, List[str]], optional
+            Additional format to export save checkpoint. Mainly useful for backward compatibylity with previous
+            version of odeon and "pth" model format.
         get_prediction: bool, optional
             Parameter could be only used if the test_file is provided. The predictions will be made with the mode with
             the best val_loss model and the predictions will be sotred in a predicitons folder inside the experience
@@ -283,6 +286,7 @@ class TrainCLI(BaseTool):
         self.version_name = version_name
         self.model_filename = model_filename
         self.model_out_ext = model_out_ext
+        self.export_checkpoint = export_checkpoint
         # Dict of desired data augmentation
         self.data_augmentation = data_augmentation
         # Stats for each split (mean and std) in order to do normalization
@@ -346,6 +350,7 @@ class TrainCLI(BaseTool):
         self.loggers = None
         self.callbacks = None
         self.trainer = None
+        self.pred_checkpoint_callback = None
 
         self.setup()  # Define output paths (exp, logs, version name)
         self.check()  # Check model name and if output folders exist.
@@ -439,28 +444,25 @@ class TrainCLI(BaseTool):
         if self.test_file is not None:
             try:
                 best_val_loss_ckpt_path = None
-                if self.model_out_ext == ".ckpt":
-                    ckpt_val_loss_folder = os.path.join(
-                        self.output_folder,
-                        self.name_exp_log,
-                        "odeon_val_loss_ckpt",
-                        self.version_name,
-                    )
-                    best_val_loss_ckpt_path = self.get_path_best_ckpt(
-                        ckpt_folder=ckpt_val_loss_folder, monitor="val_loss", mode="min"
-                    )
+                if self.pred_checkpoint_callback is not None:
+                    best_val_loss_ckpt_path = self.pred_checkpoint_callback.best_model_path
+                else:
+                    try:
+                        best_val_loss_ckpt_path = self.trainer.checkpoint_callback.best_model_path
+                    except AttributeError:
+                        best_val_loss_ckpt_path = "best"
 
-                elif self.model_out_ext == ".pth":
-                    # Load model weights into the model of the seg module
-                    best_model_state_dict = torch.load(
-                        os.path.join(self.output_folder, self.model_filename)
-                    )
-                    self.seg_module.model.load_state_dict(
-                        state_dict=best_model_state_dict
-                    )
-                    LOGGER.info(
-                        f"Test with .pth file :{os.path.join(self.output_folder, self.model_filename)}"
-                    )
+                # elif self.model_out_ext == ".pth":
+                #    # Load model weights into the model of the seg module
+                #    best_model_state_dict = torch.load(
+                #        os.path.join(self.output_folder, self.model_filename)
+                #    )
+                #    self.seg_module.model.load_state_dict(
+                #        state_dict=best_model_state_dict
+                #    )
+                #    LOGGER.info(
+                #        f"Test with .pth file :{os.path.join(self.output_folder, self.model_filename)}"
+                #    )
 
                 if self.get_prediction:
                     self.trainer.predict(
@@ -533,6 +535,11 @@ class TrainCLI(BaseTool):
                 )
                 loggers.append(test_json_logger)
 
+        if self.export_checkpoint is not None:
+            if "pth" in self.export_checkpoint:
+                odeon_legacy_logger = OdeonLegacyLogger(log_model=True)
+                loggers.append(odeon_legacy_logger)
+
         if self.use_wandb:
             wandb_logger = WandbLogger(
                 project=self.name_exp_log,
@@ -548,6 +555,33 @@ class TrainCLI(BaseTool):
     def configure_callbacks(self):
         # Callbacks definition
         callbacks = []
+
+        checkpoint_miou_callback = ModelCheckpoint(
+            monitor="val_miou",
+            dirpath=get_ckpt_path(
+                self.out_root_dir, "miou", self.version_name),
+            filename=get_ckpt_filename(
+                self.model_filename, "val_miou", self.save_top_k),
+            save_top_k=self.save_top_k,
+            mode="max",
+            save_last=False,
+        )
+        checkpoint_miou_callback.FILE_EXTENSION = self.model_out_ext
+        checkpoint_loss_callback = ModelCheckpoint(
+            monitor="val_loss",
+            dirpath=get_ckpt_path(
+                self.out_root_dir, "val_loss", self.version_name),
+            filename=get_ckpt_filename(
+                self.model_filename, "val_loss", self.save_top_k),
+            save_top_k=self.save_top_k,
+            mode="min",
+            save_last=True,
+        )
+        checkpoint_loss_callback.FILE_EXTENSION = self.model_out_ext
+
+        callbacks.extend([checkpoint_loss_callback, checkpoint_miou_callback])
+        self.pred_checkpoint_callback = checkpoint_loss_callback
+
         if self.use_tensorboard:
             tensorboard_metrics = MetricsAdder()
             callbacks.append(tensorboard_metrics)
@@ -567,48 +601,16 @@ class TrainCLI(BaseTool):
                     UploadCodeAsArtifact(code_dir=code_dir, use_git=True),
                 ]
             )
-        if self.model_out_ext == ".ckpt":
-            checkpoint_miou_callback = LightningCheckpoint(
-                monitor="val_miou",
-                dirpath=os.path.join(
-                    self.output_folder, self.name_exp_log, "odeon_miou_ckpt"
-                ),
-                version=self.version_name,
-                filename=self.model_filename,
-                save_top_k=self.save_top_k,
-                mode="max",
-                save_last=True,
-            )
 
-            checkpoint_loss_callback = LightningCheckpoint(
-                monitor="val_loss",
-                dirpath=os.path.join(
-                    self.output_folder, self.name_exp_log, "odeon_val_loss_ckpt"
-                ),
-                version=self.version_name,
-                filename=self.model_filename,
-                save_top_k=self.save_top_k,
-                mode="min",
-                save_last=True,
-            )
-            callbacks.extend([checkpoint_miou_callback, checkpoint_loss_callback])
+        # if self.export_checkpoint is not None:
+        #   if "pth" in self.export_checkpoint:
+        #        checkpoint_pth = ExoticCheckPoint(
+        #            out_folder=self.output_folder,
+        #            out_filename=self.model_filename,
+        #            model_out_ext=self.model_out_ext,
+        #        )
+        #        callbacks.append(checkpoint_pth)
 
-        elif self.model_out_ext == ".pth":
-            checkpoint_pth = ExoticCheckPoint(
-                out_folder=self.output_folder,
-                out_filename=self.model_filename,
-                model_out_ext=self.model_out_ext,
-            )
-            callbacks.append(checkpoint_pth)
-
-        else:
-            LOGGER.error(
-                "ERROR: parameter model_out_ext could only be .ckpt or  .pth ..."
-            )
-            raise OdeonError(
-                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                "The input parameter model_out_ext is incorrect.",
-            )
         if self.save_history:
             callbacks.append(HistorySaver())
 
@@ -639,31 +641,18 @@ class TrainCLI(BaseTool):
             callbacks.append(early_stop_callback)
 
         if self.continue_training:
-            file_exist(os.path.join(self.output_folder, self.model_filename))
-            resume_file_ext = os.path.splitext(
-                os.path.join(self.output_folder, self.model_filename)
-            )[-1]
-            if resume_file_ext == ".pth":
-                continue_training_callback = ContinueTraining(
-                    out_dir=self.output_folder,
-                    out_filename=self.model_filename,
-                    save_history=self.save_history,
-                )
-                callbacks.append(continue_training_callback)
-            elif resume_file_ext == ".ckpt":
-                self.resume_checkpoint = os.path.join(
-                    self.output_folder, self.model_filename
-                )
+            ckpt_path = get_ckpt_path(
+                    self.out_root_dir, "val_loss", self.version_name)
+            name_last = "last"
+            if self.pred_checkpoint_callback is not None:
+                name_last = self.pred_checkpoint_callback.CHECKPOINT_NAME_LAST
+            last_ckpt = os.path.join(
+                ckpt_path, f"{name_last}{self.model_out_ext}")
+            if os.path.isfile(last_ckpt):
+                self.resume_checkpoint = last_ckpt
             else:
-                LOGGER.error(
-                    "ERROR: Odeon only handles files of type .pth or .ckpt \
-                    for the continue training feature."
-                )
-                raise OdeonError(
-                    ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-                    "The parameter model_filename is incorrect in this case \
-                    with the parameter continue_training as true.",
-                )
+                self.resume_checkpoint = None
+            LOGGER.debug(f"DEBUG: continue training use checkpoint: {self.resume_checkpoint}")
 
         if self.get_prediction:
             path_predictions = os.path.join(
@@ -685,9 +674,14 @@ class TrainCLI(BaseTool):
 
         if self.verbosity:
             LOGGER.debug(f"DEBUG: Callbacks: {callbacks}")
+            if self.resume_checkpoint is not None:
+                LOGGER.debug(f"DEBUG: resume_checkpoint: {self.resume_checkpoint}")
+
         return callbacks
 
     def setup(self):
+
+        self.out_root_dir = os.path.join(self.output_folder, self.name_exp_log)
 
         if self.model_out_ext is None:
             if self.model_filename is None:
@@ -742,8 +736,19 @@ class TrainCLI(BaseTool):
             )
         try:
             dirs_exist([self.output_folder])
-            if self.continue_training:
-                file_exist(os.path.join(self.output_folder, self.model_filename))
+
+            ckpt_path = get_ckpt_path(
+                    self.out_root_dir, "val_loss", self.version_name)
+            last_ckpt = os.path.join(ckpt_path, f"last{self.model_out_ext}")
+            last_ckpt_exist = os.path.isfile(last_ckpt)
+            if not self.continue_training and last_ckpt_exist:
+                raise OdeonError(
+                    ErrorCodes.ERR_FILE_NOT_EXIST,
+                    f"the file {last_ckpt} exists and continue training is False"
+                )
+            if self.continue_training and not last_ckpt_exist:
+                LOGGER.warning("WARNING: last checkpoint don't exist fallabck to init training")
+
         except OdeonError as error:
             raise OdeonError(
                 ErrorCodes.ERR_TRAINING_ERROR,
@@ -751,16 +756,15 @@ class TrainCLI(BaseTool):
                 stack_trace=error,
             )
 
-    def get_version_name(self):
-        version_idx = None
-        path = os.path.join(self.output_folder, self.name_exp_log)
-        if not os.path.exists(path):
-            version_idx = 0
+    def get_version_name(self, incr=True):
+        if not incr:
+            version_name = "version_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime())
         else:
-            ckpt_path = os.path.join(path, "odeon_val_loss_ckpt")
-            if "odeon_val_loss_ckpt" not in os.listdir(path):
+            version_idx = None
+            ckpt_path = get_ckpt_path(self.out_root_dir, "val_loss", version=None)
+
+            if not os.path.isdir(ckpt_path):
                 version_idx = 0
-                os.makedirs(ckpt_path)
             else:
                 list_ckpt_dir = [
                     x
@@ -773,8 +777,7 @@ class TrainCLI(BaseTool):
                     if "version_" in name_dir
                 ]
                 version_idx = max(found_idx) + 1 if found_idx is not None else 0
-
-        version_name = f"version_{str(version_idx)}"
+                version_name = f"version_{str(version_idx)}"
         return version_name
 
     def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):
