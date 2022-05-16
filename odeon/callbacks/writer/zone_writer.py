@@ -4,12 +4,9 @@ import rasterio
 from pytorch_lightning.callbacks import BasePredictionWriter
 from rasterio.features import geometry_window
 from rasterio.plot import reshape_as_raster
-from rasterio.warp import aligned_target
 from rasterio.windows import transform
 
-from odeon import LOGGER
 from odeon.commons.image import TypeConverter, substract_margin
-from odeon.commons.rasterio import ndarray_to_affine
 from odeon.commons.shape import create_polygon_from_bounds
 
 THRESHOLD = 0.5

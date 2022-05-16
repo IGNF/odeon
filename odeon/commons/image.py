@@ -203,7 +203,7 @@ def crop_center(img, cropx, cropy):
 
     startx = x // 2 - (cropx // 2)
     starty = y // 2 - (cropy // 2)
-    return img[starty : starty + cropy, startx : startx + cropx]
+    return img[starty: starty + cropy, startx: startx + cropx]
 
 
 def substract_margin(img, margin_x, margin_y):
@@ -232,7 +232,7 @@ def substract_margin(img, margin_x, margin_y):
 
         y, x, _ = img.shape
 
-    return img[0 + margin_y : y - margin_y, 0 + margin_x : x - margin_x]
+    return img[0 + margin_y: y - margin_y, 0 + margin_x: x - margin_x]
 
 
 class TypeConverter:

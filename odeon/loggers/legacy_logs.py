@@ -9,10 +9,10 @@ import logging
 from argparse import Namespace
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
-from weakref import ReferenceType
+from weakref import ReferenceType  # noqa
 
 import torch
-from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint  # noqa
 from pytorch_lightning.loggers.base import (
     DummyExperiment,
     LightningLoggerBase,
