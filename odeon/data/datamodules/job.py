@@ -131,72 +131,42 @@ class ZoneDetectionJob(PatchJobDetection):
         )
 
     def __str__(self):
-
         return f" Zone Job Detection with dataframe {self._df}"
 
     @classmethod
     def read_file(cls, file_name):
-
         return gpd.read_file(file_name)
 
     def get_job_done(self):
-
         df_grouped = self._df.groupby(["output_id"]).agg({"job_done": ["sum", "count"]})
-        LOGGER.debug(df_grouped)
-        LOGGER.debug(df_grouped.index.values.tolist())
-        LOGGER.debug(df_grouped.columns)
         job_done_id = df_grouped[
             df_grouped["job_done", "sum"] == df_grouped["job_done", "count"]
         ].index.values.tolist()
-        LOGGER.debug(job_done_id)
-        LOGGER.debug(len(job_done_id))
-        LOGGER.debug(self._df["output_id"].isin(job_done_id))
-
         return self._df[self._df["output_id"].isin(job_done_id)]
 
     def get_todo_list(self):
 
         if self._job_done is None:
-
             return self._df
-
         else:
-
             return self._df[
                 ~self._df["output_id"].isin(self._job_done["output_id"].values)
             ]
 
     def save_job(self):
-
         out = self._df
-        LOGGER.debug(f"length of job todo {len(out)}")
         if self._job_done is not None:
-
             out = pd.concat([out, self._job_done])
-            LOGGER.debug(f"job done: {len(self._job_done)}")
-
-        LOGGER.debug(f"lenght of total job {len(out)}")
-        LOGGER.debug(out)
-        LOGGER.debug(out.columns)
-        LOGGER.debug(out.dtypes)
-        LOGGER.debug(out["id"])
         out.to_file(self._job_file)
 
     def get_bounds_at(self, idx):
-
-        LOGGER.debug(f"index {idx}")
-        LOGGER.debug(f"indices:\n {self._df.index.values.tolist()}")
         return self.get_cell_at(idx, "geometry").bounds
 
     def job_finished_for_output_id(self, output_id):
-
         dalle_df = self._df[self._df["output_id"] == output_id]
         if len(dalle_df[dalle_df["job_done"] == 1]) == len(dalle_df):
-
             return True
-
         else:
-
             return False
 
     def mark_dalle_job_as_done(self, output_id):
@@ -236,8 +206,7 @@ class ZoneDetectionJob(PatchJobDetection):
             a geoDataframe with a list container polygon, the original polygons of entry
             or the generated dalle it output_dalle_size has been set.
         """
-
-        output_size_u = [output_size * resolution[0], output_size * resolution[1]]
+        output_size_u = [output_size[0] * resolution[0], output_size[1] * resolution[1]]
         overlap_u = [overlap * resolution[0], overlap * resolution[1]]
         step = [
             output_size_u[0] - (2 * overlap_u[0]),

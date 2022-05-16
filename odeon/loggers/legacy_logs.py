@@ -6,14 +6,18 @@ Logger for export model in old (legacy) ODEON format
 
 """
 import logging
-from pathlib import Path
 from argparse import Namespace
+from pathlib import Path
 from typing import Any, Dict, Optional, Union
 from weakref import ReferenceType
 
 import torch
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from pytorch_lightning.loggers.base import LightningLoggerBase, rank_zero_experiment, DummyExperiment
+from pytorch_lightning.loggers.base import (
+    DummyExperiment,
+    LightningLoggerBase,
+    rank_zero_experiment,
+)
 from pytorch_lightning.utilities import rank_zero_only
 
 log = logging.getLogger(__name__)
@@ -26,12 +30,13 @@ class OdeonLegacyLogger(LightningLoggerBase):
     Logger for export model in old (legacy) ODEON format
 
     """
+
     def __init__(
         self,
         save_dir: Optional[str] = None,
         log_model: Union[str, bool] = False,
         name: Optional[str] = "default",
-        version: Optional[Union[int, str]] = None
+        version: Optional[Union[int, str]] = None,
     ):
         super().__init__()
         self._save_dir = save_dir
@@ -89,9 +94,15 @@ class OdeonLegacyLogger(LightningLoggerBase):
         return self._version
 
     @rank_zero_only
-    def after_save_checkpoint(self, checkpoint_callback: "ReferenceType[ModelCheckpoint]") -> None:
+    def after_save_checkpoint(
+        self, checkpoint_callback: "ReferenceType[ModelCheckpoint]"
+    ) -> None:
         # log checkpoints as artifacts
-        if self._log_model == "all" or self._log_model is True and checkpoint_callback.save_top_k == -1:
+        if (
+            self._log_model == "all"
+            or self._log_model is True
+            and checkpoint_callback.save_top_k == -1
+        ):
             self._scan_and_log_checkpoints(checkpoint_callback)
         elif self._log_model is True:
             if checkpoint_callback not in self._checkpoint_callbacks:
@@ -104,38 +115,47 @@ class OdeonLegacyLogger(LightningLoggerBase):
             self._scan_and_log_checkpoints(checkpoint_callback)
 
     @rank_zero_only
-    def _scan_and_log_checkpoints(self, checkpoint_callback: "ReferenceType[ModelCheckpoint]") -> None:
+    def _scan_and_log_checkpoints(
+        self, checkpoint_callback: "ReferenceType[ModelCheckpoint]"
+    ) -> None:
         # get checkpoints to be saved with associated score
         checkpoints = {
             checkpoint_callback.last_model_path: checkpoint_callback.current_score,
             checkpoint_callback.best_model_path: checkpoint_callback.best_model_score,
             **checkpoint_callback.best_k_models,
         }
-        checkpoints = sorted((Path(p).stat().st_mtime, p, s) for p, s in checkpoints.items() if Path(p).is_file())
+        checkpoints = sorted(
+            (Path(p).stat().st_mtime, p, s)
+            for p, s in checkpoints.items()
+            if Path(p).is_file()
+        )
         checkpoints = [
-            c for c in checkpoints if c[1] not in self._logged_model_time.keys() or self._logged_model_time[c[1]] < c[0]
+            c
+            for c in checkpoints
+            if c[1] not in self._logged_model_time.keys()
+            or self._logged_model_time[c[1]] < c[0]
         ]
 
         # log iteratively all new checkpoints
         for t, p, s in checkpoints:
             metadata = {
-                    "score": s,
-                    "original_path": Path(p),
-                    "original_filename": Path(p).name,
-                    "ModelCheckpoint": {
-                        k: getattr(checkpoint_callback, k)
-                        for k in [
-                            "monitor",
-                            "mode",
-                            "save_last",
-                            "save_top_k",
-                            "save_weights_only",
-                            "_every_n_train_steps",
-                        ]
-                        # ensure it does not break if `ModelCheckpoint` args change
-                        if hasattr(checkpoint_callback, k)
-                    },
-                }
+                "score": s,
+                "original_path": Path(p),
+                "original_filename": Path(p).name,
+                "ModelCheckpoint": {
+                    k: getattr(checkpoint_callback, k)
+                    for k in [
+                        "monitor",
+                        "mode",
+                        "save_last",
+                        "save_top_k",
+                        "save_weights_only",
+                        "_every_n_train_steps",
+                    ]
+                    # ensure it does not break if `ModelCheckpoint` args change
+                    if hasattr(checkpoint_callback, k)
+                },
+            }
 
             self._ckpt_to_pth(metadata["original_path"])
             # remember logged models - timestamp needed in case filename didn't change (lastkckpt or custom name)
@@ -147,7 +167,7 @@ class OdeonLegacyLogger(LightningLoggerBase):
         else:
             out_pth = out_path
 
-        ckpt_dict = torch.load(ckpt_path, map_location=torch.device('cpu'))
+        ckpt_dict = torch.load(ckpt_path, map_location=torch.device("cpu"))
         state_dict = ckpt_dict["state_dict"]
         # remove criterion/loss info
         for k in state_dict.keys():

@@ -33,7 +33,7 @@ class PatchPredictionWriter(BasePredictionWriter):
 
     def on_predict_start(self, trainer, pl_module):
         if self.img_size_pixel is None:
-            self.img_size_pixel = min(
+            self.img_size_pixel = (
                 trainer.datamodule.sample_dims["image"][0],
                 trainer.datamodule.sample_dims["image"][1],
             )
@@ -41,8 +41,8 @@ class PatchPredictionWriter(BasePredictionWriter):
         self.gdal_options = {
             "compress": "LZW",
             "tiled": True,
-            "blockxsize": self.img_size_pixel,
-            "blockysize": self.img_size_pixel,
+            "blockxsize": self.img_size_pixel[0],
+            "blockysize": self.img_size_pixel[1],
             "SPARSE_MODE": self.sparse_mode,
         }
 
@@ -52,8 +52,8 @@ class PatchPredictionWriter(BasePredictionWriter):
             "uint8" if self.output_type in ["uint8", "bit"] else "float32"
         )
         self.meta["count"] = trainer.datamodule.num_classes
-        self.meta["width"] = self.img_size_pixel
-        self.meta["height"] = self.img_size_pixel
+        self.meta["width"] = self.img_size_pixel[0]
+        self.meta["height"] = self.img_size_pixel[1]
         if self.output_type == "bit":
             self.gdal_options["bit"] = 1
         return super().on_predict_start(trainer, pl_module)

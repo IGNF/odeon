@@ -366,11 +366,13 @@ Train setup
   is used as learning rate scheduler with mode='min', factor=0.5, patience=10, min_lr=1e-7, cooldown=4`.
 
 * ``continue_training (boolean, optional)``:
-  Parameter to resume a training from a former trained model. A training could be resume from a checkpoint
-  file or from a .pth file. If the parameter is set to true, the model to resume will be search at the path:
-  output_folder/model_filename. The type of the model file will be automatically detected and if the file
-  is of type ".pth" other files (optimizer and history) could be passed (by putting thoses files at the
-  same location output_folder) to resume more precisely a training, by default False.
+  Parameter to resume a training from a former trained model. A training could only be resume from a
+  checkpoint file (and not from a .pth file). If the parameter is set to true, the model to resume will
+  be search at the defaut checkpoint save path "odeon_{monitor}_ckpt" .by default False.
+
+* ``export_checkpoint (Union[str, List[str]], optional)``:
+  Additional format to export saved checkpoint. Mainly useful for backward compatibility with previous
+  version of odeon and "pth" model format.
 
 * ``val_check_interval (float, optional)``:
   How often to check the validation set. Pass a float in the range [0.0, 1.0] to check after a fraction of
@@ -410,8 +412,8 @@ Output setup
   training. When the model improves, thoses files are overwritten, by default, None.
 
 * ``model_out_ext (str, optional)``:
-  Define the output type of the model which could be ".ckpt" or ".pth". If not provided the output trained
-  model will be of type ".ckpt", by default None.
+  Define the extension to use for model filename. If not provided the output trained model will be of type
+  ".ckpt" which is default extension for pytorch lightning, by default None.
 
 * ``name_exp_log (str, optional)``:
   Name of the experience of the training (for example unet_ocsge). The folder will be inside the output

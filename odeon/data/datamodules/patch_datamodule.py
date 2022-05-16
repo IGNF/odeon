@@ -406,7 +406,7 @@ class SegDataModule(LightningDataModule):
         self.test_batch_size = test_batch_size
 
     def get_resolution(self, parameter_resolution):
-        if isinstance(parameter_resolution, int):
+        if isinstance(parameter_resolution, float):
             self.resolution["train"] = [parameter_resolution, parameter_resolution]
             self.resolution["val"] = [parameter_resolution, parameter_resolution]
             self.resolution["test"] = [parameter_resolution, parameter_resolution]

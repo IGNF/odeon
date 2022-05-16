@@ -1,2 +1,2 @@
 from .json_logs import JSONLogger  # noqa
-from .legacy_log import OdeonLegacyLogger  # noqa
+from .legacy_logs import OdeonLegacyLogger  # noqa

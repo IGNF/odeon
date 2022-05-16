@@ -82,6 +82,9 @@ class ErrorCodes(Enum):
     """ happens if a file (in a json configuration CLI mostly) doesn't exist """
     ERR_FILE_NOT_EXIST = auto()
 
+    """ happens if a file (in a json configuration CLI mostly) already exist """
+    ERR_FILE_ALREADY_EXIST = auto()
+
     """ happens if a dir (in a json configuration CLI mostly) doesn't exist """
     ERR_DIR_NOT_EXIST = auto()
 

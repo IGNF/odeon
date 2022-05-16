@@ -229,10 +229,9 @@ class SegmentationTask(pl.LightningModule):
         self.test_metrics.reset()
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        images, filenames, affines = batch["image"], batch["filename"], batch["affine"]
-        logits = self.model(images)
-        proba = torch.softmax(logits, dim=1)
-        return {"proba": proba, "filename": filenames, "affine": affines}
+        logits = self.model(batch["image"])
+        batch["proba"] = torch.softmax(logits, dim=1)
+        return batch
 
     def scheduler_step(self, monitored_metric=None):
         sch = self.lr_schedulers()

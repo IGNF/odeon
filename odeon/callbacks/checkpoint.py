@@ -16,9 +16,7 @@ def get_ckpt_filename(filename, monitor, save_top_k):
     if filename is None:
         filename = "checkpoint-{epoch:02d}-{" + monitor + ":.2f}"
     elif save_top_k > 1:
-        filename = (
-            os.path.splitext(filename)[0] + "-{epoch:02d}-{" + monitor + ":.2f}"
-        )
+        filename = os.path.splitext(filename)[0] + "-{epoch:02d}-{" + monitor + ":.2f}"
     else:
         filename = os.path.splitext(filename)[0]
     return filename

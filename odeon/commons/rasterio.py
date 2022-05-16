@@ -193,7 +193,7 @@ def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
             out_shape=(meta["count"], meta["height"], meta["width"]),
             resampling=resampling,
         )
-        bands = clip[0: clip.shape[0] - 1].astype(np.bool).astype(np.uint8).copy()
+        bands = clip[0 : clip.shape[0] - 1].astype(np.bool).astype(np.uint8).copy()
         other_band = np.sum(bands, axis=0, dtype=np.uint8)
         other_band = (other_band == 0).astype(np.uint8)
 
@@ -203,7 +203,7 @@ def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
                 out_shape=(meta["count"], meta["height"], meta["width"]),
                 resampling=resampling,
             )
-            out = np.vstack((out[0: out.shape[0] - 1], np.array([other_band])))
+            out = np.vstack((out[0 : out.shape[0] - 1], np.array([other_band])))
             raster_out.write(out)
         return window
 

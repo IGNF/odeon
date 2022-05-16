@@ -6,9 +6,12 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import torch
 from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from pytorch_lightning.callbacks.progress.tqdm_progress import TQDMProgressBar
-from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
 from odeon import LOGGER
@@ -17,11 +20,11 @@ from odeon.callbacks import (
     HistogramAdder,
     HistorySaver,
     HParamsAdder,
-    get_ckpt_path,
-    get_ckpt_filename,
     MetricsAdder,
     PatchPredictionWriter,
     PredictionsAdder,
+    get_ckpt_filename,
+    get_ckpt_path,
 )
 from odeon.commons.core import BaseTool
 from odeon.commons.exception import ErrorCodes, OdeonError
@@ -262,7 +265,7 @@ class TrainCLI(BaseTool):
             the k models with the highest val_miou), so if k=3 we will save 6 checkpoints. This parameter is only
             used if output trained model is of type ".ckpt", by default 3.
         export_checkpoint: Union[str, List[str]], optional
-            Additional format to export save checkpoint. Mainly useful for backward compatibylity with previous
+            Additional format to export saved checkpoint. Mainly useful for backward compatibility with previous
             version of odeon and "pth" model format.
         get_prediction: bool, optional
             Parameter could be only used if the test_file is provided. The predictions will be made with the mode with
@@ -445,10 +448,14 @@ class TrainCLI(BaseTool):
             try:
                 best_val_loss_ckpt_path = None
                 if self.pred_checkpoint_callback is not None:
-                    best_val_loss_ckpt_path = self.pred_checkpoint_callback.best_model_path
+                    best_val_loss_ckpt_path = (
+                        self.pred_checkpoint_callback.best_model_path
+                    )
                 else:
                     try:
-                        best_val_loss_ckpt_path = self.trainer.checkpoint_callback.best_model_path
+                        best_val_loss_ckpt_path = (
+                            self.trainer.checkpoint_callback.best_model_path
+                        )
                     except AttributeError:
                         best_val_loss_ckpt_path = "best"
 
@@ -558,10 +565,10 @@ class TrainCLI(BaseTool):
 
         checkpoint_miou_callback = ModelCheckpoint(
             monitor="val_miou",
-            dirpath=get_ckpt_path(
-                self.out_root_dir, "miou", self.version_name),
+            dirpath=get_ckpt_path(self.out_root_dir, "miou", self.version_name),
             filename=get_ckpt_filename(
-                self.model_filename, "val_miou", self.save_top_k),
+                self.model_filename, "val_miou", self.save_top_k
+            ),
             save_top_k=self.save_top_k,
             mode="max",
             save_last=False,
@@ -569,10 +576,10 @@ class TrainCLI(BaseTool):
         checkpoint_miou_callback.FILE_EXTENSION = self.model_out_ext
         checkpoint_loss_callback = ModelCheckpoint(
             monitor="val_loss",
-            dirpath=get_ckpt_path(
-                self.out_root_dir, "val_loss", self.version_name),
+            dirpath=get_ckpt_path(self.out_root_dir, "val_loss", self.version_name),
             filename=get_ckpt_filename(
-                self.model_filename, "val_loss", self.save_top_k),
+                self.model_filename, "val_loss", self.save_top_k
+            ),
             save_top_k=self.save_top_k,
             mode="min",
             save_last=True,
@@ -641,18 +648,18 @@ class TrainCLI(BaseTool):
             callbacks.append(early_stop_callback)
 
         if self.continue_training:
-            ckpt_path = get_ckpt_path(
-                    self.out_root_dir, "val_loss", self.version_name)
+            ckpt_path = get_ckpt_path(self.out_root_dir, "val_loss", self.version_name)
             name_last = "last"
             if self.pred_checkpoint_callback is not None:
                 name_last = self.pred_checkpoint_callback.CHECKPOINT_NAME_LAST
-            last_ckpt = os.path.join(
-                ckpt_path, f"{name_last}{self.model_out_ext}")
+            last_ckpt = os.path.join(ckpt_path, f"{name_last}{self.model_out_ext}")
             if os.path.isfile(last_ckpt):
                 self.resume_checkpoint = last_ckpt
             else:
                 self.resume_checkpoint = None
-            LOGGER.debug(f"DEBUG: continue training use checkpoint: {self.resume_checkpoint}")
+            LOGGER.debug(
+                f"DEBUG: continue training use checkpoint: {self.resume_checkpoint}"
+            )
 
         if self.get_prediction:
             path_predictions = os.path.join(
@@ -737,17 +744,18 @@ class TrainCLI(BaseTool):
         try:
             dirs_exist([self.output_folder])
 
-            ckpt_path = get_ckpt_path(
-                    self.out_root_dir, "val_loss", self.version_name)
+            ckpt_path = get_ckpt_path(self.out_root_dir, "val_loss", self.version_name)
             last_ckpt = os.path.join(ckpt_path, f"last{self.model_out_ext}")
             last_ckpt_exist = os.path.isfile(last_ckpt)
             if not self.continue_training and last_ckpt_exist:
                 raise OdeonError(
-                    ErrorCodes.ERR_FILE_NOT_EXIST,
-                    f"the file {last_ckpt} exists and continue training is False"
+                    ErrorCodes.ERR_FILE_ALREADY_EXIST,
+                    f"ERROR: the file {last_ckpt} exists and the continue training parameter is False",
                 )
             if self.continue_training and not last_ckpt_exist:
-                LOGGER.warning("WARNING: last checkpoint don't exist fallabck to init training")
+                LOGGER.warning(
+                    "WARNING: last checkpoint doesn't exist, fallback to init training"
+                )
 
         except OdeonError as error:
             raise OdeonError(
@@ -756,28 +764,24 @@ class TrainCLI(BaseTool):
                 stack_trace=error,
             )
 
-    def get_version_name(self, incr=True):
-        if not incr:
-            version_name = "version_" + strftime("%Y-%m-%d_%H-%M-%S", gmtime())
+    def get_version_name(self):
+        version_idx = None
+        ckpt_path = get_ckpt_path(self.out_root_dir, "val_loss", version=None)
+        if not os.path.isdir(ckpt_path):
+            version_idx = 0
         else:
-            version_idx = None
-            ckpt_path = get_ckpt_path(self.out_root_dir, "val_loss", version=None)
-
-            if not os.path.isdir(ckpt_path):
-                version_idx = 0
-            else:
-                list_ckpt_dir = [
-                    x
-                    for x in os.listdir(ckpt_path)
-                    if os.path.isdir(os.path.join(ckpt_path, x))
-                ]
-                found_idx = [
-                    int(name_dir.split("_")[-1])
-                    for name_dir in list_ckpt_dir
-                    if "version_" in name_dir
-                ]
-                version_idx = max(found_idx) + 1 if found_idx is not None else 0
-                version_name = f"version_{str(version_idx)}"
+            list_ckpt_dir = [
+                x
+                for x in os.listdir(ckpt_path)
+                if os.path.isdir(os.path.join(ckpt_path, x))
+            ]
+            found_idx = [
+                int(name_dir.split("_")[-1])
+                for name_dir in list_ckpt_dir
+                if "version_" in name_dir
+            ]
+            version_idx = max(found_idx) + 1 if found_idx is not None else 0
+        version_name = f"version_{str(version_idx)}"
         return version_name
 
     def get_path_best_ckpt(self, ckpt_folder, monitor="val_loss", mode="min"):

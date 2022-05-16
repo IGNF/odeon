@@ -1,14 +1,18 @@
+import math
 import os
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 from pytorch_lightning import LightningDataModule
 from rasterio.warp import aligned_target
 from shapely import wkt
 from torch.utils.data import DataLoader, Subset
 
+from odeon import LOGGER
 from odeon.commons.exception import ErrorCodes, OdeonError
-from odeon.commons.rasterio import get_number_of_band
+from odeon.commons.rasterio import RIODatasetCollection, get_number_of_band
 from odeon.data.datamodules.job import ZoneDetectionJob, ZoneDetectionJobNoDalle
 from odeon.data.datasets import ZoneDetectionDataset
 
@@ -16,53 +20,56 @@ RANDOM_SEED = 42
 BATCH_SIZE = 5
 NUM_WORKERS = 4
 PERCENTAGE_VAL = 0.3
+OUTPUT_TYPE = "unint8"
 
 
 class ZoneDataModule(LightningDataModule):
     def __init__(
         self,
-        output_path,
-        zone,
-        img_size_pixel,
-        margin=None,
-        transforms=None,
-        width=None,
-        height=None,
-        batch_size=BATCH_SIZE,
-        num_workers=NUM_WORKERS,
-        percentage_val=PERCENTAGE_VAL,
-        pin_memory=True,
-        deterministic=False,
-        get_sample_info=False,
-        resolution=None,
-        drop_last=False,
-        subset=False,
+        output_path: str,
+        zone: Dict[str, Any],
+        num_classes: int,
+        img_size_pixel: Union[int, Tuple[int], List[int]],
+        transforms: Optional[Dict[str, Any]] = None,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        batch_size: Optional[int] = BATCH_SIZE,
+        num_workers: Optional[int] = NUM_WORKERS,
+        percentage_val: Optional[float] = PERCENTAGE_VAL,
+        pin_memory: Optional[bool] = True,
+        deterministic: Optional[bool] = False,
+        get_sample_info: Optional[bool] = False,
+        resolution: Optional[Union[int, Tuple[int], List[int]]] = None,
+        output_type: Optional[str] = OUTPUT_TYPE,
+        drop_last: Optional[bool] = False,
+        subset: Optional[bool] = False,
     ):
 
         super().__init__()
 
         self.output_path = output_path
-        self.n_classes = None
+        self.num_classes = num_classes
 
         # Extraction of the value contained in zone.
         self.dict_of_raster = zone["sources"]
         self.extent = zone["extent"]
         self.tile_factor = zone["tile_factor"]
-        self.margin = zone["margin"]
+        self.margin = zone["margin_zone"]
         self.out_dalle_size = (
-            zone["out_dalle_size"] if "out_dalle_size" in zone.keys() else None
+            zone["out_dalle_size"] if ("out_dalle_size" in zone.keys()) else None
         )
         self.dem = zone["dem"]
-        self.img_size_pixel = img_size_pixel
-        self.output_size = self.img_size_pixel * self.tile_factor
-        self.width = self.img_size_pixel * self.tile_factor
-        self.margin = margin
+
         self.transforms = transforms
 
-        self.width = self.img_size_pixel * self.tile_factor if width is None else width
-        self.height = (
-            self.img_size_pixel * self.tile_factor if height is None else height
+        self.img_size_pixel = img_size_pixel
+        self.width = (
+            self.img_size_pixel[0] * self.tile_factor if width is None else width
         )
+        self.height = (
+            self.img_size_pixel[1] * self.tile_factor if height is None else height
+        )
+        self.output_size = [self.width, self.height]
 
         self.num_workers = num_workers
         self.percentage_val = percentage_val
@@ -79,26 +86,33 @@ class ZoneDataModule(LightningDataModule):
             self.random_seed = RANDOM_SEED
             self.shuffle = True
 
-        self.resolution = resolution
+        self.resolution = self.get_resolution(resolution)
+        self.output_type = output_type
         self.batch_size = batch_size
         self.pred_dataset = None
 
-        # Variable for zone detection
-        self.zone_detection_job = None
+        # Variables for zone detection
+        self.meta = None
+        self.job = None
         self.n_channel = None
         self.meta = None
+        self.meta_output = None
+        self.dst = None
+        self.test_dataset = None
 
     def prepare_data(self):
-        self.zone_detection_job = self.create_detection_job()
-        self.zone_detection_job.save_job()
+        self.dst = rasterio.open(next(iter(self.dict_of_raster.values()))["path"])
+        self.job = self.create_detection_job()
+        self.job.save_job()
         self.n_channel = get_number_of_band(self.dict_of_raster, self.dem)
         self.meta = self.init_meta()
 
-    def setup(self):
+    def setup(self, stage=None):
         if not self.test_dataset:
             self.dataset = ZoneDetectionDataset(
-                job=self.zone_detection_job,
+                job=self.job,
                 dict_of_raster=self.dict_of_raster,
+                output_type=self.output_type,
                 meta=self.meta,
                 dem=self.dem,
                 height=self.height,
@@ -167,19 +181,50 @@ class ZoneDataModule(LightningDataModule):
         return zone_detection_job
 
     def init_meta(self):
-        self.meta = self.get_meta(self.zone_detection_job.get_cell_at(0, "img_file"))
+
+        self.rio_ds_collection = RIODatasetCollection()
+        self.meta = self.get_meta(next(iter(self.dict_of_raster.values()))["path"])
         self.meta["driver"] = "GTiff"
         self.meta["dtype"] = "uint8"
-        self.meta["count"] = self.n_classes
+        self.meta["count"] = self.num_classes
         self.meta["transform"], _, _ = aligned_target(
             self.meta["transform"],
             self.meta["width"],
             self.meta["height"],
             self.resolution,
         )
-        self.meta["width"] = self.img_size_pixel
-        self.meta["height"] = self.img_size_pixel
+        self.meta_output = self.meta.copy()
+        if self.out_dalle_size is None:
+            self.meta_output["width"] = self.img_size_pixel[0] * self.tile_factor - (
+                2 * self.margin
+            )
+            self.meta_output["height"] = self.img_size_pixel[1] * self.tile_factor - (
+                2 * self.margin
+            )
+        else:
+            self.meta_output["width"] = math.ceil(
+                self.out_dalle_size / self.resolution[0]
+            )
+            self.meta_output["height"] = math.ceil(
+                self.out_dalle_size / self.resolution[1]
+            )
 
     def get_meta(self, file):
         with rasterio.open(file) as src:
             return src.meta.copy()
+
+    def get_resolution(self, resolution: float) -> Tuple[float]:
+        output_resolution = []
+        if isinstance(resolution, float):
+            output_resolution = [resolution, resolution]
+        elif isinstance(resolution, (tuple, list, np.ndarray)):
+            output_resolution = resolution
+        else:
+            LOGGER.error(
+                "ERROR: resolution parameter should be a float or a list/tuple of float"
+            )
+            raise OdeonError(
+                ErrorCodes.ERR_JSON_SCHEMA_ERROR,
+                "ERROR: resolution parameter is not correct.",
+            )
+        return output_resolution

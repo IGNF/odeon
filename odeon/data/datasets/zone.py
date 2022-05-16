@@ -28,6 +28,7 @@ class ZoneDetectionDataset(PatchDetectionDataset):
             job, resolution, width, height, transform
         )
         self.dict_of_raster = dict_of_raster
+        self.output_type = output_type
         self.gdal_options = gdal_options
         self.dem = dem
         self.export_input = export_input
