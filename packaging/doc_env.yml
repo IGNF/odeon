@@ -1,0 +1,10 @@
+name: odeon-doc
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip==22.0.4
+  - geopandas>=0.10
+  - rasterio>=1.1.5
+  - pip:
+      - -r doc_requirements.txt
