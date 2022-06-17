@@ -110,6 +110,8 @@ class SampleGrid(BaseTool):
         filename_list = self.generate_filename(self.output_pattern, len(geometry_list))
         # get side of the expected images
         side = [self.image_size_pixel * x for x in self.resolution]
+        LOGGER.info(f"side : {side}")
+
         # generate csv
         LOGGER.info("generate csv")
         self.generate_csv(geometry_list,
@@ -230,15 +232,18 @@ class SampleGrid(BaseTool):
             tile_joint = [0, 0]
             if tight_mode is not True:
                 tile_joint = [
-                    ((x_2 - x_1) % side[0]) / x_num,
-                    ((y_2 - y_1) % side[1]) / y_num
+                    (x_2 - x_1)/math.floor(x_num) - side[0],
+                    (y_2 - y_1)/math.floor(y_num) - side[1]
                 ]
 
             LOGGER.debug(f"tile_joint: {tile_joint}")
-            for i in range(math.ceil(x_num)):
-                for j in range(math.ceil(y_num)):
-                    coordinates.append((x_1 + (2*i+1)*side[0] / 2 + (i+1)*tile_joint[0],
-                                        y_1 + (2*j+1)*side[1] / 2 + (j+1)*tile_joint[1]))
+            x_ini = x_1 + side[0] / 2 + tile_joint[0]/2
+            y_ini = y_1 + side[1] / 2 + tile_joint[1]/2
+            for i in range(math.floor(x_num)):
+                for j in range(math.floor(y_num)):
+                    coordinates.append((
+                        x_ini + i*side[0] + i*tile_joint[0],
+                        y_ini + j*side[1] + j*tile_joint[1]))
 
             if strict_inclusion:
                 coordinates = [c for c in coordinates if SampleGrid.included(c[0], c[1], side, geometry)]

@@ -323,7 +323,9 @@ class SampleFunctor(BaseFunctor):
                     self.patch_size * self.pixel_size[0] / 2,
                     self.patch_size * self.pixel_size[1] / 2
                 ]
-                self.write_sample(coord_x_min + dist_to_center[0], coord_y_min + dist_to_center[1], self.tot_sample)
+                # rasterio and affine use coord with upper left origin and not lower left
+                # so use minus for y
+                self.write_sample(coord_x_min + dist_to_center[0], coord_y_min - dist_to_center[1], self.tot_sample)
                 sample_idx += self.patch_stride
                 self.tot_sample += 1
 
