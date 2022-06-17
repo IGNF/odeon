@@ -164,7 +164,7 @@ class TrainingEngine:
 
         losses = AverageMeter("train_loss")
         use_cuda = True if self.device.startswith('cuda') else False
-        if self.multilabel:
+        if self.multilabel or self.net.n_classes == 1:
             confusion_matrix = torch.zeros((self.net.n_classes, 2, 2), dtype=torch.long)
         else:
             confusion_matrix = torch.zeros((self.net.n_classes, self.net.n_classes), dtype=torch.long)
@@ -226,7 +226,7 @@ class TrainingEngine:
         losses = AverageMeter("val_loss")
         # confusion_matrix_np = np.zeros((2, 2), dtype=np.uint64)
         use_cuda = True if self.device.startswith('cuda') else False
-        if self.multilabel:
+        if self.multilabel or self.net.n_classes == 1:
             confusion_matrix = torch.zeros((self.net.n_classes, 2, 2), dtype=torch.long)
         else:
             confusion_matrix = torch.zeros((self.net.n_classes, self.net.n_classes), dtype=torch.long)

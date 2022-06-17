@@ -111,7 +111,7 @@ def get_confusion_matrix(predictions, target, multilabel=False):
     # if multilabel case target mask could have common pixel
     # if not multilabel we force target to have only one class by applying an argmax
     # and then get back label as one hot encoding of dim N C W H
-    if multilabel:
+    if multilabel or n_classes == 1:
         labels_masks = target.cpu().numpy()
     else:
         labels_masks = F.one_hot(torch.argmax(target, axis=1), num_classes=n_classes)
@@ -160,7 +160,7 @@ def get_confusion_matrix_torch(predictions, target, multilabel=False, cuda=False
     # need to detach if we are in training mode
     pred_detach = predictions.detach()
     target_detach = target.detach()
-    if not multilabel:
+    if not multilabel and num_class > 1:
         # predictions and target are transformed from one-hot to int with argmax
         preds_cm = pred_detach.argmax(1).view(-1)
         target_cm = target_detach.argmax(1).view(-1)  # so no multilabel here
