@@ -114,7 +114,10 @@ Train setup
   flag to activate the saving of history. See `History File Description <History file description_>`_.
 
 * ``continue_training (boolean, optional, default false``:
-  tag to resume an interrupted training. Will work only if `save_history` has been activated.
+  tag to resume an interrupted training. Model and training metadata are saved on files with *LAST* prefix
+  if training is stopped because of early_stopping (patience) or number of epochs conditions. In case of
+  unwanted training stopping (Ctrl-C /keyboard interrupted) models and training information are saved into 
+  files with *INTERUPTED* prefix. Training is recover from the last modified models files. 
 
 * ``loss (string, optional, default "ce")``:
   loss function, see `Losses description <Losses description_>`_. 

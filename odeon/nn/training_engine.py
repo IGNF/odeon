@@ -1,4 +1,3 @@
-import os
 from collections import OrderedDict
 from tqdm import tqdm
 
@@ -6,6 +5,7 @@ import torch
 
 from odeon.nn.history import History
 from odeon.commons.metrics import AverageMeter, get_confusion_matrix_torch, get_iou_metrics_torch
+from odeon.nn.models import save_model, get_train_filenames
 
 from odeon import LOGGER
 from odeon.commons.exception import OdeonError, ErrorCodes
@@ -13,6 +13,13 @@ from odeon.commons.exception import OdeonError, ErrorCodes
 
 class TrainingEngine:
     """Training class
+
+    **Continue training :**
+    Model and training metadata are saved on files with *LAST* prefix if training is
+    stopped because of early_stopping (patience) or number of epochs conditions.
+    In case of unwanted training stopping (Ctrl-C /keyboard interrupted) models and
+    training information are saved into  files with *INTERUPTED* prefix.
+    Training is recover from the last modified models files.
 
     Parameters
     ----------
@@ -67,10 +74,20 @@ class TrainingEngine:
         self.lr_scheduler = lr_scheduler
         self.output_folder = output_folder
         self.output_filename = output_filename
-        self.optimizer_filename = f'optimizer_{output_filename}'
         self.train_iou = verbose
         self.multilabel = False
         self.micro_iou = True
+
+        # history
+        train_files_dict = get_train_filenames(self.output_folder, self.output_filename)
+        try:
+
+            self.history = History(train_files_dict["base"], update=self.continue_training, train_iou=self.train_iou)
+
+        except OdeonError as error:
+            raise OdeonError(ErrorCodes.ERR_TRAINER_ERROR,
+                             "something went wrong during training",
+                             call_stack=error)
 
     def run(self, train_loader, val_loader):
 
@@ -83,23 +100,17 @@ class TrainingEngine:
             Save history: {self.save_history}
         ''')
 
-        patience_counter = 0
         epoch_start = 0
         prec_val_loss = 1000
-
-        # history
-        base_history_file = os.path.join(self.output_folder, f'{os.path.splitext(self.output_filename)[0]}')
-        try:
-
-            history = History(base_history_file, update=self.continue_training, train_iou=self.train_iou)
-
-        except OdeonError as error:
-            raise OdeonError(ErrorCodes.ERR_TRAINER_ERROR,
-                             "something went wrong during training",
-                             call_stack=error)
-
-        model_filepath = os.path.join(self.output_folder, self.output_filename)
-        optimizer_filepath = os.path.join(self.output_folder, self.optimizer_filename)
+        patience_counter = 0
+        if self.continue_training:
+            epoch_start = self.history.get_current_epoch(default=0) + 1
+            # in case of interrupted model the last loss in not the last min i.e prec_val_loss
+            # and we could recompute patience_counter by number of epoch since the min loss value
+            all_val_loss = self.history.get_val_losses()
+            if all_val_loss:
+                prec_val_loss = min(all_val_loss)
+                patience_counter = len(all_val_loss) - all_val_loss.index(prec_val_loss) - 1
 
         # training loop
         for epoch in range(epoch_start, self.epochs):
@@ -125,18 +136,19 @@ class TrainingEngine:
                 LOGGER.info(f"val_miou = {val_miou:03f}")
 
             # update history
-            history.update(epoch, avg_time, train_loss, val_loss,
-                           self.optimizer.param_groups[0]['lr'], val_miou, train_mean_iou=train_miou)
+            self.history.update(epoch, avg_time, train_loss, val_loss,
+                                self.optimizer.param_groups[0]['lr'], val_miou, train_mean_iou=train_miou)
 
             # save model if val_loss has decreased
             if prec_val_loss > val_loss:
+                model_filepath = save_model(
+                    self.output_folder, self.output_filename, self.net, optimizer=self.optimizer,
+                    scheduler=self.lr_scheduler)
                 LOGGER.info(f"Saving {model_filepath}")
-                torch.save(self.net.state_dict(), model_filepath)
-                torch.save(self.optimizer.state_dict(), optimizer_filepath)
 
                 if self.save_history:
-                    history.save()
-                    history.plot()
+                    self.history.save()
+                    self.history.plot()
 
                 prec_val_loss = val_loss
                 patience_counter = 0

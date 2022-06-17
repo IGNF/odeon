@@ -45,8 +45,12 @@ class History:
                                  f"{self.history_file} not found",
                                  stack_trace=error)
 
-    def get_current_epoch(self):
-        return self.history_dict['epoch'][-1]
+    def get_current_epoch(self, default=None):
+        epochs = self.history_dict['epoch']
+        return default if not epochs else epochs[-1]
+
+    def get_val_losses(self):
+        return self.history_dict['val_loss']
 
     def update(self, epoch, duration, train_loss, val_loss, learning_rate, val_mean_iou, train_mean_iou=None):
         """update history dict
@@ -70,8 +74,9 @@ class History:
         if train_mean_iou is not None:
             self.history_dict['train_mean_iou'].append(train_mean_iou)
 
-    def save(self):
-        with open(self.history_file, 'w') as file:
+    def save(self, out_file=None):
+        history_file = out_file if out_file is not None else self.history_file
+        with open(history_file, 'w') as file:
             json.dump(self.history_dict, file)
 
     def plot(self):

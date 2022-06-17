@@ -21,7 +21,9 @@ Notes
 """
 
 import os
+import os.path
 import csv
+import json
 from sklearn.model_selection import train_test_split
 
 import torch
@@ -36,13 +38,14 @@ from odeon.commons.guard import files_exist, dirs_exist
 from odeon.nn.transforms import Compose, Rotation90, Rotation, Radiometry, ToDoubleTensor
 from odeon.nn.datasets import PatchDataset
 from odeon.nn.training_engine import TrainingEngine
-from odeon.nn.models import build_model, model_list
+from odeon.nn.models import model_list, build_model, save_model, load_model, get_train_filenames, resume_train_state
 from odeon.nn.losses import BCEWithLogitsLoss, CrossEntropyWithLogitsLoss, FocalLoss2d, ComboLoss
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_training")
 ch = get_simple_handler()
 STD_OUT_LOGGER.addHandler(ch)
+INTERRUPTED = "INTERRUPTED.pth"
 
 
 class Trainer(BaseTool):
@@ -131,6 +134,8 @@ class Trainer(BaseTool):
         self.model_name = model_name
         self.output_folder = output_folder
         self.reproducible = reproducible
+        self.interrupted = INTERRUPTED
+        self.last_name = 'LAST.pth'
 
         if reproducible is True:
             self.random_seed = 2020
@@ -229,6 +234,17 @@ val: {len(val_dataset)})""")
             files_exist(self.val_image_files)
             files_exist(self.val_mask_files)
             dirs_exist([self.output_folder])
+            if self.continue_training:
+                train_files, continue_train = self.get_train_filenames()
+
+                STD_OUT_LOGGER.info(f"initialize model with {train_files['model']}")
+                if continue_train:
+                    check_train_files = [train_files["model"], train_files["optimizer"]]
+                    if self.save_history:
+                        check_train_files.append(train_files["history"])
+                    files_exist(check_train_files)
+                else:
+                    STD_OUT_LOGGER.info("continue training not existing models founds, get back to initializing model")
 
         except OdeonError as error:
 
@@ -238,16 +254,27 @@ val: {len(val_dataset)})""")
 
     def configure(self):
 
-        self.model = build_model(self.model_name, self.n_channels, self.n_classes)
+        train_files, continue_train = self.get_train_filenames()
+        if not continue_train:
+            self.model = build_model(self.model_name, self.n_channels, self.n_classes)
+        else:
+            self.model = load_model(self.model_name, train_files["model"], self.n_channels, self.n_classes)
+
         self.optimizer_function = self.get_optimizer(self.optimizer_name, self.model, self.init_lr)
+        lr_scheduler = ReduceLROnPlateau(
+            self.optimizer_function,
+            'min',
+            factor=0.5,
+            patience=10,
+            verbose=self.verbosity,
+            cooldown=4,
+            min_lr=1e-7)
+
+        if continue_train:
+            resume_train_state(
+                self.output_folder, self.model_filename, optimizer=self.optimizer_function, scheduler=lr_scheduler)
+
         loss_function = self.get_loss(self.loss_name, class_weight=self.class_imbalance)
-        lr_scheduler = ReduceLROnPlateau(self.optimizer_function,
-                                         'min',
-                                         factor=0.5,
-                                         patience=10,
-                                         verbose=self.verbosity,
-                                         cooldown=4,
-                                         min_lr=1e-7)
 
         self.trainer = TrainingEngine(self.model,
                                       loss_function,
@@ -259,12 +286,16 @@ val: {len(val_dataset)})""")
                                       batch_size=self.batch_size,
                                       patience=self.patience,
                                       save_history=self.save_history,
-                                      continue_training=self.continue_training,
+                                      continue_training=continue_train,
                                       reproducible=self.reproducible,
                                       device=self.device,
                                       verbose=self.verbosity)
 
         net_params = sum(p.numel() for p in self.model.parameters())
+
+        if continue_train:
+            with open(train_files["history"], 'r') as file:
+                self.trainer.history.history_dict = json.load(file)
 
         STD_OUT_LOGGER.info(f"Model parameters trainable : {net_params}")
 
@@ -273,19 +304,31 @@ val: {len(val_dataset)})""")
         """
 
         try:
-
             self.trainer.run(self.train_dataloader, self.val_dataloader)
+            # if continue training and stopped cause by patience save 'LAST' model
+            if self.continue_training:
+                model_filepath = save_model(
+                    self.output_folder, f'{self.last_name}', self.trainer.net, optimizer=self.trainer.optimizer,
+                    scheduler=self.trainer.lr_scheduler)
+                STD_OUT_LOGGER.info(f"Save '{self.last_name}' model : {model_filepath}")
+                last_filenames = get_train_filenames(self.output_folder, f'{self.last_name}')
+                if self.trainer.save_history:
+                    self.trainer.history.save(last_filenames["history"])
 
         except OdeonError as error:
 
             raise error
 
         except KeyboardInterrupt:
-            tmp_file = os.path.join('/tmp', 'INTERRUPTED.pth')
-            tmp_optimizer_file = os.path.join('/tmp', 'optimizer_INTERRUPTED.pth')
-            torch.save(self.model.state_dict(), tmp_file)
-            torch.save(self.optimizer_function.state_dict(), tmp_optimizer_file)
+            tmp_file = save_model(
+                self.output_folder, f'{self.interrupted}', model=self.model, optimizer=self.optimizer_function,
+                scheduler=self.trainer.lr_scheduler)
             STD_OUT_LOGGER.info(f"Saved interrupt as {tmp_file}")
+            # save also history file to reload epoch
+            if self.save_history:
+                train_files = get_train_filenames(self.output_folder, f'{self.interrupted}')
+                history = self.trainer.history
+                history.save(out_file=train_files["history"])
 
     def read_csv_sample_file(self, file_path):
         """Read a sample CSV file and return a list of image files and a list of mask files.
@@ -390,3 +433,32 @@ val: {len(val_dataset)})""")
         sample = dataset.__getitem__(0)
 
         return {'image': sample['image'].shape, 'mask': sample['mask'].shape}
+
+    def get_train_filenames(self):
+
+        train_files = get_train_filenames(self.output_folder, self.model_filename)
+        if self.continue_training:
+            if os.path.exists(train_files["model"]):
+                model_modif_date = os.path.getmtime(train_files["model"])
+            else:
+                model_modif_date = os.path.getmtime(self.output_folder)
+
+            interrupted_files = get_train_filenames(self.output_folder, self.interrupted)
+            if os.path.exists(interrupted_files["model"]):
+                interrupted_modif_date = os.path.getmtime(interrupted_files["model"])
+                if interrupted_modif_date > model_modif_date:
+                    train_files = interrupted_files
+                    model_modif_date = interrupted_modif_date
+
+            last_files = get_train_filenames(self.output_folder, self.last_name)
+            if os.path.exists(last_files["model"]):
+                last_modif_date = os.path.getmtime(last_files["model"])
+                if last_modif_date > model_modif_date:
+                    train_files = last_files
+                    model_modif_date = last_modif_date
+
+        continue_train = False
+        if self.continue_training and os.path.exists(train_files["model"]):
+            continue_train = True
+
+        return train_files, continue_train

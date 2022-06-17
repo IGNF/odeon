@@ -14,7 +14,7 @@ from rasterio.windows import transform
 from rasterio.plot import reshape_as_raster
 from rasterio.warp import aligned_target
 from odeon.nn.datasets import PatchDetectionDataset, ZoneDetectionDataset
-from odeon.nn.models import build_model, model_list
+from odeon.nn.models import load_model
 from odeon.commons.exception import OdeonError, ErrorCodes
 from odeon import LOGGER
 from odeon.commons.rasterio import ndarray_to_affine, RIODatasetCollection
@@ -65,43 +65,17 @@ class BaseDetector:
         self.job = job
         self.data_loader = None
         self.dataset = None
-        self.model = BaseDetector.load_model(self.model_name,
-                                             self.model_path,
-                                             self.n_channel,
-                                             self.n_classes,
-                                             self.use_gpu)
+        self.model = load_model(
+            self.model_name,
+            self.model_path,
+            self.n_channel,
+            self.n_classes,
+            self.use_gpu)
+        self.model.eval()  # drop dropout and batchnorm for inference mode
 
     def configure(self):
 
         pass
-
-    @staticmethod
-    def load_model(model_name, model_path, n_channel, n_classes, use_gpu):
-
-        if model_name not in model_list:
-
-            raise OdeonError(message=f"the model name {model_name} does not exist",
-                             error_code=ErrorCodes.ERR_MODEL_ERROR)
-
-        model = build_model(model_name, n_channel, n_classes)
-
-        if use_gpu:
-
-            model.cuda()
-            state_dict = torch.load(model_path)
-
-            model.load_state_dict(state_dict=state_dict)
-
-        else:
-
-            model.cpu()
-            state_dict = torch.load(model_path,
-                                    map_location=torch.device('cpu'))
-            # LOGGER.debug(state_dict.keys())
-            model.load_state_dict(state_dict=state_dict)
-
-        model.eval()  # drop dropout and batchnorm for inference mode
-        return model
 
     def run(self):
 
