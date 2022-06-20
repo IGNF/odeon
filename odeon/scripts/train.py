@@ -172,9 +172,9 @@ class Trainer(BaseTool):
         transformation_conf = data_augmentation
         transformation_keys = transformation_conf if isinstance(transformation_conf, list) else [transformation_conf]
 
-        self.transformation_functions = list({
+        self.transformation_functions = [
             value for key, value in transformation_dict.items() if key in transformation_keys
-        })
+        ]
         self.transformation_functions.append(ToDoubleTensor())
 
         assert self.batch_size <= len(self.train_image_files), "batch_size must be lower than the length of training \

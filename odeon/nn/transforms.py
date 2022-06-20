@@ -25,10 +25,10 @@ class Rotation90(object):
         k = random.randint(0, 3)  # number of rotations
 
         # rotation
-        image = np.rot90(image, k, (0, 1))
-        mask = np.rot90(mask, k, (0, 1))
+        image_90 = np.rot90(image.copy(), k, (0, 1))
+        mask_90 = np.rot90(mask.copy(), k, (0, 1))
 
-        return {'image': image, 'mask': mask}
+        return {'image': image_90, 'mask': mask_90}
 
 
 class Rotation(object):
@@ -87,8 +87,8 @@ class ToDoubleTensor(object):
         image = image.transpose((2, 0, 1)).copy()
         mask = mask.transpose((2, 0, 1)).copy()
         return {
-            'image': torch.from_numpy(image).float(),
-            'mask': torch.from_numpy(mask).float()
+            'image': torch.as_tensor(image, dtype=torch.float),
+            'mask': torch.as_tensor(mask, dtype=torch.float)
         }
 
 
