@@ -96,3 +96,9 @@ possibility to output in a csv file the threshold values corresponding to each p
 0.2.15 (2022-02-21)
 -------------------
 - Fix issue 45: Metrics - Problem reading file name during dataset creation
+
+0.2.16 (2022-06-20)
+-------------------
+- Implement Feature issue #8 : implement "continue training" feature
+- Fix issue #15 : grid sampling : tile can be outside the zone
+- Fix issue #38 : spatial shift with sampling_sys
