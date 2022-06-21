@@ -5,7 +5,7 @@ import os
 def split_dataset_from_df(df, percentage):
 
     msk = np.random.rand(len(df)) < percentage
-    return df[msk], df[~msk]
+    return df[msk].copy(), df[~msk].copy()
 
 
 def set_path_to_center(df, img_path, msk_path):

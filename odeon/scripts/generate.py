@@ -14,6 +14,8 @@ import rasterio
 import fiona
 from rasterio.windows import transform
 from rasterio.features import rasterize, geometry_window
+from shapely.geometry import shape
+from shapely.ops import transform as shape_transform
 from odeon.commons.image import CollectionDatasetReader
 from odeon.commons.rasterio import get_max_type
 from odeon import LOGGER
@@ -269,9 +271,9 @@ class Generator(BaseTool):
                                     header=None,
                                     names=["x", "y"]).sample(frac=1)
                 df_in["num_seq"] = 1
-                self.df = self.df.append(df_in,
-                                         ignore_index=True)
-
+                # self.df = self.df.append(df_in,
+                #                         ignore_index=True)
+                self.df = pd.concat([self.df, df_in], ignore_index=True)
         else:
 
             for idx, l in enumerate(self.files):
@@ -283,8 +285,10 @@ class Generator(BaseTool):
                                         names=["x", "y"]).sample(frac=1)
 
                     df_in["num_seq"] = idx
-                    self.df = self.df.append(df_in,
-                                             ignore_index=True)
+                    # self.df = self.df.append(df_in,
+                    #                         ignore_index=True)
+
+                    self.df = pd.concat([self.df, df_in], ignore_index=True)
 
         left, bottom, top, right = self.df["x"].min(), self.df["y"].min(), self.df["y"].max(), self.df["x"].max()
         self.extent = {"left": left, "bottom": bottom, "top": top, "right": right}
@@ -514,6 +518,35 @@ class Generator(BaseTool):
                                       test_msk_path)
             self.splits["test"] = test
 
+        # if append and already existing file filter split
+        # to not duplicate data or having same data in train/val/test
+        # depending on seed use for previous split.
+        existing_df = None
+        if self.append:
+            existing_df_list = []
+            for split_name in ["train", "val", "test"]:
+                output_split = os.path.join(self.output_path, f"{split_name}.csv")
+                if os.path.isfile(output_split):
+                    df = pd.read_csv(output_split, header=None, names=["img_file", "msk_file"])
+                    existing_df_list.append(df)
+            if existing_df_list:
+                existing_df = pd.concat(existing_df_list, ignore_index=True)
+                existing_df["basename"] = existing_df["img_file"].apply(
+                        lambda x: os.path.splitext(os.path.basename(x))[0])
+                existing_df["basename"] = existing_df["basename"].apply(
+                        lambda x: "_".join(x.split("_")[:-1]))
+                existing_df = existing_df.drop(['img_file', 'msk_file'], axis=1)
+
+        if self.append and existing_df is not None:
+            for split_name, split in self.splits.items():
+                split.loc[:, "basename"] = split["img_file"].apply(
+                        lambda x: os.path.splitext(os.path.basename(x))[0])
+                split.loc[:, "basename"] = split["basename"].apply(
+                        lambda x: "_".join(x.split("_")[:-1]))
+                s_merge = pd.merge(split, existing_df, on=["basename"], how="outer", indicator=True)
+                split = s_merge.loc[s_merge["_merge"] == "left_only"].drop("_merge", axis=1).drop("basename", axis=1)
+                self.splits[split_name] = split
+
         build_directories(self.paths, self.append)
 
         LOGGER.debug(self.splits)
@@ -561,10 +594,15 @@ class Generator(BaseTool):
                         try:
 
                             geometry = polygon['geometry']
+                            geom = shape(geometry)
+                            if geom.has_z:
+                                geom_2d = shape_transform(lambda x, y, z: (x, y), geom)
+                            else:
+                                geom_2d = geom
 
                             polygon_window = geometry_window(
                                 new_dataset,
-                                [geometry],
+                                [geom_2d],
                                 pixel_precision=6).round_shape(op='ceil',
                                                                pixel_precision=4)
 
@@ -708,6 +746,7 @@ class Generator(BaseTool):
         for split_name, split in self.splits.items():
             LOGGER.info(f"generating {split_name} data")
             s = split[split["num_seq"] == pointer]
+
             LOGGER.debug(s)
             generate_data(s,
                           self.meta_msk,
@@ -721,15 +760,16 @@ class Generator(BaseTool):
 
             if (self.append or pointer > 0) is True and os.path.isfile(output_split):
                 df = pd.read_csv(output_split, header=None, names=["img_file", "msk_file"])
-                df = df.append(split, ignore_index=True)
+                df = pd.concat([df, s], ignore_index=True)
+                df = df.drop_duplicates(subset=['img_file', 'msk_file'], keep='last')
                 df[["img_file", "msk_file"]].to_csv(output_split,
                                                     index=False,
                                                     header=False)
 
             else:
-                split[["img_file", "msk_file"]].to_csv(output_split,
-                                                       index=False,
-                                                       header=False)
+                s[["img_file", "msk_file"]].to_csv(output_split,
+                                                   index=False,
+                                                   header=False)
         # Close all opened rasters
         for source_type in self.dict_of_raster.keys():
             self.dict_of_raster[source_type]['connection'].close()
