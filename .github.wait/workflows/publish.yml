@@ -1,0 +1,87 @@
+name: PyPI Release
+
+# https://help.github.com/en/actions/reference/events-that-trigger-workflows
+# This workflow is used to publish a distribution on pypi at the official url
+# https://pypi.org/legacy/ when a new release and/or tag version is released
+on:  # Trigger the workflow on push, but only for the main branch, actions are conditioned on tagged commit and/or release
+  push:
+    branches: [main]
+    tags:
+      - v*
+  release:
+    types: [published]
+
+env:
+  CACHE_NUMBER: 0
+  env_name: packaging
+  env_file: packaging/package_env.yml
+  python_version: 3.9
+  prefix: /usr/share/miniconda3/envs/doc
+  label: ubuntu-20.04
+
+jobs:
+
+  build-sdist:
+    runs-on: ubuntu-20.04
+    if: startsWith(github.event.ref, 'refs/tags') || github.event_name == 'release'
+    steps:
+      - uses: actions/checkout@v2
+      - name: check packaging file
+        run: cat ${{ format('{0}', env.env_file) }}
+      - name: Setup Mambaforge
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+          activate-environment: ${{ env.env_name }}
+          use-mamba: true
+          python-version: ${{ env.python-version }}
+
+      - name: Set cache date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
+      - uses: actions/cache@v2
+        with:
+          path: ${{ env.prefix }}
+          key: ${{ env.label }}-conda-${{ hashFiles(format('{0}', env.env_file)) }}-${{ env.DATE }}-${{ env.CACHE_NUMBER }}
+        id: cache
+
+      - name: Update environment
+        run: mamba env update -n ${{ env.env_name }} -f ${{ format('{0}', env.env_file) }}
+        if: ${{ steps.cache.outputs.cache-hit != 'true' || runner.os == 'macOS' }}
+      - name: Conda info
+        shell: bash -l {0}
+        run: |
+          conda info -a
+          conda list
+      - name: Build source
+        shell: bash -l {0}
+        run: |
+          python setup.py sdist bdist_wheel
+          ls -lh dist/
+      - uses: actions/upload-artifact@v2
+        with:
+          name: pypi-packages-${{ github.sha }}
+          path: dist
+
+  publish-pypi:
+    runs-on: ubuntu-20.04
+    needs: build-sdist
+    if: startsWith(github.event.ref, 'refs/tags') || github.event_name == 'release'
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    - uses: actions/download-artifact@v2
+      with:
+        name: pypi-packages-${{ github.sha }}
+        path: dist
+    - run: ls -l dist/
+
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.4.1
+      with:
+        verbose: true
+        user: __token__
+        password: ${{ secrets.pypi_password }}

@@ -1,0 +1,11 @@
+name: odeon-test
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip==22.0.4
+  - geopandas>=0.10
+  - rasterio
+  - pip:
+      - -r test_requirements.txt
+      - -r doc_requirements.txt

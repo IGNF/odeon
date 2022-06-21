@@ -1,0 +1,61 @@
+name: test-docs
+# Workflow used to test publishing on
+
+on:
+  push:
+    branches: [main, pytest]
+  pull_request:
+#  schedule:
+#    - cron: "0 12 * * *" # test every 12 hours
+
+env:
+  CACHE_NUMBER: 2  # increase to reset cache manually
+
+jobs:
+  build-docs:
+    name: "Documentation test build"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.9"
+            channel-priority: "strict"
+            env: "doc"
+            prefix: /usr/share/miniconda3/envs/doc
+            pip_path: ~/.cache/pip
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: check packaging file
+      run: cat ${{ format('packaging/{0}_env.yml', matrix.env) }}
+    - name: Setup Mambaforge
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        miniforge-variant: Mambaforge
+        miniforge-version: latest
+        activate-environment: doc
+        use-mamba: true
+
+    - name: Set cache date
+      run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
+    - uses: actions/cache@v2
+      with:
+        path: ${{ matrix.prefix }}
+        key: ${{ matrix.label }}-conda-${{ hashFiles(format('packaging/{0}_env.yml', matrix.env)) }}-${{ hashFiles(format('packaging/{0}_requirements.txt', matrix.env)) }}-${{ env.CACHE_NUMBER }}-${{ env.DATE }}
+      id: cache
+
+    - name: Update environment
+      run: mamba env update -n ${{ matrix.env }} -f ${{ format('packaging/{0}_env.yml', matrix.env) }}
+      if: steps.cache.outputs.cache-hit != 'true'
+    - name: Conda info
+      shell: bash -l {0}
+      run: |
+        conda info -a
+        conda list
+    - name: Build Documentation
+      shell: bash -l {0}
+      working-directory: docs
+      run: make html
