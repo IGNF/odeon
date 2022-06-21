@@ -1,4 +1,4 @@
-name: odeon
+name: odeon-prod
 channels:
   - conda-forge
   - defaults
