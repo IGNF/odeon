@@ -21,16 +21,6 @@ path = os.path.join(directory, 'README.md')
 with open(path) as read_file:
     long_description = read_file.read()
 
-
-try:
-    gdal_version = subprocess.check_output(
-        ['gdal-config', '--version']).decode('utf')
-    gdal_config = os.environ.get('GDAL_CONFIG', 'gdal-config')
-
-except Exception:
-    sys.exit("GDAL must be installed to use `odeon`.")
-
-
 # Extract package requirements from Conda environment.yml
 install_requires = []
 dependency_links = []
