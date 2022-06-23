@@ -1,4 +1,4 @@
-__version__ = "0.2.16"
+__version__ = "0.2.17"
 
 from odeon.commons.logger.logger import get_new_logger, get_stream_handler
 try:
