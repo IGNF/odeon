@@ -1,4 +1,3 @@
-from math import isclose
 import numpy as np
 import rasterio
 from rasterio import features
@@ -8,11 +7,6 @@ IMAGE_TYPE = {
                 "uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
                 "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
 }
-
-
-def get_center_from_bound(left, bottom, right, top):
-
-    return abs(float((top - bottom) / 2)), abs(float((right - left)))
 
 
 def rasterize_shape(tuples, meta, shape, fill=0, default_value=1):
@@ -98,66 +92,6 @@ def get_bounds(x, y, width, height, resolution_x, resolution_y):
     y_side = 0.5 * height * resolution_y
     left, top, right, bottom = x - x_side, y + y_side, x + x_side, y - y_side
     return left, bottom, right, top
-
-
-def get_scale_factor_and_img_size(target_raster, resolution, width, height):
-    """
-
-    Parameters
-    ----------
-    target_raster : str
-     the raster path where we want to get the scaled factors to fit the
-     targeted resolution
-    resolution : tuple[float, float]
-     the targeted resolution
-    width : int
-     the original width of patch
-    height : int
-     the original height of patch
-
-    Returns
-    -------
-     x_scale, y_scale, scaled_width, scaled_height
-    """
-    with rasterio.open(target_raster) as target:
-
-        return get_scale_factor_and_img_size_from_dataset(target, resolution, width, height)
-
-
-def get_scale_factor_and_img_size_from_dataset(target, resolution, width, height):
-    """
-
-    Parameters
-    ----------
-    target : dataset
-     a rasterio dataset
-    resolution : tuple[float, float]
-     the targeted resolution
-    width : int
-     the original width of patch
-    height : int
-     the original height of patch
-
-    Returns
-    -------
-     x_scale, y_scale, scaled_width, scaled_height
-    """
-
-    x_close = isclose(target.res[0], resolution[0], rel_tol=1e-04)
-    y_close = isclose(target.res[1], resolution[1], rel_tol=1e-04)
-
-    if x_close and y_close:
-
-        return 1, 1, width, height
-
-    else:
-
-        x_scale = target.res[0] / resolution[0]
-        y_scale = target.res[1] / resolution[1]
-        scaled_width = width / x_scale
-        scaled_height = height / y_scale
-
-        return x_scale, y_scale, scaled_width, scaled_height
 
 
 def create_patch_from_center(out_file, msk_raster, meta, window, resampling):

@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import rasterio
 from rasterio.features import geometry_window
-from rasterio.windows import transform
 from rasterio.plot import reshape_as_raster
 from rasterio.warp import aligned_target
 from odeon.nn.datasets import PatchDetectionDataset, ZoneDetectionDataset
@@ -349,18 +348,13 @@ class ZoneDetector(PatchDetector):
         self.meta["driver"] = "GTiff"
         self.meta["dtype"] = "uint8" if self.output_type in ["uint8", "bit"] else "float32"
         self.meta["count"] = self.n_classes
-        self.meta["transform"], _, _ = aligned_target(self.meta["transform"],
-                                                      self.meta["width"],
-                                                      self.meta["height"],
-                                                      self.resolution)
+
         self.meta_output = self.meta.copy()
         if self.out_dalle_size is None:
-
             self.meta_output["height"] = self.img_size_pixel * self.tile_factor - (2 * self.margin_zone)
             self.meta_output["width"] = self.meta_output["height"]
 
         else:
-
             self.meta_output["height"] = math.ceil(self.out_dalle_size / self.resolution[1])
             self.meta_output["width"] = math.ceil(self.out_dalle_size / self.resolution[0])
 
@@ -397,14 +391,8 @@ class ZoneDetector(PatchDetector):
                 right = self.job.get_cell_at(index[0], "right_o")
                 top = self.job.get_cell_at(index[0], "top_o")
 
-                geometry = create_polygon_from_bounds(left, right, bottom, top)
-                window = geometry_window(
-                                         self.dst,
-                                         [geometry],
-                                         pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
-
-                # window = self.dst.window(left, right, bottom, top)
-                self.meta_output["transform"] = transform(window, self.dst.transform)
+                self.meta_output["transform"] = rasterio.transform.from_bounds(
+                    left, bottom, right, top, self.meta_output["width"], self.meta_output["height"])
                 out = rasterio.open(output_file, 'w+', **self.meta_output, **self.gdal_options)
                 LOGGER.debug(out.bounds)
                 LOGGER.debug(self.dst.bounds)
@@ -419,10 +407,8 @@ class ZoneDetector(PatchDetector):
             top = self.job.get_cell_at(index[0], "top")
             geometry = create_polygon_from_bounds(left, right, bottom, top)
             LOGGER.debug(geometry)
-            window = geometry_window(
-                                    out,
-                                    [geometry],
-                                    pixel_precision=6).round_shape(op='ceil', pixel_precision=4)
+            window = geometry_window(out, [geometry], pixel_precision=6)
+            window = window.round_shape(op='ceil', pixel_precision=4)
             LOGGER.debug(window)
             indices = [i for i in range(1, self.n_classes + 1)]
 

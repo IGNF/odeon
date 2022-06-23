@@ -1,24 +1,18 @@
 import numpy as np
 import rasterio
-import math
+from math import isclose
 from rasterio.enums import Resampling
-from rasterio.windows import from_bounds, transform
+import rasterio.transform
+import rasterio.windows
 from rasterio.plot import reshape_as_image, reshape_as_raster
-from skimage.transform import resize
 from skimage import img_as_float
-from odeon.commons.rasterio import get_scale_factor_and_img_size_from_dataset, get_center_from_bound
 from odeon.commons.rasterio import get_bounds, create_patch_from_center
 from odeon import LOGGER
 
 
-def raster_to_ndarray_from_dataset(src,
-                                   width,
-                                   height,
-                                   resolution,
-                                   band_indices=None,
-                                   resampling=Resampling.bilinear,
-                                   window=None,
-                                   boundless=True):
+def raster_to_ndarray_from_dataset(
+        src, width, height, resolution=None, band_indices=None, resampling=Resampling.bilinear,
+        window=None, boundless=True):
 
     """Load and transform an image into a ndarray according to parameters:
     - center-cropping to fit width, height
@@ -28,10 +22,10 @@ def raster_to_ndarray_from_dataset(src,
     ----------
     src : rasterio.DatasetReader
         raster source for the conversion
-    width : int, optional
-        output image width, by default None (native image width is used)
-    height : int, optional
-        output image height, by default None (native image height is used)
+    width : int
+        output image width
+    height : int
+        output image height
     resolution: obj:`list` of :obj: `number`
         output resolution for x and y
     band_indices : obj:`list` of :obj: `int`, optional
@@ -49,29 +43,45 @@ def raster_to_ndarray_from_dataset(src,
     """
 
     " get the width and height at the target resolution "
-    _, _, scaled_width, scaled_height = get_scale_factor_and_img_size_from_dataset(src,
-                                                                                   resolution=resolution,
-                                                                                   width=width,
-                                                                                   height=height)
-
-    scaled_height, scaled_width = math.ceil(scaled_height), math.ceil(scaled_width)
 
     if band_indices is None:
 
         band_indices = range(1, src.count + 1)
 
+    if window is None and resolution is None:
+        raise ValueError("windows and resolution could not be both None")
+
     if window is None:
 
-        img = src.read(indexes=band_indices,
-                       out_shape=(len(band_indices), scaled_height, scaled_width),
-                       resampling=resampling)
-    else:
+        left, bottom, right, top = src.bounds
 
-        img = src.read(indexes=band_indices,
-                       window=window,
-                       out_shape=(len(band_indices), scaled_height, scaled_width),
-                       resampling=resampling,
-                       boundless=boundless)
+        def get_dim_bounds(dim_size, dim_res, dim_min, dim_max):
+            dim_dist = dim_size * dim_res
+            dim_close = isclose(dim_dist, dim_max-dim_min, rel_tol=1e-04)
+            if dim_close:
+                return dim_min, dim_max
+            dim_center = (dim_max + dim_min) / 2.0
+            if dim_dist < dim_max-dim_min:
+                # crop image from center
+                out_max = dim_center + dim_dist
+                out_min = dim_center - dim_dist
+            else:
+                # not enought data raise error
+                msg = f"could get not get out res = {dim_res} and out size = {dim_size}"
+                msg += f"from coord bound = [{dim_min}, {dim_max}]"
+                raise ValueError(msg)
+            return out_min, out_max
+
+        left, right = get_dim_bounds(width, resolution[0], left, right)
+        bottom, top = get_dim_bounds(height, resolution[1], bottom, top)
+        window = rasterio.windows.from_bounds(left, bottom, right, top, src.meta["transform"])
+
+    else:
+        left, bottom, right, top = rasterio.windows.bounds(window, src.meta["transform"])
+
+    img = src.read(
+        indexes=band_indices, window=window, out_shape=(len(band_indices), height, width),
+        resampling=resampling, boundless=boundless)
 
     " reshape img from gdal band format to numpy ndarray format "
     img = reshape_as_image(img)
@@ -79,30 +89,10 @@ def raster_to_ndarray_from_dataset(src,
     if img.ndim == 2:
         img = img[..., np.newaxis]
 
-    if scaled_width >= width and scaled_height >= height:
-
-        if scaled_width > width or scaled_height > height:
-            " handling case of dest_res > src_res, example from 0.5 to 0.2 "
-            img = crop_center(img, width, height)
-
-    if scaled_width < width or scaled_height > height:
-        " handling case of dest_res < src_res, example from 0.2 to 0.5 "
-        img = resize(img, (width, height))
-
     meta = src.meta.copy()
     LOGGER.debug(meta)
-
-    " compute the new affine transform "
-    if scaled_width != width or scaled_height != height:
-
-        side_x = (img.shape[0] * resolution[0]) / 2
-        side_y = (img.shape[1] * resolution[1]) / 2
-        bounds = src.bounds
-        center_x, center_y = get_center_from_bound(bounds.left, bounds.bottom, bounds.right, bounds.top)
-        left, bottom, right, top = center_x - side_x, center_y - side_y, center_x + side_x, center_y + side_y
-        window = from_bounds(left, bottom, right, top, src.transform)
-        affine = transform(window, src.transform)
-        meta["transform"] = affine
+    affine = rasterio.transform.from_bounds(left, bottom, right, top, width, height)
+    meta["transform"] = affine
 
     return img, meta
 
@@ -374,7 +364,8 @@ class CollectionDatasetReader:
         for key, value in dict_of_raster.items():
             if (key not in ["DSM", "DTM"]) or handle_dem is False:
                 src = value["connection"]
-                window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], src.meta["transform"])
+                window = rasterio.windows.from_bounds(
+                    bounds[0], bounds[1], bounds[2], bounds[3], src.meta["transform"])
                 band_indices = value["bands"]
                 img, _ = raster_to_ndarray_from_dataset(src,
                                                         width,
@@ -395,8 +386,10 @@ class CollectionDatasetReader:
         if handle_dem:
             dsm_ds = dict_of_raster["DSM"]["connection"]
             dtm_ds = dict_of_raster["DTM"]["connection"]
-            dsm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
-            dtm_window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
+            dsm_window = rasterio.windows.from_bounds(
+                bounds[0], bounds[1], bounds[2], bounds[3], dsm_ds.meta["transform"])
+            dtm_window = rasterio.windows.from_bounds(
+                bounds[0], bounds[1], bounds[2], bounds[3], dtm_ds.meta["transform"])
             band_indices = dict_of_raster["DSM"]["bands"]
 
             dsm_img, _ = raster_to_ndarray_from_dataset(dsm_ds,
@@ -491,14 +484,15 @@ class CollectionDatasetReader:
                             meta['resolution'][0],
                             meta['resolution'][1])
 
-        window = from_bounds(bounds[0], bounds[1], bounds[2], bounds[3], meta['transform'])
+        window = rasterio.windows.from_bounds(
+            bounds[0], bounds[1], bounds[2], bounds[3], meta['transform'])
 
         # Adapt meta for the patch
         meta_img_patch = meta.copy()
-        meta_img_patch['transform'] = transform(window, meta['transform'])
+        meta_img_patch['transform'] = rasterio.windows.transform(window, meta['transform'])
 
         meta_msk_patch = meta_msk.copy()
-        meta_msk_patch["transform"] = transform(window, meta_msk['transform'])
+        meta_msk_patch["transform"] = rasterio.windows.transform(window, meta_msk['transform'])
 
         # Creation of masks tiles from an input window.
         create_patch_from_center(center["msk_file"],

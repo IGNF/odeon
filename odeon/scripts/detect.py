@@ -4,19 +4,23 @@ This module aims to perform a detection based on an extent or a collection of ex
 with an Odeon model and a dictionary of raster input
 """
 import os
-import pandas as pd
-import rasterio
-import torch
-import geopandas as gpd
-from shapely import wkt
-from odeon.commons.core import BaseTool
-from odeon import LOGGER
-from odeon.commons.exception import OdeonError, ErrorCodes
-from odeon.commons.guard import dirs_exist, files_exist
-from odeon.commons.logger.logger import get_new_logger, get_simple_handler
-from odeon.commons.rasterio import get_number_of_band
-from odeon.nn.detector import BaseDetector, PatchDetector, ZoneDetector
-from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, ZoneDetectionJobNoDalle
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+if True:  # noqa: E402
+    import pandas as pd
+    import rasterio
+    import torch
+    import geopandas as gpd
+    from shapely import wkt
+    from odeon.commons.core import BaseTool
+    from odeon import LOGGER
+    from odeon.commons.exception import OdeonError, ErrorCodes
+    from odeon.commons.guard import dirs_exist, files_exist
+    from odeon.commons.logger.logger import get_new_logger, get_simple_handler
+    from odeon.commons.rasterio import get_number_of_band
+    from odeon.nn.detector import BaseDetector, PatchDetector, ZoneDetector
+    from odeon.nn.job import PatchJobDetection, ZoneDetectionJob, ZoneDetectionJobNoDalle
 
 " A logger for big message "
 STD_OUT_LOGGER = get_new_logger("stdout_detection")
