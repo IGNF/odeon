@@ -110,4 +110,7 @@ possibility to output in a csv file the threshold values corresponding to each p
 - Fix issue #47 : Detect by zone has a shift of 1 pixel on result on same case 
 - Fix Issue #49 : Detect zone wrong extend and resolution output when asking a resolution different from source data 
 - remove test on gdal tools in setup.py (see #48)
-  
+
+0.2.18 (2022-06-24)
+-------------------
+- Update documentation and doc configuration after transfert from gitlab to github
