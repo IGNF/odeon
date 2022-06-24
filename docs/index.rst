@@ -16,14 +16,14 @@ Installation
 
 These instruction assume that you already have `conda <https://conda.io/>`_ installed.
 
-First, download and extract a copy of odeon from `repository <https://gitlab.com/dai-projets/odeon-landcover>`_
+First, download and extract a copy of odeon from `repository <https://github.com/IGNF/odeon-landcover>`_
 Then navigate to the root of the odeon directory in a terminal and run the following:
 
 **Install and activate the environment**
 
 .. code-block:: console
 
-   $ clone repository https://gitlab.com/dai-projets/odeon-landcover
+   $ clone repository https://github.com/IGNF/odeon-landcover.git
    $ cd odeon-landcover
    $ conda env create --file=environment.yml
    $ conda activate odeon
