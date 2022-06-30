@@ -1,0 +1,18 @@
+FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel
+RUN conda info --all
+ARG HTTP_PROXY=""
+ARG HTTPS_PROXY=""
+ENV http_proxy $HTTP_PROXY
+ENV https_proxy $HTTPS_PROXY
+RUN echo "$https_proxy" \
+    echo "$http_proxy"
+RUN conda install -n base -c conda-forge mamba
+COPY test_requirements.txt .
+COPY requirements.txt .
+COPY doc_requirements.txt .
+COPY test_requirements.txt .
+COPY test_env.yml .
+RUN mamba env create -f test_env.yml
+RUN echo $(conda env list)
+RUN conda init bash
+RUN bash -c "source ${HOME}/.bashrc"

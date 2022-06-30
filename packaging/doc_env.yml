@@ -1,0 +1,11 @@
+name: cd_ortho_doc
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip==22.0.4
+  - geopandas>=0.10
+  - rasterio>=1.1.5
+  - pip:
+      - -r requirements.txt
+      - -r doc_requirements.txt

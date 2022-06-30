@@ -1,0 +1,11 @@
+name: cd_ortho
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pip>=22.0.4
+  - python>=3.10
+  - geopandas>=0.10
+  - rasterio
+  - pip:
+      - -r requirements.txt

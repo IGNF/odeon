@@ -1,0 +1,17 @@
+hydra-core>=1.2
+hydra_colorlog
+torch>=1.11.0
+torchvision
+tensorboard
+tensorboardx
+pytorch-lightning>=1.6.0
+opencv-python
+albumentations
+kornia
+matplotlib
+seaborn
+scikit-learn
+timm
+segmentation-models-pytorch
+tqdm
+einops
