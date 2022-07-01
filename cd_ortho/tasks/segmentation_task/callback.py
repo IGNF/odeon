@@ -8,10 +8,10 @@ import seaborn as sn
 from pytorch_lightning import Trainer
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import Callback
-from odeon.core.image import tensor_to_image
-from odeon.metrics.metrics_util import plot_image_debug_validation_loop
-from odeon.core.io_utils import create_folder
-from odeon import LOGGER
+from cd_ortho.core.tensor import tensor_to_image
+from cd_ortho.metrics.metrics_util import plot_image_debug_validation_loop
+from cd_ortho.core.io_utils import create_folder
+from cd_ortho import LOGGER
 from kornia.augmentation import Denormalize
 import matplotlib.patches as mpatches
 

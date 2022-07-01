@@ -30,3 +30,12 @@ class DTypeRange(InputDType):
     UINT16 = (0, 65535)
     FLOAT32 = (0, 3.4028235e+38)
     FLOAT64 = (0, 1.7976931348623157e+308)
+
+
+class TransformStrategy(Enum):
+    SAMPLE_WISE = "sample_wise"
+    BATCH_WISE = "batch_wise"
+
+
+TARGET_ACCEPTED_TYPE = ["mask"]
+RASTER_ACCEPTED_EXTENSION = [".tif", ".tiff", ".jpg", ".jpeg", ".png", ".jp2", ".vrt"]

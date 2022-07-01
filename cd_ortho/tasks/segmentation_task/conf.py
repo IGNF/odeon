@@ -3,8 +3,8 @@ import datetime
 from pathlib import Path
 from typing import Optional, List, Union, Tuple, Any
 from dataclasses import dataclass, field
-from odeon.core.default_conf import UrbanInputFields, NAFInputFields, EnvConf
-from odeon.core.constants import IMAGENET
+from cd_ortho.core.default_conf import UrbanInputFields, NAFInputFields, EnvConf
+from cd_ortho.core.constants import IMAGENET
 from pytorch_lightning.utilities.seed import seed_everything
 
 

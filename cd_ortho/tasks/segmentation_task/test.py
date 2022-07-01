@@ -2,10 +2,10 @@ import os
 from dataclasses import asdict
 from pytorch_lightning import Trainer
 from pytorch_lightning import loggers as pl_loggers
-from odeon.tasks.segmentation_task.data_module import SegmentationTaskDataModule
-from odeon.tasks.segmentation_task.model import SemanticSegmentationTaskModel
-from odeon.tasks.segmentation_task.callback import LogPredictionsCallback, MetricCallBack
-from odeon.core.io_utils import save_dict_as_json
+from cd_ortho.core.data_module import SegmentationTaskDataModule
+from cd_ortho.tasks.segmentation_task.model import SemanticSegmentationTaskModel
+from cd_ortho.tasks.segmentation_task.callback import LogPredictionsCallback, MetricCallBack
+from cd_ortho.core.io_utils import save_dict_as_json
 
 
 def main():

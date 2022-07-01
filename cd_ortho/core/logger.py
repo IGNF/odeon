@@ -1,4 +1,4 @@
-""" OdeonLogger
+""" ColoredLogger
 Logger class in an individual module with singleton pattern: one instance
 
 

@@ -11,7 +11,7 @@ class BasePreProcess(metaclass=ABCMeta):
     ...
 
 
-class PatchWiseTransform(BaseTransform):
+class SampleWiseTransform(BaseTransform):
 
     def __init__(self, *args, **kwargs):
         ...
@@ -28,7 +28,7 @@ class BatchWiseTransform(BaseTransform):
         ...
 
 
-class PatchWisePreProcess(BasePreProcess):
+class SampleWisePreProcess(BasePreProcess):
     def __init__(self, *args, **kwargs):
         ...
 

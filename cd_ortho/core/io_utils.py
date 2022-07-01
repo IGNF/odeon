@@ -6,13 +6,12 @@ Notes
 -----
 
 """
-
 import pathlib
 import shutil
 import os
 from os import listdir
 import json
-from typing import Dict
+from typing import Dict, List
 
 
 def create_folder(path: str,
@@ -85,3 +84,17 @@ def create_path_if_not_exists(path: str) -> None:
 
     if os.path.isdir(path) is False:
         pathlib.Path(path).mkdir(exist_ok=True)
+
+
+def list_raster_files(path: str, extensions: List[str]) -> List:
+    """
+    Parameters
+    ----------
+     path: str, a directory with absolute URI
+
+    Returns
+    -------
+     A list of files
+    """
+    return [fn for fn in os.listdir(path)
+            if any(fn.endswith(ext) for ext in extensions)]

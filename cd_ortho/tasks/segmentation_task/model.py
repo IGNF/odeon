@@ -5,14 +5,14 @@ import torch
 import pandas as pd
 import seaborn as sn
 import torchmetrics
-from odeon.models.segmentation_models import SegmentationModelFactory
+from cd_ortho.models.segmentation_models import SegmentationModelFactory
 from geopandas import gpd
 from torchmetrics import JaccardIndex, ConfusionMatrix, Accuracy, MetricCollection, Precision, Recall
-from odeon.losses.losses import CrossEntropyWithLogitsLoss
-from odeon.metrics.metrics_util import AverageMeter
-from odeon.core.constants import NOMENCLATURE
-from odeon.core.io_utils import save_dict_as_json, create_path_if_not_exists
-from odeon.core.rio_utils import get_meta_for_img, save_mask_as_raster
+from cd_ortho.losses.losses import CrossEntropyWithLogitsLoss
+from cd_ortho.metrics.metrics_util import AverageMeter
+from cd_ortho.core.constants import NOMENCLATURE
+from cd_ortho.core.io_utils import save_dict_as_json, create_path_if_not_exists
+from cd_ortho.core.rio_utils import get_meta_for_img, save_mask_as_raster
 
 
 class SemanticSegmentationTaskModel(pl.LightningModule):
