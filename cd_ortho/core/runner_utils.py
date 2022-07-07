@@ -7,3 +7,7 @@ class Stages(Enum):
     TEST = "test"
     PREDICT = "predict"
 
+
+class Strategy(Enum):
+    NORMAL = "normal"
+    FINETUNE = "finetune"

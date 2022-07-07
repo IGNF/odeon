@@ -1,4 +1,4 @@
-name: cd_ortho_test
+name: cd_ortho_dev
 channels:
   - conda-forge
   - pytorch

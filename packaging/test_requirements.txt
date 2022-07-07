@@ -7,3 +7,6 @@ pylint
 flake8==3.9.2
 mypy
 pre-commit>=2.0
+jupyter
+jupyterlab
+voila

@@ -37,5 +37,8 @@ class TransformStrategy(Enum):
     BATCH_WISE = "batch_wise"
 
 
-TARGET_ACCEPTED_TYPE = ["mask"]
+class TargetTYPES(Enum):
+    MASK = "mask"
+
+
 RASTER_ACCEPTED_EXTENSION = [".tif", ".tiff", ".jpg", ".jpeg", ".png", ".jp2", ".vrt"]
