@@ -82,7 +82,7 @@ class Input(LightningDataModule):
             dataframes: Dict[STAGES, DATAFRAME],
             preprocess: PREPROCESS_OPS,
             input_fields: Dict,
-            transforms: Dict[STAGES, PREPROCESS_OPS]) -> Dict[STAGES, Dataset]:
+            transforms: Union[Dict[STAGES, PREPROCESS_OPS], None]) -> Dict[STAGES, Dataset]:
         """
 
         Parameters
@@ -115,23 +115,23 @@ class Input(LightningDataModule):
         return data_loaders
 
     def setup(self, stage: Optional[str] = None) -> None:
-        if stage == STAGES.FIT:
+        if stage == Stages.FIT:
             pass
 
     def get_dataloader(self, stage: STAGES):
         return self.data_loaders[stage]
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        return self.get_dataloader(STAGES.FIT)
+        return self.get_dataloader(Stages.FIT)
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        return self.get_dataloader(STAGES.VALIDATE)
+        return self.get_dataloader(Stages.VALIDATE)
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return self.get_dataloader(STAGES.TEST)
+        return self.get_dataloader(Stages.TEST)
 
     def predict_dataloader(self) -> EVAL_DATALOADERS:
-        return self.get_dataloader(STAGES.PREDICT)
+        return self.get_dataloader(Stages.PREDICT)
 
     @staticmethod
     def from_files(

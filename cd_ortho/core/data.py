@@ -1,4 +1,5 @@
 from enum import Enum
+
 import numpy as np
 import rasterio as rio
 
@@ -25,7 +26,7 @@ class InputDType(Enum):
     FLOAT64 = ["float64", np.float64, rio.float64]
 
 
-class DTypeRange(InputDType):
+class DTypeRange(Enum):
     UINT8 = (0, 255)
     UINT16 = (0, 65535)
     FLOAT32 = (0, 3.4028235e+38)
