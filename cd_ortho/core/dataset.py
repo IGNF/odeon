@@ -4,18 +4,20 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
-from typing import Optional, List
+from typing import List, Optional
+
 from torch.utils.data import Dataset
-from cd_ortho.core.types import DATAFRAME, SAMPLEWISE_OPS
+
+from .types import DATAFRAME, PREPROCESS_OPS
 
 
-class SegmentationTaskDataset(Dataset):
+class TaskDataset(Dataset):
 
     def __init__(self,
                  data: DATAFRAME,
                  input_fields: List,
-                 preprocess: Optional[SAMPLEWISE_OPS],
-                 transform: Optional[SAMPLEWISE_OPS]
+                 preprocess: Optional[PREPROCESS_OPS],
+                 transform: Optional[PREPROCESS_OPS]
                  ):
         """
         Parameters

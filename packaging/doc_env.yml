@@ -1,11 +1,15 @@
 name: cd_ortho_doc
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
-  - pip==22.0.4
+  - pytorch>=1.11.0
+  - cudatoolkit=10.2
+  - pip>=22.0.4
+  - python>=3.10
   - geopandas>=0.10
-  - rasterio>=1.1.5
+  - rasterio
   - pip:
       - -r requirements.txt
       - -r doc_requirements.txt

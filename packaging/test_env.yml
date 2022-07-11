@@ -1,9 +1,11 @@
 name: cd_ortho_dev
 channels:
-  - conda-forge
   - pytorch
+  - conda-forge
   - defaults
 dependencies:
+  - pytorch>=1.11.0
+  - cudatoolkit=10.2
   - pip>=22.0.4
   - python>=3.10
   - geopandas>=0.10

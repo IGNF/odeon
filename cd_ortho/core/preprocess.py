@@ -2,7 +2,18 @@
 from typing import Dict
 
 
-class UniversalPreprocessor:
+class UniversalPreProcessor:
+
+    def __init__(self, input_fields):
+
+        self._input_fields = input_fields
+
+    def __call__(self, input: Dict, *args, **kwargs):
+
+        ...
+
+
+class UniversalDeProcessor:
 
     def __init__(self, input_fields):
 

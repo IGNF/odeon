@@ -1,6 +1,5 @@
 hydra-core>=1.2
 hydra_colorlog
-torch>=1.11.0
 torchvision
 tensorboard
 tensorboardx
