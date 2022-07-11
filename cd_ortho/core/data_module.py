@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from .dataframe import split_dataframe
 from .input import InputDataFields
 from .runner_utils import Stages
-from .types import DATAFRAME, PREPROCESS_OPS, STAGES, URI_OR_URIS
+from .types import DATAFRAME, PREPROCESS_OPS, STAGES, URI
 
 from.dataframe import CSV_SUFFIX, create_pandas_dataframe_from_file, create_geopandas_dataframe_from_file
 
@@ -26,25 +26,8 @@ class Input(LightningDataModule):
     # input_fields: Dict Could be useful
 
     @staticmethod
-    def _init_preprocess(
-            preprocess: Union[Dict[STAGES, PREPROCESS_OPS], PREPROCESS_OPS],
-            stages: List[STAGES]) -> Dict[STAGES, PREPROCESS_OPS]:
-
-        match preprocess:
-            case dict():
-                out: Dict[STAGES, PREPROCESS_OPS] = dict()
-                for stage in stages:
-                    if stage == STAGES.VALIDATE and stage not in preprocess.keys():
-                        out[stage] = preprocess[Stages.FIT]
-                    else:
-                        out[stage] = preprocess[stage]
-                    return out
-            case _:
-                return {stage: preprocess for stage in stages}
-
-    @staticmethod
-    def _build_dataframe_by_stage(input_data: Dict[STAGES, URI_OR_URIS],
-                                  root_dir: Optional[URI_OR_URIS] = None,
+    def _build_dataframe_by_stage(input_data: Dict[STAGES, URI],
+                                  root_dir: Optional[URI] = None,
                                   train_val_split: float = 0.8) -> Dict[STAGES, DATAFRAME]:
         """
         Parameters
@@ -63,18 +46,18 @@ class Input(LightningDataModule):
         data: Dict = dict()
         for stage, uri in input_data.items():
 
-            if uri.endswith(CSV_SUFFIX):  # case Pandas DataFrame
+            if str(uri).endswith(CSV_SUFFIX):  # case Pandas DataFrame
                 df = create_pandas_dataframe_from_file(uri)
                 data[stage] = df
             else:  # case Geopandas DataFrame
                 gdf = create_geopandas_dataframe_from_file(uri)
                 data[stage] = gdf
 
-        if STAGES.FIT in data.keys() and STAGES.VALIDATE not in data.keys():
+        if Stages.FIT in data.keys() and Stages.VALIDATE not in data.keys():
 
-            train, validation = split_dataframe(data[STAGES.FIT], split_ratio=train_val_split)
-            data[STAGES.FIT] = train
-            data[STAGES.VALIDATE] = validation
+            train, validation = split_dataframe(data[Stages.FIT], split_ratio=train_val_split)
+            data[Stages.FIT] = train
+            data[Stages.VALIDATE] = validation
         return data
 
     @staticmethod
@@ -102,17 +85,17 @@ class Input(LightningDataModule):
     @staticmethod
     def _build_dataloader_by_stage(
             datasets: Dict[STAGES, Dataset],
-            dataloader_options: Union[Optional[Dict], Dict[STAGES, Dict]]) -> Dict[STAGES,
-                                                                                   DataLoader]:
-        data_loaders = dict()
+            dataloader_options: Union[Dict[STAGES, Dict], None]) -> Dict[STAGES, DataLoader]:
+
+        _data_loaders: Dict[STAGES, DataLoader] = {list(datasets.keys())[0]: DataLoader(
+            dataset=list(datasets.values())[0])}
+        _data_loader_options: Dict[STAGES, Dict] = {stage: DEFAULT_DATALOADER_OPTIONS for stage in datasets.keys()}
+        if dataloader_options is not None:
+            _data_loader_options = dataloader_options
+
         for stage, dataset in datasets.items():
-            if stage not in dataloader_options.keys():
-                options = DEFAULT_DATALOADER_OPTIONS
-                options["shuffle"] = stage == STAGES.FIT
-                data_loaders[stage] = DataLoader(dataset=dataset, **options)
-            else:
-                data_loaders[stage] = DataLoader(dataset, **dataloader_options)
-        return data_loaders
+            _data_loaders[stage] = DataLoader(dataset=dataset, **_data_loader_options[stage])
+        return _data_loaders
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == Stages.FIT:
@@ -135,12 +118,12 @@ class Input(LightningDataModule):
 
     @staticmethod
     def from_files(
-            input_data: Dict[STAGES, URI_OR_URIS],
+            input_data: Dict[STAGES, URI],
             preprocess: PREPROCESS_OPS,
             transforms: Union[Dict[STAGES, PREPROCESS_OPS], None] = None,
             input_fields: Optional[Dict] = None,
-            root_dir: Optional[URI_OR_URIS] = None,
-            dataloader_options: Union[Optional[Dict], Dict[STAGES, Dict]] = None,
+            root_dir: Optional[URI] = None,
+            dataloader_options: Union[Dict[STAGES, Dict], None] = None,
             train_val_split: float = 0.8
     ) -> LightningDataModule:
         """
