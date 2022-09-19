@@ -26,8 +26,8 @@ repos:
         files: ^cd_ortho/
         entry: bash -c 'mypy "$@" || true' --show-traceback
 
-- repo: https://github.com/PyCQA/isort
-  rev: 5.10.1
-  hooks:
-    - id: isort
-      name: Format imports
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        name: Format imports

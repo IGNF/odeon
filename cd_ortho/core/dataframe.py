@@ -4,12 +4,30 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from .types import DATAFRAME, URI_OR_URIS
+from .types import DATAFRAME, URI
 
 CSV_SUFFIX = ".csv"
 
 
-def create_pandas_dataframe_from_file(path: URI_OR_URIS, options: Optional[Dict] = None) -> pd.DataFrame:
+def create_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> pd.DataFrame:
+    """
+
+    Parameters
+    ----------
+    path: Path or str, path of csv file
+    options: Dict or None, pandas options
+    Returns
+    -------
+     DataFrame
+    """
+
+    if str(path).endswith(CSV_SUFFIX):
+        return create_pandas_dataframe_from_file(path=path, options=options)
+    else:
+        return create_geopandas_dataframe_from_file(path=path, options=options)
+
+
+def create_pandas_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> pd.DataFrame:
     """
 
     Parameters
@@ -23,7 +41,7 @@ def create_pandas_dataframe_from_file(path: URI_OR_URIS, options: Optional[Dict]
     return pd.read_csv(path, **options) if options is not None else pd.read_csv(path)
 
 
-def create_geopandas_dataframe_from_file(path: URI_OR_URIS, options: Optional[Dict] = None) -> gpd.GeoDataFrame:
+def create_geopandas_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> gpd.GeoDataFrame:
     """
 
     Parameters

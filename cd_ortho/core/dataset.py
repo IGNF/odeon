@@ -4,46 +4,37 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 #
-from typing import List, Optional
+from typing import Callable, Dict, Optional
 
 from torch.utils.data import Dataset
 
-from .types import DATAFRAME, PREPROCESS_OPS
+from .preprocess import UniversalPreProcessor
+from .types import DATAFRAME
 
 
-class TaskDataset(Dataset):
+class UniversalDataset(Dataset):
 
     def __init__(self,
                  data: DATAFRAME,
-                 input_fields: List,
-                 preprocess: Optional[PREPROCESS_OPS],
-                 transform: Optional[PREPROCESS_OPS]
+                 input_fields: Dict,
+                 transform: Optional[Callable] = None
                  ):
         """
         Parameters
         ----------
         data: DATAFRAME, can be a pandas or CSV dataframe
-        input_fields
-        preprocess
-        transform
+        input_fields: Dict
+        transform: Callable for applying transformation
         """
         self.data = data
-        self.input_fields = input_fields
-        self.preprocess = preprocess
+        self.preprocess = UniversalPreProcessor(input_fields=input_fields)
         self.transform = transform
-
-    def sanitize_dataframe(self):
-        cols = self.data.columns
-        for field in self.input_fields:
-            assert field in cols
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-
-        values = self.data.loc[index, [self.input_fields]]
-        fields = {field: value for (field, value) in zip(self.input_fields, values)}
-        out = self.preprocess(fields)
-        out = self.transform(out) if self.transform is not None else out
+        out = self.preprocess(dict(self.data.iloc[index]))
+        if self.transform is not None:
+            out = self.transform(out)
         return out

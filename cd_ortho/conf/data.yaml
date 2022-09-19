@@ -1,0 +1,20 @@
+fit:
+  data:
+    input_train_file: ""
+    input_validate_file: ""
+    input_files_has_header: true
+    input_fields:
+      input:
+        name: "image"
+        type: "raster"
+        dtype: "uint8"
+      target:
+        name: "mask"
+        type: "mask"
+
+
+validate:
+
+test:
+
+predict:
