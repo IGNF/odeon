@@ -3,8 +3,6 @@ from typing import Optional, Sequence
 import numpy as np
 import rasterio as rio
 
-# from rasterio.windows import from_bounds as window_from_bounds
-
 
 def read(src: rio.DatasetReader,
          band_indices=None,

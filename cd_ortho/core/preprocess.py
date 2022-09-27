@@ -3,9 +3,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from rasterio.windows import from_bounds as window_from_bounds
 
 from .data import DTYPE_MAX, InputDType
-from .raster import read, rio, window_from_bounds
+from .raster import read, rio
 
 MEAN_DEFAULT_VALUE = 0.0
 STD_DEFAULT_VALUE = 0.5
@@ -16,7 +17,7 @@ class UniversalPreProcessor:
     def __init__(self,
                  input_fields: Dict,
                  patch_size: int = 256,
-                 root_dir: Optional[str] = None,
+                 root_dir: Union[None, Path, str] = None,
                  cache_dataset: bool = False,
                  *args,
                  **kwargs):
