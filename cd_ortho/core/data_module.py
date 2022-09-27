@@ -6,14 +6,11 @@ from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
 from torch.utils.data import DataLoader, Dataset
 
-from .dataframe import split_dataframe
+from .dataframe import create_dataframe_from_file, split_dataframe
 from .dataset import UniversalDataset
 from .runner_utils import Stages
 from .transform import AlbuTransform
-from .types import DATAFRAME, STAGES
-
-from.dataframe import create_dataframe_from_file
-
+from .types import DATAFRAME, STAGES, Overlap
 
 DEFAULT_DATALOADER_OPTIONS = {"batch_size": 8, "num_workers": 1}
 
@@ -26,7 +23,8 @@ class Input(LightningDataModule):
     input_validate_file: Optional[str] = None
     input_test_file: Optional[str] = None
     input_predict_file: Optional[str] = None
-    input_files_has_header: bool = True
+    root_dir: Union[None, str, Dict] = None
+    input_files_has_header: Union[bool, Dict] = True  # Rather input files have header or not
     fit_transform: Union[List[Callable], None] = None
     validate_transform: Union[List[Callable], None] = None
     test_transform: Union[List[Callable], None] = None
@@ -36,10 +34,13 @@ class Input(LightningDataModule):
     test_dataloader_options: Dict = field(default_factory=lambda: DEFAULT_DATALOADER_OPTIONS)
     predict_dataloader_options: Dict = field(default_factory=lambda: DEFAULT_DATALOADER_OPTIONS)
     train_val_split: float = 0.8
-    by_zone: bool = False
-    size_u: Union[float, int] = 256
-    resolution: List[float] = field(default_factory=lambda: [0.2, 0.2])
-    _data_loaders: Dict[STAGES, DataLoader] = field(init=False)
+    by_zone: Union[None, str, List[STAGES]] = None
+    patch_size: int = 256
+    patch_resolution: List[float] = field(default_factory=lambda: [0.2, 0.2])
+    random_window: bool = True
+    overlap: Overlap = 0.0
+    cache_dataset: Union[None, str, List[STAGES]] = False
+    _data_loaders: Dict[STAGES, DataLoader] = field(init=False, default_factory=lambda: dict())
     _fit_df: DATAFRAME = field(init=False)
     _validate_df: DATAFRAME = field(init=False)
     _test_df: DATAFRAME = field(init=False)
@@ -53,16 +54,51 @@ class Input(LightningDataModule):
     _test_transforms: Callable = field(init=False)
     _predict_transforms: Callable = field(init=False)
 
+    def _stage_by_zone(self, stage) -> bool:
+        if self.by_zone == stage or self.by_zone == "all" or stage in self.by_zone:
+            return True
+        else:
+            return False
+
+    def _get_root_dir_for_stage(self, stage: STAGES) -> Optional[str]:
+        if isinstance(self.root_dir, str) or self.root_dir is None:
+            return self.root_dir
+        else:
+            if stage in self.root_dir.keys():
+                return self.root_dir[stage]
+            else:
+                return None
+
+    def _get_cache_preproc_status_by_stage(self, stage: STAGES) -> bool:
+        if self. cache_dataset == stage or self.cache_dataset == "all" or stage in self.cache_dataset:
+            return True
+        else:
+            return False
+
+    def _input_file_has_header(self, stage: STAGES):
+        if isinstance(self.input_files_has_header, bool):
+            return self.input_files_has_header
+        elif stage in self.input_files_has_header.keys():
+            return self.input_files_has_header[stage]
+        else:
+            return True
+
     def __post_init__(self):
 
         if self.input_fit_file is not None:
 
-            self._fit_df = create_dataframe_from_file(self.input_fit_file)
+            self._fit_df = create_dataframe_from_file(self.input_fit_file,
+                                                      {"header": self._input_file_has_header(Stages.FIT)})
             self._fit_transforms = AlbuTransform(input_fields=self.input_fields,
                                                  pipe=self.fit_transform)
             self._fit_dataset = UniversalDataset(data=self._fit_df,
                                                  input_fields=self.input_fields,
-                                                 transform=self._fit_transforms)
+                                                 transform=self._fit_transforms,
+                                                 by_zone=self._stage_by_zone(Stages.FIT),
+                                                 patch_size=self.patch_size,
+                                                 patch_resolution=self.patch_resolution,
+                                                 random_window=self.random_window,
+                                                 inference_mode=False)
             self._data_loaders[Stages.FIT] = DataLoader(dataset=self._fit_dataset,
                                                         **self.fit_dataloader_options)
 

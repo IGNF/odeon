@@ -38,7 +38,9 @@ def create_pandas_dataframe_from_file(path: URI, options: Optional[Dict] = None)
     -------
      DataFrame
     """
-    return pd.read_csv(path, **options) if options is not None else pd.read_csv(path)
+    return pd.read_csv(path, header=options["header"])\
+        if (options is not None and "header" in options.keys())\
+        else pd.read_csv(path)
 
 
 def create_geopandas_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> gpd.GeoDataFrame:

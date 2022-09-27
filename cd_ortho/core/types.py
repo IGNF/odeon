@@ -1,8 +1,12 @@
-from typing import Union, Iterable, Mapping, List, Optional, Callable, Dict, Literal
 from pathlib import Path
-from .runner_utils import Stages
-import pandas as pd
+from typing import (Callable, Dict, Iterable, List, Literal, Mapping, Optional,
+                    Union)
+
 import geopandas as gpd
+import pandas as pd
+
+from .runner_utils import Stages
+
 URI = Union[str, Path]
 URIS = List[URI]
 URI_OR_URIS = Union[URI, URIS]
@@ -11,3 +15,5 @@ DATASET = Union[Iterable, Mapping]
 PREPROCESS_OPS = Callable[[Dict], Dict]
 STAGES = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT]
 DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
+Overlap = Union[float, List[float]]
+TileSize = Union[int, List]
