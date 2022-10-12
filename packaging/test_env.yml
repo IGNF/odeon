@@ -1,4 +1,4 @@
-name: cd_ortho_dev
+name: cd_ortho_test
 channels:
   - pytorch
   - conda-forge
@@ -11,6 +11,6 @@ dependencies:
   - geopandas>=0.10
   - rasterio
   - pip:
-      -r requirements.txt
-      -r test_requirements.txt
-      -r doc_requirements.txt
+      - -r  requirements.txt
+      - -r  test_requirements.txt
+      - -r  doc_requirements.txt

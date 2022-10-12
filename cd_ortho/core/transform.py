@@ -12,13 +12,20 @@ class AlbuTransform:
                  pipe: Optional[List[Callable]] = None
                  ):
 
-        self.input_fields = input_fields
+        self._input_fields = input_fields
         self._pipe: List = list() if pipe is None else pipe
         self._pipe.append(ToTensorCustom())
+        self._additional_targets: Dict = dict()
+        for key, value in self._input_fields:
+            if value["type"] == "raster":
+                self._additional_targets[key] = 'image'
+            if value["type"] == "mask":
+                self._additional_targets[key] = 'mask'
+        self.transfrom = A.Compose(self._pipe, additional_targets=self._additional_targets)
 
     def __call__(self, data: Dict, *args, **kwargs):
-
         ...
+        # transform_data = {key: value for key, value in data.items() if key in self._additional_targets.keys()}
 
 
 class ToTensorCustom(A.BasicTransform):

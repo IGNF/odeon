@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
 
 from .data import DTYPE_MAX, InputDType
@@ -21,6 +22,7 @@ class UniversalPreProcessor:
                  cache_dataset: bool = False,
                  *args,
                  **kwargs):
+
         self._input_fields: Dict = input_fields
         self._sanitize_input_fields()  # make sure input is compatible
         self.root_dir = root_dir
@@ -40,6 +42,9 @@ class UniversalPreProcessor:
         output_dict = dict()
         # window = None  # used to cache the first computation of window to not repeat unnecessary computation
 
+        if bounds:
+            output_dict["bounds"] = np.array(bounds)
+
         for key, value in self._input_fields.items():
 
             if value["type"] == "raster":
@@ -50,15 +55,10 @@ class UniversalPreProcessor:
                 mean = value["mean"] if "band_indices" in value else None
                 std = value["std"] if "band_indices" in value else None
                 if dtype_max is None and "dtype" in value:
-
                     dtype = value["dtype"]
-
                     if dtype in DTYPE_MAX.keys():
-
                         dtype_max = DTYPE_MAX[dtype]
-
                     else:
-
                         raise KeyError(f'your dtype  {dtype} for key {key} in your input_fields is not compatible')
 
                 dtype_max = DTYPE_MAX[InputDType.UINT8.value] if dtype_max is None else dtype_max
@@ -70,11 +70,15 @@ class UniversalPreProcessor:
                                                         std=std)
 
             if value["type"] == "mask":
+
                 path = data[value["name"]] if self.root_dir is None else Path(str(self.root_dir)) / data[value["name"]]
                 band_indices = value["band_indices"] if "band_indices" in value else None
                 output_dict[key] = self.apply_to_mask(path=path,
                                                       band_indices=band_indices,
                                                       bounds=bounds)
+
+            if "geometry" in data.keys():
+                output_dict["geometry"] = np.array(data["geometry"].bounds)
 
         return output_dict
 
@@ -88,23 +92,28 @@ class UniversalPreProcessor:
                         dtype_max: float = DTYPE_MAX[InputDType.UINT8.value],
                         mean: Optional[List] = None,
                         std: Optional[List] = None) -> np.ndarray:
+
         # TODO Could be interesting to optimize window computation (DON'T REPEAT COMPUTATION FOR EACH MODALITY)
-        # TODO but it bring side effect
+        # TODO But it could bring side effect, needs reflection
         src, window = self._get_dataset(path=path, bounds=bounds)
         raster = read(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
+        if self.cache_dataset is False:
+            src.close()
+
         # add axe if raster has only two dimensions
         if raster.ndim == 2:
             raster = raster[..., np.newaxis]
+        img = reshape_as_image(raster)
         if mean is None or std is None:
 
             # apply centering between 0 and 1
             # to apply centering between -1 and 1, replace change MEAN_DEFAULT_VALUE value to 0.5
             mean = [MEAN_DEFAULT_VALUE]
-            mean = list(np.repeat(mean, range(raster.shape[0])))
+            mean = np.repeat(mean, raster.shape[0])
             std = [STD_DEFAULT_VALUE]
-            std = list(np.repeat(std, range(raster.shape[0])))
+            std = np.repeat(std, raster.shape[0])
 
-        return normalize(raster,
+        return normalize(img=img,
                          mean=mean,
                          std=std,
                          max_pixel_value=dtype_max)
@@ -118,7 +127,9 @@ class UniversalPreProcessor:
         # TODO but it bring side effect
         src, window = self._get_dataset(path=path, bounds=bounds)
         mask = read(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
-        return mask
+        if self.cache_dataset is False:
+            src.close()
+        return reshape_as_image(mask)
 
     def _get_dataset(self,
                      path: Union[str, Path],
@@ -129,10 +140,10 @@ class UniversalPreProcessor:
             src = self._cache[path]
             meta = src.meta
         else:
-            with rio.open(path) as src:
-                meta = src.meta
-                if self._cache is not None:
-                    self._cache[path] = src
+            src = rio.open(path)
+            meta = src.meta
+            if self._cache is not None:
+                self._cache[path] = src
 
         window = None if bounds is None else window_from_bounds(bounds[0],
                                                                 bounds[1],
@@ -140,6 +151,10 @@ class UniversalPreProcessor:
                                                                 bounds[3],
                                                                 meta["transform"])
         return src, window
+
+    def close_cached_data(self):
+        for key, value in self._cache.items():
+            value.close()
 
 
 class UniversalDeProcessor:

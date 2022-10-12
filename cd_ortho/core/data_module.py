@@ -39,23 +39,24 @@ class Input(LightningDataModule):
     patch_resolution: List[float] = field(default_factory=lambda: [0.2, 0.2])
     random_window: bool = True
     overlap: Overlap = 0.0
-    cache_dataset: Union[None, str, List[STAGES]] = False
+    cache_dataset: Union[None, str, List[STAGES]] = None
     _data_loaders: Dict[STAGES, DataLoader] = field(init=False, default_factory=lambda: dict())
-    _fit_df: DATAFRAME = field(init=False)
-    _validate_df: DATAFRAME = field(init=False)
-    _test_df: DATAFRAME = field(init=False)
-    _predict_df: DATAFRAME = field(init=False)
-    _fit_dataset: Dataset = field(init=False)
-    _validate_dataset: Dataset = field(init=False)
-    _test_dataset: Dataset = field(init=False)
-    _predict_dataset: Dataset = field(init=False)
-    _fit_transforms: Callable = field(init=False)
-    _validate_transforms: Callable = field(init=False)
-    _test_transforms: Callable = field(init=False)
-    _predict_transforms: Callable = field(init=False)
+    _fit_df: DATAFRAME = field(init=False, default=None)
+    _validate_df: DATAFRAME = field(init=False, default=None)
+    _test_df: DATAFRAME = field(init=False, default=None)
+    _predict_df: DATAFRAME = field(init=False, default=None)
+    _fit_dataset: Dataset = field(init=False, default=None)
+    _validate_dataset: Dataset = field(init=False, default=None)
+    _test_dataset: Dataset = field(init=False, default=None)
+    _predict_dataset: Dataset = field(init=False, default=None)
+    _fit_transforms: Optional[Callable] = field(init=False, default=None)
+    _validate_transforms: Optional[Callable] = field(init=False, default=None)
+    _test_transforms: Optional[Callable] = field(init=False, default=None)
+    _predict_transforms: Optional[Callable] = field(init=False, default=None)
 
     def _stage_by_zone(self, stage) -> bool:
-        if self.by_zone == stage or self.by_zone == "all" or stage in self.by_zone:
+        if self.by_zone == stage or self.by_zone == "all" or \
+                (isinstance(self.by_zone, list) and stage in self.by_zone):
             return True
         else:
             return False
@@ -70,8 +71,16 @@ class Input(LightningDataModule):
                 return None
 
     def _get_cache_preproc_status_by_stage(self, stage: STAGES) -> bool:
-        if self. cache_dataset == stage or self.cache_dataset == "all" or stage in self.cache_dataset:
-            return True
+        if isinstance(self.cache_dataset, str):
+            if self. cache_dataset == stage or self.cache_dataset == 'all':
+                return True
+            else:
+                return False
+        elif isinstance(self.cache_dataset, List):
+            if stage in self.cache_dataset:
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -90,8 +99,9 @@ class Input(LightningDataModule):
             self._fit_df = create_dataframe_from_file(self.input_fit_file,
                                                       {"header": self._input_file_has_header(Stages.FIT)})
             self._fit_transforms = AlbuTransform(input_fields=self.input_fields,
-                                                 pipe=self.fit_transform)
+                                                 pipe=self.fit_transform) if self.fit_transform is not None else None
             self._fit_dataset = UniversalDataset(data=self._fit_df,
+                                                 root_dir=self.root_dir,
                                                  input_fields=self.input_fields,
                                                  transform=self._fit_transforms,
                                                  by_zone=self._stage_by_zone(Stages.FIT),
