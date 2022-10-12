@@ -1,7 +1,7 @@
 from logging import getLogger
 from typing import Dict
 
-from cd_ortho.core.data_module import Input
+from odeon.core.data_module import Input
 
 logger = getLogger(__name__)
 change_dataset: str = "/home/ign.fr/skhelifi/dev/CD_ORTHO/tests/test_data/test_zone_data.shp"

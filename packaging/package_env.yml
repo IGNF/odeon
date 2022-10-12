@@ -1,4 +1,4 @@
-name: cd_ortho
+name: odeon-env
 channels:
   - pytorch
   - conda-forge

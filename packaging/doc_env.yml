@@ -1,4 +1,4 @@
-name: cd_ortho_doc
+name: odeon_doc
 channels:
   - pytorch
   - conda-forge

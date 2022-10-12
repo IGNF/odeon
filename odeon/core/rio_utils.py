@@ -1,10 +1,10 @@
 from math import isclose
 from typing import Dict, Tuple
+
 import numpy as np
 import rasterio
 from rasterio import features
 
-from rasterio.windows import from_bounds, transform
 IMAGE_TYPE = {
     "uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
     "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
@@ -124,8 +124,7 @@ def get_scale_factor_and_img_size(target_raster, resolution, width, height):
     Parameters
     ----------
     target_raster : str
-     the raster path where we want to get the scaled factors to fit the
-     targeted resolution
+     the raster path where we want to get the scaled factors to fit the targeted resolution
     resolution : tuple[float, float]
      the targeted resolution
     width : int
@@ -202,7 +201,7 @@ def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
         clip = dst.read(window=window, out_shape=(meta["count"], meta["height"], meta["width"]), resampling=resampling)
         # building the no label band
 
-        bands = clip[0:clip.shape[0]-1].astype(np.bool).astype(np.uint8).copy()
+        bands = clip[0:clip.shape[0] - 1].astype(np.bool).astype(np.uint8).copy()
         other_band = np.sum(bands, axis=0, dtype=np.uint8)
         other_band = (other_band == 0).astype(np.uint8)
 
@@ -215,7 +214,7 @@ def create_patch_from_center(out_file, msk_raster, meta, window, resampling):
             out = dst.read(window=window,
                            out_shape=(meta["count"], meta["height"], meta["width"]),
                            resampling=resampling)
-            out = np.vstack((out[0:out.shape[0]-1], np.array([other_band])))
+            out = np.vstack((out[0:out.shape[0] - 1], np.array([other_band])))
             # LOGGER.debug(out.shape)
             raster_out.write(out)
 
@@ -307,8 +306,8 @@ def normalize_array_in(array, dtype, max_type_val):
     """
 
     array = array.astype(np.float64)
-    LOGGER.debug(array.max())
-    LOGGER.debug(f"type {dtype}")
+    # LOGGER.debug(array.max())
+    # LOGGER.debug(f"type {dtype}")
 
     if float(array.max()) != float(0):
 
@@ -339,12 +338,12 @@ def get_max_type(rasters):
 
             with rasterio.open(r) as src:
 
-                LOGGER.debug(f"raster: {raster}, type: {src.meta['dtype']}")
+                # LOGGER.debug(f"raster: {raster}, type: {src.meta['dtype']}")
                 if src.meta["dtype"] in IMAGE_TYPE.keys() and IMAGE_TYPE[src.meta["dtype"]][0] > IMAGE_TYPE[dtype][0]:
 
                     dtype = src.meta["dtype"]
 
-    LOGGER.debug(f"dtype: {dtype}")
+    # LOGGER.debug(f"dtype: {dtype}")
     return dtype
 
 
@@ -400,7 +399,7 @@ def get_number_of_band(dict_of_raster, dem):
     if dem and ("DSM" in dict_of_raster.keys() and "DTM" in dict_of_raster.keys()):
 
         num_band -= 1
-        LOGGER.debug(num_band)
+        # LOGGER.debug(num_band)
 
     return num_band
 

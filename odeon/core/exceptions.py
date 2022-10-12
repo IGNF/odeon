@@ -1,8 +1,8 @@
 """
 Module to define custom exception
 """
-from enum import Enum, unique, auto
 import traceback
+from enum import Enum, auto, unique
 
 
 class OdeonError(Exception):

@@ -16,7 +16,7 @@ class AlbuTransform:
         self._pipe: List = list() if pipe is None else pipe
         self._pipe.append(ToTensorCustom())
         self._additional_targets: Dict = dict()
-        for key, value in self._input_fields:
+        for key, value in self._input_fields.items():
             if value["type"] == "raster":
                 self._additional_targets[key] = 'image'
             if value["type"] == "mask":

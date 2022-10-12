@@ -1,14 +1,15 @@
 import logging
-from typing import Callable, List, Union, Optional
+from typing import Callable, Dict, List, Optional, Union
+
 logger = logging.getLogger()
 
 
 class AppRegistry:
     """ The registry of all """
 
-    registry = {}
-    task_registry = {}
-    domain_registry = {}
+    registry: Dict = {}
+    task_registry: Dict = {}
+    domain_registry: Dict = {}
 
     """ Internal registry for available executors """
     @classmethod
