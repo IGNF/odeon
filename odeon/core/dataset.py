@@ -107,10 +107,10 @@ class UniversalDataset(Dataset):
         # print(out)
         # print(type(out))
         # 4/
-        """
+
         if self.transform is not None:
             out = self.transform(out)
-        """
+
         # 5/
         return out
 

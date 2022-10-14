@@ -7,7 +7,7 @@ import rasterio as rio
 def read(src: rio.DatasetReader,
          band_indices=None,
          window: Optional[Sequence] = None,
-         boundless: bool = None,
+         boundless: bool = True,
          height: Optional[int] = None,
          width: Optional[int] = None,
          resampling: rio.enums.Resampling = rio.enums.Resampling.nearest) -> np.ndarray:

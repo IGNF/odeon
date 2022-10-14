@@ -40,4 +40,6 @@ class TargetTYPES(Enum):
     MASK = "mask"
 
 
+IMAGE_MODALITY = [InputType.RASTER.value]
+
 RASTER_ACCEPTED_EXTENSION: List[str] = [".tif", ".tiff", ".jpg", ".jpeg", ".png", ".jp2", ".vrt"]

@@ -4,7 +4,6 @@ from typing import Dict
 from odeon.core.data_module import Input
 
 logger = getLogger(__name__)
-change_dataset: str = "/home/ign.fr/skhelifi/dev/CD_ORTHO/tests/test_data/test_zone_data.shp"
 
 
 def test_patch_data_module_creation(path_to_test_data):
@@ -84,8 +83,10 @@ def test_zone_data_module_creation_with_cached_dataset(path_to_test_data):
     for idx, batch in enumerate(train_data_loader):
 
         if idx > n_cycle:
+
             print("exit")
             break
+
         print(f"id: {idx}, batch: {batch.keys()}, window_bounds: {batch['bounds']}, bounds: {batch['geometry']}")
         for patch_bounds, windows_bounds in zip(batch['geometry'], batch['bounds']):
 
