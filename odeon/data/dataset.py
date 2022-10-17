@@ -13,7 +13,7 @@ from typing import Callable, Dict, List, Optional, Union
 from torch.utils.data import Dataset
 
 from odeon.core.tile import tile
-from odeon.core.types import DATAFRAME, Overlap
+from odeon.core.types import DATAFRAME, OptionalGeoTuple
 from odeon.core.vector import create_gdf_from_list, gpd
 
 from .preprocess import UniversalPreProcessor
@@ -34,7 +34,7 @@ class UniversalDataset(Dataset):
                  patch_size: int = 256,
                  patch_resolution: List[float] = None,
                  random_window: bool = True,
-                 overlap: Overlap = 0.0
+                 overlap: OptionalGeoTuple = 0.0
                  ):
         """
         Parameters

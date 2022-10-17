@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from odeon.core.dataframe import create_dataframe_from_file, split_dataframe
 from odeon.core.runner_utils import Stages
-from odeon.core.types import DATAFRAME, STAGES, Overlap
+from odeon.core.types import DATAFRAME, STAGES, OptionalGeoTuple
 
 from .dataset import UniversalDataset
 from .transform import AlbuTransform
@@ -39,7 +39,7 @@ class Input(LightningDataModule):
     patch_size: int = 256
     patch_resolution: List[float] = field(default_factory=lambda: [0.2, 0.2])
     random_window: bool = True
-    overlap: Overlap = 0.0
+    overlap: OptionalGeoTuple = 0.0
     cache_dataset: Union[None, str, List[STAGES]] = None
     _data_loaders: Dict[STAGES, DataLoader] = field(init=False, default_factory=lambda: dict())
     _fit_df: DATAFRAME = field(init=False, default=None)
