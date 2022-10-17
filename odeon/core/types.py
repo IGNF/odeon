@@ -15,5 +15,5 @@ DATASET = Union[Iterable, Mapping]
 PREPROCESS_OPS = Callable[[Dict], Dict]
 STAGES = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT]
 DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
-Overlap = Union[int, Tuple[float, float], Tuple[int, int]]
-TileSize = Union[int, Tuple[float, float], Tuple[int, int]]
+OptionalGeoTuple = Union[int, float, Tuple[float, float], Tuple[int, int]]
+GeoTuple = Union[Tuple[float, float], Tuple[int, int]]  # used for stuf like patch size, overlapd, etc.
