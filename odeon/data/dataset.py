@@ -12,10 +12,11 @@ from typing import Callable, Dict, List, Optional, Union
 
 from torch.utils.data import Dataset
 
+from odeon.core.tile import tile
+from odeon.core.types import DATAFRAME, Overlap
+from odeon.core.vector import create_gdf_from_list, gpd
+
 from .preprocess import UniversalPreProcessor
-from .tile import tile
-from .types import DATAFRAME, Overlap
-from .vector import create_gdf_from_list
 
 logger = getLogger(__name__)
 
@@ -42,21 +43,35 @@ class UniversalDataset(Dataset):
         input_fields: Dict
         transform: Callable for applying transformation
         """
-        self.data = data
+        self.data: DATAFRAME = data
         self._zone = copy.deepcopy(self.data)
         self.by_zone = by_zone
         self.inference_mode = inference_mode
         self.patch_size = patch_size
         self.patch_resolution: List[float] = patch_resolution if patch_resolution is not None else [0.2, 0.2]
+        self.patch_size_u = float(self.patch_size * self.patch_resolution[0]), float(
+            self.patch_size * self.patch_resolution[1])
         self.random_window = random_window
         self.overlap = overlap
         self._crs = self.data.crs
 
         # case inference by zone, we split
         if self.by_zone and self.inference_mode:
-            self.data = [{"id_zone": idx, "geometry": j} for idx, i in self.data.iterrows()
-                         for j in tile(bounds=i.geometry.bounds, overlap=self.overlap)]
-            self.data = create_gdf_from_list(self.data, crs=self._crs)
+            assert isinstance(self.data, gpd.GeoDataFrame)
+            d = []
+            for idx, i in self.data.iterrows():
+                zone_row = i.to_dict()
+                del zone_row['geometry']
+                for row in tile(bounds=i.geometry.bounds,
+                                overlap=self.overlap,
+                                tile_size=self.patch_size_u):
+                    row.update(zone_row)
+                    assert 'geometry' in row.keys()
+                    d.append(row)
+
+            self.data = create_gdf_from_list(d, crs=self._crs)
+            print(self.data)
+
         self.preprocess = UniversalPreProcessor(input_fields=input_fields,
                                                 by_zone=self.by_zone,
                                                 cache_dataset=cache_dataset,
@@ -107,10 +122,8 @@ class UniversalDataset(Dataset):
         # print(out)
         # print(type(out))
         # 4/
-
         if self.transform is not None:
             out = self.transform(out)
-
         # 5/
         return out
 
@@ -134,7 +147,7 @@ class UniversalDataset(Dataset):
         """
 
         patch_size_u = [patch_size * patch_resolution[0], patch_size * patch_resolution[1]]
-        if (bounds[2] - bounds[0] <= patch_size_u[0]) or (bounds[3] - bounds[1] <= patch_size_u[1])\
+        if (bounds[2] - bounds[0] <= patch_size_u[0]) or (bounds[3] - bounds[1] <= patch_size_u[1]) \
                 or random_window is False:
             # case where patch requested is too big for random crop of window or option to False
             center_x, center_y = (bounds[0] + bounds[2]) / 2, (bounds[1] + bounds[3]) / 2

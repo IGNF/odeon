@@ -6,11 +6,12 @@ from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
 from torch.utils.data import DataLoader, Dataset
 
-from .dataframe import create_dataframe_from_file, split_dataframe
+from odeon.core.dataframe import create_dataframe_from_file, split_dataframe
+from odeon.core.runner_utils import Stages
+from odeon.core.types import DATAFRAME, STAGES, Overlap
+
 from .dataset import UniversalDataset
-from .runner_utils import Stages
 from .transform import AlbuTransform
-from .types import DATAFRAME, STAGES, Overlap
 
 DEFAULT_DATALOADER_OPTIONS = {"batch_size": 8, "num_workers": 1}
 
@@ -94,7 +95,7 @@ class Input(LightningDataModule):
 
     def __post_init__(self):
 
-        if self.input_fit_file is not None:
+        if self.input_fit_file:
 
             self._fit_df = create_dataframe_from_file(self.input_fit_file,
                                                       {"header": self._input_file_has_header(Stages.FIT)})
@@ -118,30 +119,51 @@ class Input(LightningDataModule):
             self._validate_transforms = AlbuTransform(input_fields=self.input_fields,
                                                       pipe=self.validate_transform)
             self._validate_dataset = UniversalDataset(data=self._validate_df,
+                                                      root_dir=self.root_dir,
                                                       input_fields=self.input_fields,
-                                                      transform=self._validate_transforms)
+                                                      transform=self._validate_transforms,
+                                                      by_zone=self._stage_by_zone(Stages.VALIDATE),
+                                                      patch_size=self.patch_size,
+                                                      patch_resolution=self.patch_resolution,
+                                                      random_window=self.random_window,
+                                                      inference_mode=True)
             self._data_loaders[Stages.VALIDATE] = DataLoader(dataset=self._validate_dataset,
                                                              **self.validate_dataloader_options)
 
         if self.input_validate_file is not None:
 
-            self._validate_df = create_dataframe_from_file(self.input_validate_file)
+            self._validate_df = create_dataframe_from_file(self.input_validate_file,
+                                                           {"header": self._input_file_has_header(Stages.VALIDATE)})
             self._validate_transforms = AlbuTransform(input_fields=self.input_fields,
                                                       pipe=self.validate_transform)
             self._validate_dataset = UniversalDataset(data=self._validate_df,
+                                                      root_dir=self.root_dir,
                                                       input_fields=self.input_fields,
-                                                      transform=self._validate_transforms)
+                                                      transform=self._validate_transforms,
+                                                      by_zone=self._stage_by_zone(Stages.VALIDATE),
+                                                      patch_size=self.patch_size,
+                                                      patch_resolution=self.patch_resolution,
+                                                      random_window=self.random_window,
+                                                      inference_mode=True)
+
             self._data_loaders[Stages.VALIDATE] = DataLoader(dataset=self._validate_dataset,
                                                              **self.validate_dataloader_options)
 
         if self.input_test_file is not None:
 
-            self._test_df = create_dataframe_from_file(self.input_test_file)
+            self._test_df = create_dataframe_from_file(self.input_test_file,
+                                                       {"header": self._input_file_has_header(Stages.VALIDATE)})
             self._test_transforms = AlbuTransform(input_fields=self.input_fields,
                                                   pipe=self.test_transform)
             self._test_dataset = UniversalDataset(data=self._test_df,
+                                                  root_dir=self.root_dir,
                                                   input_fields=self.input_fields,
-                                                  transform=self._test_transforms)
+                                                  transform=self._test_transforms,
+                                                  by_zone=self._stage_by_zone(Stages.TEST),
+                                                  patch_size=self.patch_size,
+                                                  patch_resolution=self.patch_resolution,
+                                                  random_window=self.random_window,
+                                                  inference_mode=True)
             self._data_loaders[Stages.TEST] = DataLoader(dataset=self._test_dataset,
                                                          **self.test_dataloader_options)
 
@@ -151,8 +173,14 @@ class Input(LightningDataModule):
             self._predict_transforms = AlbuTransform(input_fields=self.input_fields,
                                                      pipe=self.predict_transform)
             self._predict_dataset = UniversalDataset(data=self._predict_df,
+                                                     root_dir=self.root_dir,
                                                      input_fields=self.input_fields,
-                                                     transform=self._predict_transforms)
+                                                     transform=self._predict_transforms,
+                                                     by_zone=self._stage_by_zone(Stages.PREDICT),
+                                                     patch_size=self.patch_size,
+                                                     patch_resolution=self.patch_resolution,
+                                                     random_window=self.random_window,
+                                                     inference_mode=True)
             self._data_loaders[Stages.FIT] = DataLoader(dataset=self._predict_dataset,
                                                         **self.predict_dataloader_options)
 

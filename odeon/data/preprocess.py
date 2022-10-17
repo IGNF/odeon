@@ -6,8 +6,8 @@ import numpy as np
 from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
 
-from .data import DTYPE_MAX, InputDType
-from .raster import read, rio
+from odeon.core.data import DTYPE_MAX, InputDType
+from odeon.core.raster import read, rio
 
 MEAN_DEFAULT_VALUE = 0.0
 STD_DEFAULT_VALUE = 0.5

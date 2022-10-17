@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import (Callable, Dict, Iterable, List, Literal, Mapping, Optional,
-                    Union)
+                    Tuple, Union)
 
 import geopandas as gpd
 import pandas as pd
@@ -15,5 +15,5 @@ DATASET = Union[Iterable, Mapping]
 PREPROCESS_OPS = Callable[[Dict], Dict]
 STAGES = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT]
 DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
-Overlap = Union[float, List[float]]
-TileSize = Union[int, List]
+Overlap = Union[int, Tuple[float, float], Tuple[int, int]]
+TileSize = Union[int, Tuple[float, float], Tuple[int, int]]

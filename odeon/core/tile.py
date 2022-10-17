@@ -1,19 +1,18 @@
 # import pandas as pd
 # from dataclasses import dataclass, field
 import logging
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Tuple
 
 import geopandas as gpd
 import numpy as np
 
+from .types import Overlap, TileSize
 from .vector import box, create_box_from_bounds
 
-Overlap = Union[float, List[float]]
-TileSize = Union[int, List]
 logger = logging.getLogger(__name__)
 
 
-def tile(bounds: List, tile_size: TileSize = 256, overlap: Overlap = 0,
+def tile(bounds: List, tile_size: TileSize = 256.0, overlap: Overlap = 0,
          strict_inclusion: bool = True) -> Generator[Dict, None, None]:
     """
     Simple function to tile with a regular step in X-axis and Y-axis
@@ -32,8 +31,8 @@ def tile(bounds: List, tile_size: TileSize = 256, overlap: Overlap = 0,
     gdf: gpd.GeoDataFrame
     min_x, min_y = bounds[0], bounds[1]
     max_x, max_y = bounds[2], bounds[3]
-    tile_size = tile_size if isinstance(tile_size, List) else [tile_size, tile_size]
-    overlap = overlap if isinstance(overlap, List) else [overlap, overlap]
+    tile_size = tile_size if isinstance(tile_size, Tuple) else (tile_size, tile_size)
+    overlap = overlap if isinstance(overlap, Tuple) else (overlap, overlap)
     assert 2 * overlap[0] < tile_size[0]
     assert 2 * overlap[1] < tile_size[1]
 

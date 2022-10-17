@@ -4,7 +4,7 @@ import albumentations as A
 import numpy as np
 import torch
 
-from .data import IMAGE_MODALITY
+from odeon.core.data import IMAGE_MODALITY
 
 
 class AlbuTransform:

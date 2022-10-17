@@ -79,6 +79,6 @@ def print_gdf(gdf: gpd.GeoDataFrame, filename: Union[str, Path], driver: Optiona
     gdf.to_file(**params)
 
 
-def create_gdf_from_list(polygons: List, crs, geometry_column="geometry"):
+def create_gdf_from_list(polygons: List, crs, geometry_column="geometry") -> gpd.GeoDataFrame:
 
     return gpd.GeoDataFrame(data=polygons, crs=crs, geometry=geometry_column)

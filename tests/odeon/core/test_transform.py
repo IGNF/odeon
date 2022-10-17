@@ -11,7 +11,7 @@ import torch
 # import torch
 from rasterio.plot import reshape_as_image
 
-from odeon.core.transform import AlbuTransform
+from odeon.data.transform import AlbuTransform
 
 logger = getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = getLogger(__name__)
 def test_albu_transform(path_to_test_data, session_global_datadir):
 
     tmp_dir: Path = Path(session_global_datadir)
-    print(tmp_dir)
+    logger.info(tmp_dir)
     root_dir: Path = Path(path_to_test_data["root_dir"])
     dataset: str = path_to_test_data["zone_data"]
     gdf: gpd.GeoDataFrame = gpd.read_file(dataset)
@@ -38,7 +38,7 @@ def test_albu_transform(path_to_test_data, session_global_datadir):
     transform = AlbuTransform(pipe=pipe,
                               input_fields=input_fields)
     # transform_2 = A.Compose(pipe, additional_targets=additional_targets)
-    print(transform.additional_targets)
+    logger.info(transform.additional_targets)
 
     for idx, row in gdf.iterrows():
 
@@ -56,7 +56,7 @@ def test_albu_transform(path_to_test_data, session_global_datadir):
         patch['T-0'] = img_t0
         patch['T-1'] = img_t1
         patch['change_mask'] = mask
-        print(patch.keys())
+        logger.info(patch.keys())
         # exit(0)
         trans_patch = transform(data=patch)
         assert trans_patch['T-0'].shape == (5, 256, 256)
@@ -67,8 +67,8 @@ def test_albu_transform(path_to_test_data, session_global_datadir):
         img_t0_trans = reshape_as_image(trans_patch['T-0'][0:3, :, :].numpy())
         img_t1_trans = reshape_as_image(trans_patch['T-1'][0:3, :, :].numpy())
         mask_trans = reshape_as_image(trans_patch['change_mask'].numpy()) * 255
-        print(type(img_t0_trans))
-        print(img_t0_trans.shape)
+        logger.info(type(img_t0_trans))
+        logger.info(img_t0_trans.shape)
         # exit(0)
 
         output_file = tmp_dir / f'{idx}.png'
@@ -125,7 +125,7 @@ def test_albu_transform(path_to_test_data, session_global_datadir):
                               input_fields=input_fields)
 
     # transform_2 = A.Compose(pipe, additional_targets=additional_targets)
-    print(transform.additional_targets)
+    logger.info(transform.additional_targets)
 
     for idx, row in gdf.iterrows():
         t0 = root_dir / row['T0_path']
@@ -142,15 +142,15 @@ def test_albu_transform(path_to_test_data, session_global_datadir):
         patch['image'] = img_t0
         patch['T-1'] = img_t1
         patch['change_mask'] = mask
-        print(patch.keys())
+        logger.info(patch.keys())
 
         trans_patch = transform(data=patch)
         assert 'image' in trans_patch.keys()
         img_t0_trans = reshape_as_image(trans_patch['image'][0:3, :, :].numpy())
         img_t1_trans = reshape_as_image(trans_patch['T-1'][0:3, :, :].numpy())
         mask_trans = reshape_as_image(trans_patch['change_mask'].numpy()) * 255
-        print(type(img_t0_trans))
-        print(img_t0_trans.shape)
+        logger.info(type(img_t0_trans))
+        logger.info(img_t0_trans.shape)
 
         output_file = tmp_dir / f'{idx}-with-image-field.png'
         fig = plt.figure(figsize=(20, 20))
