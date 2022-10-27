@@ -1,4 +1,5 @@
 """Preprocess module, handles data preprocessing inside A Dataset class"""
+from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -7,8 +8,10 @@ from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
 
 from odeon.core.data import DTYPE_MAX, InputDType
-from odeon.core.raster import read, rio
+from odeon.core.raster import get_dataset, read
+from odeon.core.types import URI
 
+logger = getLogger(__name__)
 MEAN_DEFAULT_VALUE = 0.0
 STD_DEFAULT_VALUE = 0.5
 
@@ -86,7 +89,7 @@ class UniversalPreProcessor:
         return self.forward(data=data, bounds=bounds)
 
     def apply_to_raster(self,
-                        path: Union[str, Path],
+                        path: URI,
                         band_indices: Optional[List] = None,
                         bounds: Optional[List] = None,
                         dtype_max: float = DTYPE_MAX[InputDType.UINT8.value],
@@ -119,7 +122,7 @@ class UniversalPreProcessor:
                          max_pixel_value=dtype_max)
 
     def apply_to_mask(self,
-                      path: Union[str, Path],
+                      path: URI,
                       band_indices: Optional[List] = None,
                       bounds: Optional[List] = None
                       ) -> np.ndarray:
@@ -136,15 +139,8 @@ class UniversalPreProcessor:
                      bounds: Optional[List] = None
                      ) -> Tuple[Any, Any]:
 
-        if self._cache is not None and path in self._cache.keys():
-            src = self._cache[path]
-            meta = src.meta
-        else:
-            src = rio.open(path)
-            meta = src.meta
-            if self._cache is not None:
-                self._cache[path] = src
-
+        src = get_dataset(src=str(path), cached=self.cache_dataset)
+        meta = src.meta
         window = None if bounds is None else window_from_bounds(bounds[0],
                                                                 bounds[1],
                                                                 bounds[2],
@@ -152,9 +148,9 @@ class UniversalPreProcessor:
                                                                 meta["transform"])
         return src, window
 
-    def close_cached_data(self):
-        for key, value in self._cache.items():
-            value.close()
+    @property
+    def cache(self):
+        return self._cache
 
 
 class UniversalDeProcessor:
@@ -170,14 +166,12 @@ class UniversalDeProcessor:
 
 
 def normalize(img, mean, std, max_pixel_value=float(DTYPE_MAX[InputDType.UINT8.value])) -> np.ndarray:
+
     mean = np.array(mean, dtype=np.float32)
     mean *= max_pixel_value
-
     std = np.array(std, dtype=np.float32)
     std *= max_pixel_value
-
     denominator = np.reciprocal(std, dtype=np.float32)
-
     img = img.astype(np.float32)
     img -= mean
     img *= denominator

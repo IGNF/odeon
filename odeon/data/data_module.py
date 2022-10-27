@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Union
 
@@ -6,195 +7,99 @@ from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
 from torch.utils.data import DataLoader, Dataset
 
-from odeon.core.dataframe import create_dataframe_from_file, split_dataframe
 from odeon.core.runner_utils import Stages
-from odeon.core.types import DATAFRAME, STAGES, OptionalGeoTuple
+from odeon.core.types import DATAFRAME, STAGES_OR_VALUE
 
-from .dataset import UniversalDataset
-from .transform import AlbuTransform
+from .stage import DataFactory
 
-DEFAULT_DATALOADER_OPTIONS = {"batch_size": 8, "num_workers": 1}
+logger = logging.getLogger(__name__)
+STAGES_D = {stage: stage.value for stage in Stages}
+REVERSED_STAGES_D = {stage.value: stage for stage in Stages}
+
+
+@dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True)
+class Data:
+    dataloader: DataLoader
+    dataframe: DATAFRAME
+    dataset: Dataset
+    transform: Optional[Callable]
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
 class Input(LightningDataModule):
+    """Input DataModule
+    Take a
 
-    input_fields: Dict
-    input_fit_file: Optional[str] = None
-    input_validate_file: Optional[str] = None
-    input_test_file: Optional[str] = None
-    input_predict_file: Optional[str] = None
-    root_dir: Union[None, str, Dict] = None
-    input_files_has_header: Union[bool, Dict] = True  # Rather input files have header or not
-    fit_transform: Union[List[Callable], None] = None
-    validate_transform: Union[List[Callable], None] = None
-    test_transform: Union[List[Callable], None] = None
-    predict_transform: Union[List[Callable], None] = None
-    fit_dataloader_options: Dict = field(default_factory=lambda: DEFAULT_DATALOADER_OPTIONS)
-    validate_dataloader_options: Dict = field(default_factory=lambda: DEFAULT_DATALOADER_OPTIONS)
-    test_dataloader_options: Dict = field(default_factory=lambda: DEFAULT_DATALOADER_OPTIONS)
-    predict_dataloader_options: Dict = field(default_factory=lambda: DEFAULT_DATALOADER_OPTIONS)
-    train_val_split: float = 0.8
-    by_zone: Union[None, str, List[STAGES]] = None
-    patch_size: int = 256
-    patch_resolution: List[float] = field(default_factory=lambda: [0.2, 0.2])
-    random_window: bool = True
-    overlap: OptionalGeoTuple = 0.0
-    cache_dataset: Union[None, str, List[STAGES]] = None
-    _data_loaders: Dict[STAGES, DataLoader] = field(init=False, default_factory=lambda: dict())
-    _fit_df: DATAFRAME = field(init=False, default=None)
-    _validate_df: DATAFRAME = field(init=False, default=None)
-    _test_df: DATAFRAME = field(init=False, default=None)
-    _predict_df: DATAFRAME = field(init=False, default=None)
-    _fit_dataset: Dataset = field(init=False, default=None)
-    _validate_dataset: Dataset = field(init=False, default=None)
-    _test_dataset: Dataset = field(init=False, default=None)
-    _predict_dataset: Dataset = field(init=False, default=None)
-    _fit_transforms: Optional[Callable] = field(init=False, default=None)
-    _validate_transforms: Optional[Callable] = field(init=False, default=None)
-    _test_transforms: Optional[Callable] = field(init=False, default=None)
-    _predict_transforms: Optional[Callable] = field(init=False, default=None)
+    Attributes
+    ----------
 
-    def _stage_by_zone(self, stage) -> bool:
-        if self.by_zone == stage or self.by_zone == "all" or \
-                (isinstance(self.by_zone, list) and stage in self.by_zone):
-            return True
-        else:
-            return False
+    Methods
+    -------
 
-    def _get_root_dir_for_stage(self, stage: STAGES) -> Optional[str]:
-        if isinstance(self.root_dir, str) or self.root_dir is None:
-            return self.root_dir
-        else:
-            if stage in self.root_dir.keys():
-                return self.root_dir[stage]
-            else:
-                return None
+    """
 
-    def _get_cache_preproc_status_by_stage(self, stage: STAGES) -> bool:
-        if isinstance(self.cache_dataset, str):
-            if self. cache_dataset == stage or self.cache_dataset == 'all':
-                return True
-            else:
-                return False
-        elif isinstance(self.cache_dataset, List):
-            if stage in self.cache_dataset:
-                return True
-            else:
-                return False
-        else:
-            return False
+    fit_params: Union[List[Dict], Dict] = None
+    validate_params: Dict = None
+    test_params: Dict = None
+    predict_params: Dict = None
 
-    def _input_file_has_header(self, stage: STAGES):
-        if isinstance(self.input_files_has_header, bool):
-            return self.input_files_has_header
-        elif stage in self.input_files_has_header.keys():
-            return self.input_files_has_header[stage]
-        else:
-            return True
+    _fit: Union[Data, Dict[str, Data]] = field(init=False)
+    _validate: Data = field(init=False)
+    _test: Data = field(init=False)
+    _predict: Data = field(init=False)
 
     def __post_init__(self):
 
-        if self.input_fit_file:
+        if self.fit_params:
+            self._fit = {f'fit-{i+1}': self._instanciate_data(params=params, stage=Stages.FIT)
+                         for i, params in enumerate(list(self.fit_params))} if isinstance(self.fit_params, List)\
+                else self._instanciate_data(params=dict(self.fit_params), stage=Stages.FIT)
+        self._validate = self._instanciate_data(params=self.validate_params, stage=Stages.VALIDATE) \
+            if self.validate_params else None
+        self._test = self._instanciate_data(params=self.test_params, stage=Stages.TEST) \
+            if self.test_params else None
+        self._predict = self._instanciate_data(params=self.predict_params, stage=Stages.PREDICT) \
+            if self.predict_params else None
 
-            self._fit_df = create_dataframe_from_file(self.input_fit_file,
-                                                      {"header": self._input_file_has_header(Stages.FIT)})
-            self._fit_transforms = AlbuTransform(input_fields=self.input_fields,
-                                                 pipe=self.fit_transform) if self.fit_transform is not None else None
-            self._fit_dataset = UniversalDataset(data=self._fit_df,
-                                                 root_dir=self.root_dir,
-                                                 input_fields=self.input_fields,
-                                                 transform=self._fit_transforms,
-                                                 by_zone=self._stage_by_zone(Stages.FIT),
-                                                 patch_size=self.patch_size,
-                                                 patch_resolution=self.patch_resolution,
-                                                 random_window=self.random_window,
-                                                 inference_mode=False)
-            self._data_loaders[Stages.FIT] = DataLoader(dataset=self._fit_dataset,
-                                                        **self.fit_dataloader_options)
+    def _instanciate_data(self, params: Dict, stage: STAGES_OR_VALUE) -> Data:
+        logger.info(f'params: {params}')
+        params['stage'] = stage
+        dataloader, dataset, transform, dataframe = DataFactory.build_data(**params)
+        data = Data(dataloader=dataloader,
+                    dataset=dataset,
+                    transform=transform,
+                    dataframe=dataframe)
+        return data
 
-        if self.input_validate_file is None and self.input_fit_file:
+    @property
+    def fit(self) -> Union[Data, Dict[str, Data]]:
+        return self._fit
 
-            self._fit_df, self._validate_df = split_dataframe(self._fit_df, split_ratio=self.train_val_split)
-            self._validate_transforms = AlbuTransform(input_fields=self.input_fields,
-                                                      pipe=self.validate_transform)
-            self._validate_dataset = UniversalDataset(data=self._validate_df,
-                                                      root_dir=self.root_dir,
-                                                      input_fields=self.input_fields,
-                                                      transform=self._validate_transforms,
-                                                      by_zone=self._stage_by_zone(Stages.VALIDATE),
-                                                      patch_size=self.patch_size,
-                                                      patch_resolution=self.patch_resolution,
-                                                      random_window=self.random_window,
-                                                      inference_mode=True)
-            self._data_loaders[Stages.VALIDATE] = DataLoader(dataset=self._validate_dataset,
-                                                             **self.validate_dataloader_options)
+    @property
+    def validate(self) -> Data:
+        return self._validate
 
-        if self.input_validate_file is not None:
+    @property
+    def test(self) -> Data:
+        return self._test
 
-            self._validate_df = create_dataframe_from_file(self.input_validate_file,
-                                                           {"header": self._input_file_has_header(Stages.VALIDATE)})
-            self._validate_transforms = AlbuTransform(input_fields=self.input_fields,
-                                                      pipe=self.validate_transform)
-            self._validate_dataset = UniversalDataset(data=self._validate_df,
-                                                      root_dir=self.root_dir,
-                                                      input_fields=self.input_fields,
-                                                      transform=self._validate_transforms,
-                                                      by_zone=self._stage_by_zone(Stages.VALIDATE),
-                                                      patch_size=self.patch_size,
-                                                      patch_resolution=self.patch_resolution,
-                                                      random_window=self.random_window,
-                                                      inference_mode=True)
-
-            self._data_loaders[Stages.VALIDATE] = DataLoader(dataset=self._validate_dataset,
-                                                             **self.validate_dataloader_options)
-
-        if self.input_test_file is not None:
-
-            self._test_df = create_dataframe_from_file(self.input_test_file,
-                                                       {"header": self._input_file_has_header(Stages.VALIDATE)})
-            self._test_transforms = AlbuTransform(input_fields=self.input_fields,
-                                                  pipe=self.test_transform)
-            self._test_dataset = UniversalDataset(data=self._test_df,
-                                                  root_dir=self.root_dir,
-                                                  input_fields=self.input_fields,
-                                                  transform=self._test_transforms,
-                                                  by_zone=self._stage_by_zone(Stages.TEST),
-                                                  patch_size=self.patch_size,
-                                                  patch_resolution=self.patch_resolution,
-                                                  random_window=self.random_window,
-                                                  inference_mode=True)
-            self._data_loaders[Stages.TEST] = DataLoader(dataset=self._test_dataset,
-                                                         **self.test_dataloader_options)
-
-        if self.input_predict_file is not None:
-
-            self._predict_df = create_dataframe_from_file(self.input_predict_file)
-            self._predict_transforms = AlbuTransform(input_fields=self.input_fields,
-                                                     pipe=self.predict_transform)
-            self._predict_dataset = UniversalDataset(data=self._predict_df,
-                                                     root_dir=self.root_dir,
-                                                     input_fields=self.input_fields,
-                                                     transform=self._predict_transforms,
-                                                     by_zone=self._stage_by_zone(Stages.PREDICT),
-                                                     patch_size=self.patch_size,
-                                                     patch_resolution=self.patch_resolution,
-                                                     random_window=self.random_window,
-                                                     inference_mode=True)
-            self._data_loaders[Stages.FIT] = DataLoader(dataset=self._predict_dataset,
-                                                        **self.predict_dataloader_options)
-
-    def get_dataloader(self, stage: STAGES):
-        return self._data_loaders[stage]
+    @property
+    def predict(self) -> Data:
+        return self._predict
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        return self.get_dataloader(Stages.FIT)
+
+        if isinstance(self._fit, Dict):
+            d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._fit.items()}
+            return d
+        else:
+            return self._fit.dataloader
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        return self.get_dataloader(Stages.VALIDATE)
+        return self._validate.dataloader
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return self.get_dataloader(Stages.TEST)
+        return self._test.dataloader
 
     def predict_dataloader(self) -> EVAL_DATALOADERS:
-        return self.get_dataloader(Stages.PREDICT)
+        return self._predict.dataloader

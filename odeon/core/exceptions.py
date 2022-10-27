@@ -36,7 +36,6 @@ class OdeonError(Exception):
 
         # storing the traceback which provides useful information about where the exception occurred
         self.traceback = traceback.format_exc()
-
         self.stack_trace = stack_trace if stack_trace is not None else ""
 
         # Prefixing the error code to the exception message
@@ -93,8 +92,8 @@ class ErrorCodes(Enum):
     """ happens when something goes wrong in sampling """
     ERR_SAMPLING_ERROR = auto()
 
-    """ happens when something goes wrong in main configuration """
-    ERR_MAIN_CONF_ERROR = auto()
+    """ happens when something goes wrong in configuration """
+    ERR_CONF_ERROR = auto()
 
     """ happens when a field is not found in any type of key value pair object """
     ERR_FIELD_NOT_FOUND = auto()
@@ -129,3 +128,14 @@ class ErrorCodes(Enum):
          name of enum member, value of enum member
         """
         return f"name of error: {self.name}, code value of error: {self.value}"
+
+
+class MisconfigurationException(OdeonError):
+    """Exception used to inform users of misuse with Lightning."""
+
+    def __init__(self, error_code=ErrorCodes.ERR_CONF_ERROR, message='', stack_trace=None, *args, **kwargs):
+        super(MisconfigurationException, self).__init__(error_code=error_code,
+                                                        message=message,
+                                                        stack_trace=stack_trace,
+                                                        *args,
+                                                        **kwargs)

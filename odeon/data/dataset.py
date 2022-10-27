@@ -8,7 +8,7 @@ import copy
 import random
 from logging import getLogger
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from torch.utils.data import Dataset
 
@@ -16,6 +16,8 @@ from odeon.core.tile import tile
 from odeon.core.types import DATAFRAME, OptionalGeoTuple
 from odeon.core.vector import create_gdf_from_list, gpd
 
+from .dataloader_utils import (DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION,
+                               DEFAULT_PATCH_SIZE)
 from .preprocess import UniversalPreProcessor
 
 logger = getLogger(__name__)
@@ -31,10 +33,11 @@ class UniversalDataset(Dataset):
                  transform: Optional[Callable] = None,
                  by_zone: bool = False,
                  inference_mode: bool = False,
-                 patch_size: int = 256,
-                 patch_resolution: List[float] = None,
+                 patch_size: Tuple[int, int] = DEFAULT_PATCH_SIZE,
+                 patch_resolution: Tuple[float, float] = DEFAULT_PATCH_RESOLUTION,
                  random_window: bool = True,
-                 overlap: OptionalGeoTuple = 0.0
+                 overlap: OptionalGeoTuple = DEFAULT_OVERLAP,
+                 debug: bool = False
                  ):
         """
         Parameters
@@ -48,13 +51,14 @@ class UniversalDataset(Dataset):
         self.by_zone = by_zone
         self.inference_mode = inference_mode
         self.patch_size = patch_size
-        self.patch_resolution: List[float] = patch_resolution if patch_resolution is not None else [0.2, 0.2]
-        self.patch_size_u = float(self.patch_size * self.patch_resolution[0]), float(
-            self.patch_size * self.patch_resolution[1])
+        self.patch_resolution: Tuple[float, float] = patch_resolution \
+            if patch_resolution is not None else DEFAULT_PATCH_RESOLUTION
+        self.patch_size_u = float(self.patch_size[0] * self.patch_resolution[0]), float(
+            self.patch_size[1] * self.patch_resolution[1])
         self.random_window = random_window
-        self.overlap = overlap
+        self.overlap = overlap if isinstance(overlap, Tuple) else (overlap, overlap)
         self._crs = self.data.crs
-
+        self._debug = debug
         # case inference by zone, we split
         if self.by_zone and self.inference_mode:
             assert isinstance(self.data, gpd.GeoDataFrame)
@@ -70,13 +74,10 @@ class UniversalDataset(Dataset):
                     d.append(row)
 
             self.data = create_gdf_from_list(d, crs=self._crs)
-            print(self.data)
-
         self.preprocess = UniversalPreProcessor(input_fields=input_fields,
                                                 by_zone=self.by_zone,
                                                 cache_dataset=cache_dataset,
                                                 root_dir=root_dir)
-
         self.transform = transform
 
     def __len__(self):
@@ -112,11 +113,11 @@ class UniversalDataset(Dataset):
         bounds = None
         # 2/
         if self.by_zone:
-            bounds = row.geometry.bounds if self.inference_mode else UniversalDataset._compute_window(
-                bounds=row.geometry.bounds,
-                patch_resolution=self.patch_resolution,
-                random_window=self.random_window,
-                patch_size=self.patch_size)
+            bounds = row.geometry.bounds if self.inference_mode else \
+                UniversalDataset._compute_window(bounds=row.geometry.bounds,
+                                                 patch_resolution=self.patch_resolution,
+                                                 random_window=self.random_window,
+                                                 patch_size=self.patch_size)
         # 3/
         out = self.preprocess(dict(row), bounds=bounds)
         # print(out)
@@ -129,9 +130,9 @@ class UniversalDataset(Dataset):
 
     @staticmethod
     def _compute_window(bounds: List,
-                        patch_resolution: List[float],
+                        patch_resolution: Tuple[float, float] = DEFAULT_PATCH_RESOLUTION,
                         random_window: bool = True,
-                        patch_size: int = 256) -> List:
+                        patch_size: Tuple[int, int] = DEFAULT_PATCH_SIZE) -> List:
         """
 
         Parameters
@@ -146,7 +147,7 @@ class UniversalDataset(Dataset):
 
         """
 
-        patch_size_u = [patch_size * patch_resolution[0], patch_size * patch_resolution[1]]
+        patch_size_u: Tuple[float, float] = (patch_size[0] * patch_resolution[0], patch_size[1] * patch_resolution[1])
         if (bounds[2] - bounds[0] <= patch_size_u[0]) or (bounds[3] - bounds[1] <= patch_size_u[1]) \
                 or random_window is False:
             # case where patch requested is too big for random crop of window or option to False

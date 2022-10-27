@@ -10,7 +10,6 @@ class InputFormat(Enum):
 
 
 class InputDataKeys(Enum):
-
     INPUT = "input"
     PREDS = "preds"
     TARGET = "target"
