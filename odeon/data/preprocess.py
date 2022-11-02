@@ -155,7 +155,8 @@ class UniversalPreProcessor:
 
 class UniversalDeProcessor:
 
-    def __init__(self, input_fields):
+    def __init__(self,
+                 input_fields: Dict):
         self._input_fields = input_fields
 
     def forward(self, data: Dict, *args, **kwargs) -> Dict:
@@ -175,4 +176,17 @@ def normalize(img, mean, std, max_pixel_value=float(DTYPE_MAX[InputDType.UINT8.v
     img = img.astype(np.float32)
     img -= mean
     img *= denominator
+    return img
+
+
+def denoromalize_img_as_tensor(img, mean, std):
+    """
+            Args:
+                tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
+            Returns:
+                Tensor: Normalized image.
+            """
+    for t, m, s in zip(img, mean, std):
+        t.mul_(s).add_(m)
+
     return img
