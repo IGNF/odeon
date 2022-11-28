@@ -1,15 +1,16 @@
 from functools import cache
-from typing import Callable, Optional, Sequence
+from typing import Callable, Optional
 
 import numpy as np
 import rasterio as rio
+from rasterio.windows import Window
 
 from .types import URI
 
 
 def read(src: rio.DatasetReader,
          band_indices=None,
-         window: Optional[Sequence] = None,
+         window: Optional[Window] = None,
          boundless: bool = True,
          height: Optional[int] = None,
          width: Optional[int] = None,

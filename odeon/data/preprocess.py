@@ -1,4 +1,4 @@
-"""Preprocess module, handles data preprocessing inside A Dataset class"""
+"""Preprocess module, handles data features inside A Dataset class"""
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
+from torch import Tensor
 
 from odeon.core.data import DTYPE_MAX, InputDType
 from odeon.core.raster import get_dataset, read
@@ -179,14 +180,14 @@ def normalize(img, mean, std, max_pixel_value=float(DTYPE_MAX[InputDType.UINT8.v
     return img
 
 
-def denoromalize_img_as_tensor(img, mean, std):
+def denoromalize_img_as_tensor(image: Tensor, mean, std):
     """
             Args:
                 tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
             Returns:
                 Tensor: Normalized image.
-            """
-    for t, m, s in zip(img, mean, std):
+    """
+    for t, m, s in zip(image, mean, std):
         t.mul_(s).add_(m)
 
-    return img
+    return image

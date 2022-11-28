@@ -85,7 +85,6 @@ def run_process_1():
 
     """
     def get_zone_id_date_dep(name: str) -> Tuple[str, str, str]:
-
         sp = name.split(".")[0].split("/")[-1].split("_")
         zone = "_".join([sp[0], sp[1], sp[2], sp[3], sp[4]])
         date = sp[1]
@@ -105,7 +104,6 @@ def run_process_1():
                     "vector_path": path,
                     "year": get_zone_id_date_dep(path)[1],
                     "dep": get_zone_id_date_dep(path)[2]} for path in vector_list]
-
     print(len(rvb_list))
     print(len(ir_list))
     print(len(mns_list))
@@ -129,14 +127,11 @@ def run_process_1():
                            "mns_path": mns_dict[v["zone_id"]],
                            "mnt_path": mnt_dict[v["zone_id"]],
                            "rvb_path": rvb_dict[v["zone_id"]]})
-
     # print(l)
-
     # Step 2/ For each zone in zones:
     # l = random.sample(l, 5)
     # print(l)
     target_resolution = 0.2
-
     meta: dict = {"driver": "GTiff",
                   "crs": crs,
                   "TILED": "YES",
@@ -146,13 +141,11 @@ def run_process_1():
     for v in tqdm(l_poly):
 
         try:
-
             # print(v["zone_id"])
             # print(v["rvb_path"])
             # print(v["ir_path"])
             # print(v["mns_path"])
             # print(v["mnt_path"])
-
             # Substep 1/ compute transform
             gdf = gpd.read_file(v["vector_path"])
             # print("file read")
@@ -172,7 +165,6 @@ def run_process_1():
             height = int((y_max - y_min) / target_resolution)
             out_shape = (height, width)
             out_transform = from_bounds(west=x_min, south=y_min, east=x_max, north=y_max, width=width, height=height)
-
             # SubStep 2/ get zone semantic shape file and burn it in mask directory and save
             #         it and update shapfile dataset
             polygons = [(row.geometry, CROSS_LABEL_MATRI_PROD_NAF_CHANGE[row.code])
@@ -184,25 +176,19 @@ def run_process_1():
                                       transform=out_transform,
                                       fill=0,
                                       all_touched=True)
-
             relative_out_f_mask = os.path.join("mask", v["zone_id"] + ".tiff")
             out_f_mask = os.path.join(OUTPUT_PATH, relative_out_f_mask)
-
             meta.update({"width": width,
                          "height": height,
                          "transform": out_transform,
                          "count": 1})
-
             with rio.open(out_f_mask, "w+", **meta) as dst:
                 dst.write(np.expand_dims(mask, axis=0))
-
             # Substep 3/ get RVB, IRC  and compute MNH from MNS and MNT for T0 and T1 and burn it and save
             #         it in image directory and update shapfile dataset
-
             with rio.open(v["rvb_path"]) as src:
                 rvb = src.read()
                 profile = src.meta
-
             with rio.open(v["ir_path"]) as src:
                 ir = src.read()
             # print(rvb.shape)
@@ -210,7 +196,6 @@ def run_process_1():
 
             with rio.open(v["mns_path"]) as src:
                 mns = src.read()
-
             # print(mns.shape)
             with rio.open(v["mnt_path"]) as src:
                 mnt = src.read()
@@ -220,25 +205,20 @@ def run_process_1():
             mnh[mnh > 50.0] = 50.0
             mnh[mnh < 0.20] = 0.0
             mnh *= 5.0
-
             bands = np.vstack([rvb, ir, mnh])
             relative_out_f_band = os.path.join("image", v["zone_id"] + ".tiff")
             out_f_band = os.path.join(OUTPUT_PATH, relative_out_f_band)
             profile.update({"count": 5})
-
             with rio.open(out_f_band, "w+", **profile) as dst:
                 dst.write(bands)
-
             l2.append({"zone_id": v["zone_id"],
                        "dep": v["dep"],
                        "year": v["year"],
                        "image": relative_out_f_band,
                        "mask": relative_out_f_mask,
                        "geometry": poly_box})
-
         except ValueError as e:
             print(f"zone_id {v['zone_id']}, \n error: {e} ")
-
         except KeyError as e:
             print(f"zone_id {v['zone_id']}, \n error: {e} ")
 

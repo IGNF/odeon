@@ -4,10 +4,12 @@ from typing import (Callable, Dict, Iterable, List, Literal, Mapping, Optional,
 
 import geopandas as gpd
 import pandas as pd
+from torchmetrics import Metric, MetricCollection
 
 from .runner_utils import Stages
 
 URI: TypeAlias = Union[str, Path]
+OPT_URI: TypeAlias = Optional[URI]
 URIS: TypeAlias = List[URI]
 URI_OR_URIS: TypeAlias = Union[URI, URIS]
 OPT_URI_OR_URIS: TypeAlias = Optional[Union[URI, URIS]]
@@ -23,3 +25,4 @@ DATAFRAME: TypeAlias = Union[pd.DataFrame, gpd.GeoDataFrame]
 OptionalGeoTuple: TypeAlias = Union[int, float, Tuple[float, float], Tuple[int, int]]
 GeoTuple: TypeAlias = Union[Tuple[float, float], List[float]]  # used for stuf like patch size, overlapd, etc.
 NoneType: TypeAlias = type(None)
+OdnMetric: TypeAlias = Union[Metric, MetricCollection]

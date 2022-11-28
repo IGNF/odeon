@@ -66,6 +66,7 @@ class UniversalDataset(Dataset):
             for idx, i in self.data.iterrows():
                 zone_row = i.to_dict()
                 del zone_row['geometry']
+                # TODO add strict_inclusion option
                 for row in tile(bounds=i.geometry.bounds,
                                 overlap=self.overlap,
                                 tile_size=self.patch_size_u):
