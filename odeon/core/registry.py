@@ -1,74 +1,110 @@
 import logging
-from typing import Callable, Dict, List, Optional, Union
+from typing import Dict, Generic, List, Optional, Protocol, TypeVar, Union
 
+T = TypeVar("T")
+V = TypeVar("V")
 logger = logging.getLogger()
 
 
-class AppRegistry:
-    """ The registry of all """
+class RegistryMixin(Protocol):
+    """ Registry base class"""
 
-    registry: Dict = {}
-    task_registry: Dict = {}
-    domain_registry: Dict = {}
+    _registry: Dict[str, T] = {}
 
-    """ Internal registry for available executors """
     @classmethod
     def register(cls,
                  name: str,
-                 tasks: Union[Optional[str], List] = None,
-                 domain: Optional[str] = None
-                 ) -> Callable:
+                 aliases: Optional[Union[str, List[str]]] = None
+                 ) -> T:
         """
 
         Parameters
         ----------
-        name : str
-        tasks : Union[Optional[str], List]
-        domain : Optional[str]
-
+        name: str
+        aliases: Optional[Union[str, List[str]]]
         Returns
         -------
+        value: T (type variable)
+        """
+        ...
 
+    @classmethod
+    def get(cls, name: str) -> T:
+        """
+        """
+        ...
+
+    @classmethod
+    def get_registry(cls):
+        ...
+
+
+class FactoryMixin(Protocol):
+    """ Behavioural Protocol for """
+    @classmethod
+    def create(cls, name: str, **kwargs):
+        ...
+
+
+class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
+
+    @classmethod
+    def get(cls, name: str):
+        """
+        """
+        return cls._registry[name]
+
+    @classmethod
+    def register(cls, name: str, aliases: Optional[Union[str, List[str]]] = None) -> T:
+        def inner_wrapper(wrapped_class: T) -> T:
+            if name in cls._registry:
+                logger.warning('Executor %s already exists. Will replace it', name)
+            cls.register_class(cl=wrapped_class, name=name, aliases=aliases)
+            return wrapped_class
+        return inner_wrapper
+
+    @classmethod
+    def register_class(cls, cl: T, name: str = 'none', aliases: Optional[Union[str, List[str]]] = None):
+        if name != 'none':
+            if name in cls._registry:
+                raise KeyError(f'name {name} already in Registry {str(cls)}')
+            else:
+                cls.register_fn(cl=cl, name=name)
+        if isinstance(aliases, str):
+            if aliases in cls._registry:
+                raise KeyError(f'alias {aliases} already in Registry {str(cls)}')
+            else:
+                cls.register_fn(cl=cl, name=name)
+        elif isinstance(aliases, List):
+            if len(aliases) > 0:
+                cls.register_class(cl, name='none', aliases=aliases[1:])
+        else:
+            pass
+
+    @classmethod
+    def register_fn(cls, cl: T, name: str):
+        cls._registry[name] = cl
+
+    @classmethod
+    def get_registry(cls) -> T:
+        return cls._registry
+
+    @classmethod
+    def create(cls, name: str, **kwargs) -> T:
+        """ Factory command to create the executor.
+        This method gets the appropriate Executor class from the registry
+        and creates an instance of it, while passing in the parameters
+        given in ``kwargs``.
+        Args:
+            name (str): The name of the executor to create.
+        Returns:
+            An instance of the executor that is created.
         """
 
-        def inner_wrapper(wrapped_class: Callable) -> Callable:
-            if name in cls.registry:
-                logger.warning('Callable %s already exists. Will replace it', name)
-            cls.registry[name] = wrapped_class
+        if name not in cls._registry:
+            logger.warning('Executor %s does not exist in the registry', name)
+            return None
 
-            match tasks:
-                case new_task if isinstance(tasks, str) and new_task == "task":
-                    if name in cls.task_registry.keys():
-                        raise ImportError(f"task {name} is already registered")
-                    else:
-                        cls.task_registry[name] = []
-                case task_as_string if isinstance(tasks, str) and task_as_string != "test":
-                    if task_as_string not in cls.task_registry.keys():
-                        raise ImportError(f"task {task_as_string} is not an existing task")
-                    else:
-                        cls.task_registry[task_as_string] = cls.task_registry[task_as_string].append(name)
-                case task_as_list if isinstance(tasks, List):
-                    for task in task_as_list:
-                        if task in cls.task_registry.keys():
-                            cls.task_registry[task] = cls.task_registry[task_as_list].append(name)
-                        else:
-                            raise ImportError(f"task {task_as_list} is not an existing task")
-                case _:
-                    pass
-
-            match domain:
-                case new_domain if domain == "domain":
-                    if name in cls.domain_registry.keys():
-                        raise ImportError(f"{new_domain} {name} is already registered")
-                    else:
-                        cls.domain_registry[name] = []
-                case update_domain if domain != "domain" and isinstance(domain, str):
-                    if update_domain not in cls.domain_registry.keys():
-                        raise ImportError(f"domain {update_domain} is not registered")
-                    else:
-                        cls.domain_registry[update_domain] = name
-                case _:
-                    pass
-            return wrapped_class
-
-        return inner_wrapper
+        _class = cls._registry[name]
+        _instance = _class(**kwargs)
+        return _instance

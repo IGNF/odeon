@@ -1,0 +1,9 @@
+Collecting jsonargparse[signatures]
+  Downloading jsonargparse-4.18.0-py3-none-any.whl (169 kB)
+     ━━━━━━━━━━━ 169.2/169.2 7.4 MB/s eta 0:00:00
+                 kB
+Requirement already satisfied: PyYAML>=3.13 in /home/SKhelifi/miniconda3/envs/cd_ortho_test/lib/python3.10/site-packages (from jsonargparse[signatures]) (6.0)
+Collecting docstring-parser>=0.15
+  Downloading docstring_parser-0.15-py3-none-any.whl (36 kB)
+Installing collected packages: jsonargparse, docstring-parser
+Successfully installed docstring-parser-0.15 jsonargparse-4.18.0

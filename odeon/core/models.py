@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Callable, List, Optional, Protocol, Tuple, Union
+from typing import Callable, Dict, List, Optional, Protocol, Tuple, Union
 
 import torch.nn
 from pytorch_lightning import LightningModule
@@ -7,6 +7,8 @@ from pytorch_lightning.utilities.types import EPOCH_OUTPUT, STEP_OUTPUT
 from torch import Tensor
 
 from .types import OdnMetric
+
+METRIC_TUPLE = Tuple[Optional[Dict[str, OdnMetric]], Optional[Dict[str, OdnMetric]], Optional[Dict[str, OdnMetric]]]
 
 
 class MetricInterface(Protocol):
@@ -17,8 +19,10 @@ class MetricInterface(Protocol):
     def compute_metrics(self, preds: Tensor, targets: Tensor, metric: OdnMetric):
         ...
 
-    def configure_metrics(self, *args, **kwargs) -> Tuple[Optional[OdnMetric], Optional[OdnMetric],
-                                                          Optional[OdnMetric]]:
+    def configure_metrics(self, *args, **kwargs) -> METRIC_TUPLE:
+        ...
+
+    def log_metrics(self):
         ...
 
 
@@ -87,7 +91,7 @@ class TransferLearningMixin(ABC, TranferLearningInterface):
         return torch.nn.Module[torch.nn.Identity]
 
 
-class OdnModel(LightningModule, MetricMixin):
+class OdnModel(LightningModule):
 
     def __init__(self,
                  *args,

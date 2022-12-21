@@ -35,5 +35,7 @@ dependencies:
   - kornia
   - matplotlib
   - einops
+  - mlflow
   - pip:
+      - -r  test_requirements.txt
       - -r  doc_requirements.txt

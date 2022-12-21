@@ -15,10 +15,10 @@ from torch.utils.data import Dataset
 from odeon.core.tile import tile
 from odeon.core.types import DATAFRAME, OptionalGeoTuple
 from odeon.core.vector import create_gdf_from_list, gpd
-
-from .dataloader_utils import (DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION,
-                               DEFAULT_PATCH_SIZE)
-from .preprocess import UniversalPreProcessor
+from odeon.data.core.dataloader_utils import (DEFAULT_OVERLAP,
+                                              DEFAULT_PATCH_RESOLUTION,
+                                              DEFAULT_PATCH_SIZE)
+from odeon.data.preprocess import UniversalPreProcessor
 
 logger = getLogger(__name__)
 

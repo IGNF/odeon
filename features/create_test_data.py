@@ -59,4 +59,4 @@ if __name__ == "__main__":
 
     create_test_patch_data(
         "/media/HP-2007S005-data/gers/supervised_dataset/supervised_dataset_with_stats_and_weights.geojson",
-        "/home/ign.fr/skhelifi/dev/CD_ORTHO/tests/test_data")
+        "/home/ign.fr/skhelifi/dev/odeon/tests/test_data")

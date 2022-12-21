@@ -131,7 +131,7 @@ class ErrorCodes(Enum):
 
 
 class MisconfigurationException(OdeonError):
-    """Exception used to inform users of misuse with Lightning."""
+    """Exception used to inform users of misuse with Configuration like command line interface variable environment"""
 
     def __init__(self, error_code=ErrorCodes.ERR_CONF_ERROR, message='', stack_trace=None, *args, **kwargs):
         super(MisconfigurationException, self).__init__(error_code=error_code,

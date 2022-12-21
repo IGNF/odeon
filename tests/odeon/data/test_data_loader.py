@@ -4,7 +4,7 @@ from typing import Dict
 import albumentations as A
 
 from odeon.core.types import STAGES_OR_VALUE
-from odeon.data.dataloader_utils import DEFAULT_DATALOADER_OPTIONS
+from odeon.data.core.dataloader_utils import DEFAULT_DATALOADER_OPTIONS
 from odeon.data.stage import DataFactory
 
 logger = getLogger(__name__)

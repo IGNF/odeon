@@ -15,8 +15,10 @@ def test_data_module_only_one_fit_minimal_config(path_to_test_data):
         'input_file': dataset,
         'root_dir': root_dir
     }
-
-    data_module = Input(fit_params=fit_params)
+    predict_params = test_params = validate_params = fit_params
+    data_module = Input(fit_params=fit_params
+                        )
+    data_module.setup(stage='fit')
     data_loader = data_module.train_dataloader()
     n_cycle = 2
     for i in range(n_cycle):
@@ -41,6 +43,7 @@ def test_data_module_multi_fit(path_to_test_data):
     }
 
     data_module = Input(fit_params=[fit_params, fit_params])
+    data_module.setup(stage='fit')
     data_loader = data_module.train_dataloader()
     logger.info(f'data lodaders: {data_loader}')
     n_cycle = 2
@@ -76,6 +79,9 @@ def test_data_module_multi_fit_multi_stage(path_to_test_data):
                         validate_params=validate_params,
                         test_params=test_params,
                         predict_params=predict_params)
+    data_module.setup(stage='fit')
+    data_module.setup(stage='test')
+    data_module.setup(stage='predict')
     data_loader = data_module.train_dataloader()
     logger.info(f'data lodaders: {data_loader}')
     n_cycle = 2

@@ -7,11 +7,10 @@ from odeon.core.dataframe import create_dataframe_from_file
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.runner_utils import Stages
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE, URI, GeoTuple
+from odeon.data.core.dataloader_utils import (
+    DEFAULT_DATALOADER_OPTIONS, DEFAULT_INFERENCE_DATALOADER_OPTIONS,
+    DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION, DEFAULT_PATCH_SIZE)
 
-from .dataloader_utils import (DEFAULT_DATALOADER_OPTIONS,
-                               DEFAULT_INFERENCE_DATALOADER_OPTIONS,
-                               DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION,
-                               DEFAULT_PATCH_SIZE)
 from .dataset import UniversalDataset
 from .transform import AlbuTransform
 
