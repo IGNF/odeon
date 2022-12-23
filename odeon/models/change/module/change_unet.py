@@ -1,6 +1,7 @@
 """Segmentation tasks."""
 
 # import warnings
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple, cast
 
 # import matplotlib.pyplot as plt
@@ -139,12 +140,14 @@ class ChangeUnet(pl.LightningModule):
         x = torch.stack(tensors=(T0, T1), dim=1)
         return self.model(x)
 
-    def configure_activation(self, activation: str) -> Callable[[Tensor], Tensor]:
+    def configure_activation(self, activation: str, dim=1) -> Callable[[Tensor], Tensor]:
         match activation:
             case 'softmax':
-                return torch.softmax
+                return partial(torch.softmax(dim=1))
             case 'sigmoid':
                 return torch.sigmoid
+            case _:
+                raise RuntimeError('something went in configuration activation')
 
     def step(self, batch: Dict) -> Any:
         T0 = batch['T0']

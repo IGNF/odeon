@@ -4,8 +4,9 @@
 
 """Fully convolutional change detection (FCCD) implementations."""
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 
+# from typing import List
 import segmentation_models_pytorch as smp
 import torch
 from segmentation_models_pytorch import Unet
@@ -13,6 +14,8 @@ from segmentation_models_pytorch.base.model import SegmentationModel
 from torch import Tensor
 
 Unet.__module__ = "segmentation_models_pytorch"
+
+DEFAULT_DECODER_CHANNELS = (256, 128, 64, 32, 16)  # default channels to decoder
 
 
 class FCSiamConc(SegmentationModel):  # type: ignore[misc]
@@ -27,7 +30,7 @@ class FCSiamConc(SegmentationModel):  # type: ignore[misc]
         encoder_depth: int = 5,
         encoder_weights: Optional[str] = "imagenet",
         decoder_use_batchnorm: bool = True,
-        decoder_channels: List[int] = (256, 128, 64, 32, 16),
+        decoder_channels: Optional[Sequence[int]] = None,
         decoder_attention_type: Optional[str] = None,
         in_channels: int = 3,
         classes: int = 1,
@@ -66,6 +69,8 @@ class FCSiamConc(SegmentationModel):  # type: ignore[misc]
                 and **None**. Default is **None**
         """
         super().__init__()
+
+        decoder_channels = DEFAULT_DECODER_CHANNELS if decoder_channels is None else decoder_channels
         self.encoder = smp.encoders.get_encoder(
             encoder_name,
             in_channels=in_channels,
@@ -123,7 +128,7 @@ class FCSiamDiff(Unet):  # type: ignore[misc]
                  encoder_depth: int = 5,
                  encoder_weights: Optional[str] = "imagenet",
                  decoder_use_batchnorm: bool = True,
-                 decoder_channels: List[int] = (256, 128, 64, 32, 16),
+                 decoder_channels: Optional[Sequence[int]] = None,
                  decoder_attention_type: Optional[str] = None,
                  in_channels: int = 3,
                  classes: int = 1,
@@ -164,7 +169,7 @@ class FCSiamDiff(Unet):  # type: ignore[misc]
         """
 
         kwargs["aux_params"] = None
-
+        decoder_channels = DEFAULT_DECODER_CHANNELS if decoder_channels is None else decoder_channels
         super().__init__(encoder_name,
                          encoder_depth,
                          encoder_weights,
