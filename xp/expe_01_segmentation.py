@@ -12,22 +12,24 @@ root: str = '/media/HP-2007S005-data'
 root_dir: str = os.path.join(root, 'gers/change_dataset/patches')
 fold_nb: int = 0
 fold: str = f'fold-{fold_nb}'
-dataset: str = os.path.join(root_dir, *[fold, 'train_split_0.geojson'])
-fit_params = {'input_fields': {"T0": {"name": "T0_path", "type": "raster", "dtype": "uint8"},
-                               "T1": {"name": "t1_path", "type": "raster", "dtype": "uint8"},
-                               "mask": {"name": "change_pat", "type": "mask", "encoding": "integer"}},
+root_fold: str = os.path.join(root_dir, fold)
+dataset: str = os.path.join(root_fold, 'train_split_0.geojson')
+fit_params = {'input_fields': {"T0": {"name": "T0", "type": "raster", "dtype": "uint8", "band_indices": [1, 2 ,3]},
+                               "T1": {"name": "T1", "type": "raster", "dtype": "uint8", "band_indices": [1, 2 ,3]},
+                               "mask": {"name": "change", "type": "mask", "encoding": "integer"}},
                                'input_file': dataset,
                                'root_dir': root_dir
               }
 val_dataset: str = os.path.join(root_dir, 'val_split_0.geojson')
-val_params = {'input_fields': {"T0": {"name": "T0_path", "type": "raster", "dtype": "uint8"},
-                               "T1": {"name": "t1_path", "type": "raster", "dtype": "uint8"},
-                               "mask": {"name": "change_pat", "type": "mask", "encoding": "integer"}},
+val_params = {'input_fields': {"T0": {"name": "T0", "type": "raster", "dtype": "uint8", "band_indices": [1, 2 ,3]},
+                               "T1": {"name": "T1", "type": "raster", "dtype": "uint8", "band_indices": [1, 2 ,3]},
+                               "mask": {"name": "change", "type": "mask", "encoding": "integer"}},
                                'input_file': dataset,
                                'root_dir': root_dir
               }
 
-input = Input(fit_params=fit_params)
+input = Input(fit_params=fit_params,
+              validate_params=val_params)
 model = ChangeUnet(model='fc_siam_conc')
 path_model_checkpoint = ''
 save_top_k_models = 5

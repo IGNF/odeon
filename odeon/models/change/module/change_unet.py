@@ -9,6 +9,7 @@ import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 from torch import Tensor
+# from torch.nn.functional import one_hot
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 # from torchmetrics import Metric
@@ -93,7 +94,7 @@ class ChangeUnet(pl.LightningModule):
                        loss: str) -> nn.Module:
         if loss == "bce":
             # ignore_value = -1000 if self.ignore_index is None else self.ignore_index
-            return nn.BCEWithLogitsLoss()
+            return nn.BCEWithLogitsLoss(reduction='mean')
         elif loss == "focal":
             return smp.losses.FocalLoss("binary", normalized=True)
         else:
@@ -149,9 +150,8 @@ class ChangeUnet(pl.LightningModule):
         T0 = batch['T0']
         T1 = batch['T1']
         y = batch['mask']
-        y_hat = self(T0=T0, T=T1)
-        with torch.no_grad():
-            y_hat = torch.sigmoid(y_hat)
+        y_hat = self(T0=T0, T1=T1)
+
         return y_hat, y
 
     def training_step(self, batch: Dict[str, Any], *args: Any, **kwargs: Any) -> Any:
@@ -169,12 +169,12 @@ class ChangeUnet(pl.LightningModule):
         """
         y_hat, y = self.step(batch=batch)
         y_hat_hard = y_hat > self.threshold
-        loss = self.loss(y_hat, y)
+        loss = self.loss(y_hat, y.float())
         # by default, the train step logs every `log_every_n_steps` steps where
         # `log_every_n_steps` is a parameter to the `Trainer` object
         self.log("train_loss", loss, on_step=True, on_epoch=False)
         self.train_metrics(y_hat_hard, y)
-        return {'train_loss': cast(Tensor, loss)}
+        return {'loss': loss}
 
     def training_epoch_end(self, outputs: Any) -> None:
         """Logs epoch level training metrics.
@@ -204,9 +204,10 @@ class ChangeUnet(pl.LightningModule):
         -------
 
         """
+        print(batch)
         y_hat, y = self.step(batch=batch)
         y_hat_hard = y_hat > self.threshold
-        loss = self.loss(y_hat, y)
+        loss = self.loss(y_hat, y.float())
         # by default, the train step logs every `log_every_n_steps` steps where
         # `log_every_n_steps` is a parameter to the `Trainer` object
         self.log("val_loss", loss, on_step=False, on_epoch=True)

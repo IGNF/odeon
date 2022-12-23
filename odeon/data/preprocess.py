@@ -56,8 +56,8 @@ class UniversalPreProcessor:
                 path = data[value["name"]] if self.root_dir is None else Path(str(self.root_dir)) / data[value["name"]]
                 band_indices = value["band_indices"] if "band_indices" in value else None
                 dtype_max = value["dtype_max"] if "dtype_max" in value else None
-                mean = value["mean"] if "band_indices" in value else None
-                std = value["std"] if "band_indices" in value else None
+                mean = value["mean"] if "mean" in value else None
+                std = value["std"] if "std" in value else None
                 if dtype_max is None and "dtype" in value:
                     dtype = value["dtype"]
                     if dtype in DTYPE_MAX.keys():
