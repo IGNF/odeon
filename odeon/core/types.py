@@ -4,6 +4,8 @@ from typing import (Callable, Dict, Iterable, List, Literal, Mapping, Optional,
 
 import geopandas as gpd
 import pandas as pd
+from pytorch_lightning.callbacks.callback import Callback
+from pytorch_lightning.loggers.logger import Logger
 from torchmetrics import Metric, MetricCollection
 
 from .runner_utils import Stages
@@ -26,3 +28,5 @@ OptionalGeoTuple: TypeAlias = Union[int, float, Tuple[float, float], Tuple[int, 
 GeoTuple: TypeAlias = Union[Tuple[float, float], List[float]]  # used for stuf like patch size, overlapd, etc.
 NoneType: TypeAlias = type(None)
 OdnMetric: TypeAlias = Union[Metric, MetricCollection]
+OdnLogger: TypeAlias = Logger
+OdnCallback: TypeAlias = Callback

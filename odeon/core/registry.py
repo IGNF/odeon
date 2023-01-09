@@ -1,8 +1,8 @@
 import logging
-from typing import Dict, Generic, List, Optional, Protocol, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
 
-T = TypeVar("T")
-V = TypeVar("V")
+T = TypeVar("T", bound=Any)
+V = TypeVar("V", bound=Any)
 logger = logging.getLogger()
 
 
@@ -35,7 +35,7 @@ class RegistryMixin(Protocol):
         ...
 
     @classmethod
-    def get_registry(cls):
+    def get_registry(cls) -> Dict[str, T]:
         ...
 
 
@@ -49,7 +49,7 @@ class FactoryMixin(Protocol):
 class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
 
     @classmethod
-    def get(cls, name: str):
+    def get(cls, name: str) -> T:
         """
         """
         return cls._registry[name]
@@ -86,11 +86,11 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
         cls._registry[name] = cl
 
     @classmethod
-    def get_registry(cls) -> T:
+    def get_registry(cls) -> Dict[str, T]:
         return cls._registry
 
     @classmethod
-    def create(cls, name: str, **kwargs) -> T:
+    def create(cls, name: str, **kwargs) -> Optional[T]:
         """ Factory command to create the executor.
         This method gets the appropriate Executor class from the registry
         and creates an instance of it, while passing in the parameters

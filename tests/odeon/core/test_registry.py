@@ -1,8 +1,8 @@
 from logging import getLogger
 
 import torch
+from metrics.metric import MetricRegistry
 
-from odeon.core.metric import MetricRegistry
 from odeon.core.registry import GenericRegistry
 
 logger = getLogger(__name__)

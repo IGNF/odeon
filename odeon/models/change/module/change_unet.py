@@ -21,12 +21,14 @@ from torchmetrics.classification import (  # type: ignore[attr-defined]
 
 from odeon.core.types import OdnMetric
 from odeon.models.change.arch.change_unet import FCSiamConc, FCSiamDiff
+from odeon.models.core.models import ModelRegistry
 
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
 DataLoader.__module__ = "torch.utils.data"  # Sphinx bug
 
 
+@ModelRegistry.register_class(name='change_unet', aliases=['c_unet'])
 class ChangeUnet(pl.LightningModule):
     """
 

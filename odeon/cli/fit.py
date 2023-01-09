@@ -1,7 +1,7 @@
 from pytorch_lightning.cli import LightningArgumentParser, LightningCLI
 
 # from odeon.data.data_module import Input
-# from odeon.models.change.module.change_unet import ChangeUnet
+# from odeon.models.py.change.module.change_unet import ChangeUnet
 
 # TODO : change help message
 

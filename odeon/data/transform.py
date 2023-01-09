@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 import albumentations as A
 import numpy as np
@@ -6,17 +6,23 @@ import torch
 
 from odeon.core.data import IMAGE_MODALITY
 
+from .core.transform import build_transform
+
 
 class AlbuTransform:
 
     def __init__(self,
                  input_fields: Dict,
-                 pipe: Optional[List[Callable]] = None
+                 pipe: Optional[List[Union[Dict, Callable]]] = None,
+                 to_tensor: bool = True
                  ):
 
         self._input_fields = input_fields
-        self._pipe: List = list() if pipe is None else pipe
-        self._pipe.append(ToTensorCustom())
+        self._pipe: List = list() if pipe is None else build_transform(pipe)
+        if len(self._pipe) > 0:
+            assert [int(isinstance(p, A.BasicTransform)) for p in self._pipe] == len(self._pipe)
+        if to_tensor:
+            self._pipe.append(ToTensorCustom())
         self._additional_targets: Dict = dict()
         self._has_image: bool = False
         self._key_image: str = ''
