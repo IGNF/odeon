@@ -1,10 +1,11 @@
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Union
 
 import albumentations as A
 import numpy as np
 import torch
 
 from odeon.core.data import IMAGE_MODALITY
+from odeon.core.types import PARAMS
 
 from .core.transform import build_transform
 
@@ -13,7 +14,7 @@ class AlbuTransform:
 
     def __init__(self,
                  input_fields: Dict,
-                 pipe: Optional[List[Union[Dict, Callable]]] = None,
+                 pipe: Union[List[Union[Dict, Callable]], Dict[str, PARAMS], None] = None,
                  to_tensor: bool = True
                  ):
 

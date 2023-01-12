@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import (Callable, Dict, Iterable, List, Literal, Mapping, Optional,
-                    Tuple, TypeAlias, Union)
+from typing import (Any, Callable, Dict, Iterable, List, Literal, Mapping,
+                    Optional, Tuple, TypeAlias, Union)
 
 import geopandas as gpd
 import pandas as pd
+from pytorch_lightning import LightningDataModule
 from pytorch_lightning.callbacks.callback import Callback
 from pytorch_lightning.loggers.logger import Logger
 from torchmetrics import Metric, MetricCollection
@@ -30,3 +31,5 @@ NoneType: TypeAlias = type(None)
 OdnMetric: TypeAlias = Union[Metric, MetricCollection]
 OdnLogger: TypeAlias = Logger
 OdnCallback: TypeAlias = Callback
+PARAMS: TypeAlias = Dict[str, Any]
+OdnData: TypeAlias = LightningDataModule

@@ -25,6 +25,4 @@ class MlFlowProtocol(Protocol):
 
 
 class OdnTrainer(Trainer):
-
-    def __init__(self):
-        super(OdnTrainer, self).__init__()
+    ...

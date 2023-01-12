@@ -15,7 +15,7 @@ from .dataset import UniversalDataset
 from .transform import AlbuTransform
 
 
-@dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
+@dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False, slots=True)
 class DataFactory:
 
     stage: STAGES_OR_VALUE

@@ -51,6 +51,14 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
     @classmethod
     def get(cls, name: str) -> T:
         """
+
+        Parameters
+        ----------
+        name
+
+        Returns
+        -------
+
         """
         return cls._registry[name]
 
