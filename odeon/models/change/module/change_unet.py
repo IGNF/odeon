@@ -1,4 +1,4 @@
-"""Segmentation tasks."""
+"""Segmentation tasks"""
 
 # import warnings
 from functools import partial
