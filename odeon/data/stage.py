@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from odeon.core.dataframe import create_dataframe_from_file
 from odeon.core.exceptions import MisconfigurationException
-from odeon.core.runner_utils import Stages
+from odeon.core.app_utils import Stages
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE, URI, GeoTuple
 from odeon.data.core.dataloader_utils import (
     DEFAULT_DATALOADER_OPTIONS, DEFAULT_INFERENCE_DATALOADER_OPTIONS,

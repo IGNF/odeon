@@ -28,7 +28,7 @@ from odeon.models.core.models import ModelRegistry
 DataLoader.__module__ = "torch.utils.data"  # Sphinx bug
 
 
-@ModelRegistry.register_class(name='change_unet', aliases=['c_unet'])
+@ModelRegistry.register(name='change_unet', aliases=['c_unet'])
 class ChangeUnet(pl.LightningModule):
     """
 
@@ -145,7 +145,7 @@ class ChangeUnet(pl.LightningModule):
     def configure_activation(self, activation: str, dim=1) -> Callable[[Tensor], Tensor]:
         match activation:
             case 'softmax':
-                return partial(torch.softmax(dim=1))
+                return partial(torch.softmax, dim=1)
             case 'sigmoid':
                 return torch.sigmoid
             case _:

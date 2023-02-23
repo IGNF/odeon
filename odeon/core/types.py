@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks.callback import Callback
 from pytorch_lightning.loggers.logger import Logger
 from torchmetrics import Metric, MetricCollection
 
-from .runner_utils import Stages
+from .app_utils import Stages
 
 URI: TypeAlias = Union[str, Path]
 OPT_URI: TypeAlias = Optional[URI]

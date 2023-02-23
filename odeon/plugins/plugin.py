@@ -32,6 +32,7 @@ class OdnPlugin(ABC):
 
 
 class Plugin(OdnPlugin):
+
     def __init__(self, elements: Union[Element, Elements, Dict[str, PARAMS]]):
         super().__init__()
         assert isinstance(elements, Elements) or isinstance(elements, Element)

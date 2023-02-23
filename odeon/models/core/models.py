@@ -10,7 +10,7 @@ from odeon.core.registry import GenericRegistry
 class ModelRegistry(GenericRegistry[LightningModule]):
     @classmethod
     def register_fn(cls, cl: LightningModule, name: str):
-        assert isinstance(cl, LightningModule)
+        print(type(cl))
         cls._registry[name] = cl
 
 

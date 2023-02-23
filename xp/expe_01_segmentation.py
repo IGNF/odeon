@@ -21,9 +21,9 @@ fit_params = {'input_fields': {"T0": {"name": "T0", "type": "raster", "dtype": "
                                'root_dir': root_dir
               }
 val_dataset: str = os.path.join(root_dir, 'val_split_0.geojson')
-val_params = {'input_fields': {"T0": {"name": "T0", "type": "raster", "dtype": "uint8", "band_indices": [1, 2, 3]},
-                               "T1": {"name": "T1", "type": "raster", "dtype": "uint8", "band_indices": [1, 2, 3]},
-                               "mask": {"name": "change", "type": "mask", "encoding": "integer"}},
+val_params = {'input_fields': {'T0': {"name": "T0", "type": "raster", "dtype": "uint8", "band_indices": [1, 2, 3]},
+                               'T1': {"name": "T1", "type": "raster", "dtype": "uint8", "band_indices": [1, 2, 3]},
+                               'mask': {"name": "change", "type": "mask", "encoding": "integer"}},
                                'input_file': dataset,
                                'root_dir': root_dir
               }

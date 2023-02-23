@@ -7,9 +7,10 @@ from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
 from torch.utils.data import DataLoader, Dataset
 
-from odeon.core.runner_utils import Stages
+from odeon.core.app_utils import Stages
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE
 from odeon.data.stage import DataFactory
+from .core.data import DataRegistry
 
 logger = logging.getLogger(__name__)
 STAGES_D = {stage: stage.value for stage in Stages}
@@ -24,6 +25,7 @@ class Data:
     transform: Optional[Callable]
 
 
+@DataRegistry.register(name='input')
 class Input(LightningDataModule):
     """Input DataModule
     Take a

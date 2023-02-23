@@ -6,7 +6,7 @@ from odeon.core.types import OdnData
 
 
 @GenericRegistry.register('data', aliases=['data_module'])
-class TransformRegistry(GenericRegistry[Type[OdnData]]):
+class DataRegistry(GenericRegistry[Type[OdnData]]):
     @classmethod
     def register_fn(cls, cl: Type[OdnData], name: str):
 
