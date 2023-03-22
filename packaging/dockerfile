@@ -42,14 +42,14 @@ ENV PATH /Miniconda3/bin/:$PATH
 run ls -la
 RUN conda init bash && bash ~/.bashrc && . ~/.bashrc
 RUN conda install -n base -c conda-forge mamba
-RUN mamba env create -f test_env.yml
+RUN mamba env create -f test_env.yaml
 
 # ENV bashrc /root/.bashrc
 
 # RUN /Miniconda3/bin/conda init --all
 # ENV PATH /Miniconda3/envs/$CONDA_NAME/bin:$PATH
 #
-# RUN mamba update -n $CONDA_NAME  -f test_env.yml
+# RUN mamba update -n $CONDA_NAME  -f test_env.yaml
 # Copy the repository content in /myria3d
 WORKDIR /CD_ORTHO
 COPY . .

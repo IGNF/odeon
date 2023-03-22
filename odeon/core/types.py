@@ -22,8 +22,8 @@ STAGES: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PRE
 STAGES_OR_ALL: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT, 'all']
 STAGES_OR_ALL_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT, 'all',
                                             'fit', 'validate', 'test', 'predict']
-STAGES_OR_VALUE = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT,
-                          'fit', 'validate', 'test', 'predict']
+STAGES_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT,
+                                     'fit', 'validate', 'test', 'predict']
 DATAFRAME: TypeAlias = Union[pd.DataFrame, gpd.GeoDataFrame]
 OptionalGeoTuple: TypeAlias = Union[int, float, Tuple[float, float], Tuple[int, int]]
 GeoTuple: TypeAlias = Union[Tuple[float, float], List[float]]  # used for stuf like patch size, overlapd, etc.
@@ -33,3 +33,4 @@ OdnLogger: TypeAlias = Logger
 OdnCallback: TypeAlias = Callback
 PARAMS: TypeAlias = Dict[str, Any]
 OdnData: TypeAlias = LightningDataModule
+PARSER: TypeAlias = Literal['yaml', 'jsonnet', 'omegaconf']

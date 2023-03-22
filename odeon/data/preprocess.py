@@ -167,8 +167,23 @@ class UniversalDeProcessor:
         ...
 
 
-def normalize(img, mean, std, max_pixel_value=float(DTYPE_MAX[InputDType.UINT8.value])) -> np.ndarray:
+def normalize(img: np.ndarray,
+              mean: List[float],
+              std: List[float],
+              max_pixel_value: float = float(DTYPE_MAX[InputDType.UINT8.value])) -> np.ndarray:
+    """
+    Normalize an image with mean and std
+    Parameters
+    ----------
+    img : np.ndarray
+    mean : List[float]
+    std : List[float]
+    max_pixel_value : float
 
+    Returns
+    -------
+
+    """
     mean = np.array(mean, dtype=np.float32)
     mean *= max_pixel_value
     std = np.array(std, dtype=np.float32)
@@ -180,12 +195,18 @@ def normalize(img, mean, std, max_pixel_value=float(DTYPE_MAX[InputDType.UINT8.v
     return img
 
 
-def denoromalize_img_as_tensor(image: Tensor, mean, std):
+def denoromalize_tensor(image: Tensor, mean: List[float], std: List[float]):
     """
-            Args:
-                tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
-            Returns:
-                Tensor: Normalized image.
+    Denormalize a tensor image with mean and standard deviation.
+    Parameters
+    ----------
+    image : Tensor
+    mean : List[float]
+    std : List[float]
+
+    Returns
+    -------
+    Tensor
     """
     for t, m, s in zip(image, mean, std):
         t.mul_(s).add_(m)

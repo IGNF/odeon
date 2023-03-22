@@ -13,6 +13,11 @@ import shutil
 from os import listdir
 from typing import Dict, List
 
+import yaml
+
+from .exceptions import ErrorCodes, OdeonError
+from .types import URI
+
 
 def create_folder(path: str,
                   parents: bool = True,
@@ -80,10 +85,22 @@ def save_dict_as_json(d: Dict, output_file: str) -> None:
         json.dump(d, fp)
 
 
-def create_path_if_not_exists(path: str) -> None:
+def create_path_if_not_exists(path: URI, exist_ok: bool = True, parents: bool = True) -> None:
+    """
+    Create directory if not exists
+    Parameters
+    ----------
+    path: str | Path
+    exist_ok: bool
+    parents: bool
 
-    if os.path.isdir(path) is False:
-        pathlib.Path(path).mkdir(exist_ok=True)
+    Returns
+    -------
+     None
+    """
+    path = pathlib.Path(path)
+    if path.exists() is False:
+        pathlib.Path(path).mkdir(exist_ok=exist_ok, parents=parents)
 
 
 def list_raster_files(path: str, extensions: List[str]) -> List:
@@ -98,3 +115,25 @@ def list_raster_files(path: str, extensions: List[str]) -> List:
     """
     return [fn for fn in os.listdir(path)
             if any(fn.endswith(ext) for ext in extensions)]
+
+
+def load_yaml_file(path: URI) -> Dict:
+
+    with open(path, "r") as stream:
+        try:
+            return dict(yaml.safe_load(stream))
+        except yaml.YAMLError as exc:
+            error_message = f'yaml file {path} doesn"t exist'
+            raise OdeonError(error_code=ErrorCodes.ERR_FILE_NOT_EXIST,
+                             message=error_message,
+                             stack_trace=exc)
+
+
+def save_yaml_file(path: URI, data: Dict) -> None:
+    with open(path, 'w') as outfile:
+        yaml.dump(data, outfile, default_flow_style=False)
+
+
+def create_empty_file(path: URI):
+    with open(path, 'w'):
+        pass

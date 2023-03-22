@@ -99,14 +99,26 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
 
     @classmethod
     def create(cls, name: str, **kwargs) -> Optional[T]:
-        """ Factory command to create the executor.
+        """
+        Factory command to create the executor.
         This method gets the appropriate Executor class from the registry
         and creates an instance of it, while passing in the parameters
         given in ``kwargs``.
+
+        Parameters
+        ----------
+         name: str, The name of the executor to create.
+         kwargs
+
+        Returns
+        -------
+         An instance of the executor that is created.
+        """
+        """
         Args:
-            name (str): The name of the executor to create.
+
         Returns:
-            An instance of the executor that is created.
+
         """
 
         if name not in cls._registry:

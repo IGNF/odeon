@@ -2,6 +2,7 @@ from typing import Dict, List, Union
 
 from pytorch_lightning import LightningModule
 
+from odeon import LOGGER
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 
@@ -10,7 +11,7 @@ from odeon.core.registry import GenericRegistry
 class ModelRegistry(GenericRegistry[LightningModule]):
     @classmethod
     def register_fn(cls, cl: LightningModule, name: str):
-        print(type(cl))
+        LOGGER.debug(type(cl))
         cls._registry[name] = cl
 
 
