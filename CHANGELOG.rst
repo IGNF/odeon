@@ -1,5 +1,8 @@
 Changes
 =======
+0.2.20 (2023-03-19)
+-------------------
+- missing one odeon-landcover occurence to update
 
 0.2.19 (2023-03-19)
 -------------------
