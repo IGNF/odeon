@@ -1,6 +1,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-# ODEON Landcover
+# ODEON
 
 ODEON stands for Object Delineation on Earth Observations with Neural network.
 It is a set of command-line tools performing semantic segmentation on remote
