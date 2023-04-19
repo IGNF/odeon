@@ -10,19 +10,19 @@ sensing images (aerial and/or satellite) with as many layers as you wish.
 
 These instructions assume that you already have [conda](https://conda.io/) installed.
 
-First, download and extract a copy of odeon from [repository](https://github.com/IGNF/odeon-landcover.git).
+First, download and extract a copy of odeon from [repository](https://github.com/IGNF/odeon;.git).
 Then navigate to the root of the odeon directory in a terminal and run the following:
 
 ```bash
 # Clone repository
-git clone git@github.com:IGNF/odeon-landcover.git
+git clone git@github.com:IGNF/odeon.git
 or
-git clone https://github.com/IGNF/odeon-landcover.git
+git clone https://github.com/IGNF/odeon.git
 or
-download a release at tag github page https://github.com/IGNF/odeon-landcover/tags
+download a release at tag github page https://github.com/IGNF/odeon/tags
 
 # Go to the root project folder
-cd odeon-landcover
+cd odeon
 
 # Install the environment
 conda env create --file=environment.yml

@@ -23,12 +23,12 @@ from sphinx_markdown_parser.transform import AutoStructify
 
 # -- Project information -----------------------------------------------------
 
-project = 'odeon-landcover'
+project = 'odeon'
 copyright = '2020, IGN'
 author = 'IGN'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = '0.2.18'
 
 
 # -- General configuration ---------------------------------------------------
@@ -80,19 +80,19 @@ html_sidebars = {
 html_theme_options = {
 
     # Set the name of the project to appear in the navigation.
-    'nav_title': 'Odeon Lancover',
+    'nav_title': 'Odeon',
 
     # Specify a base_url used to generate sitemap.xml. If not
     # specified, then no sitemap will be built.
-    'base_url': 'https://gitlab.com/dai-projets/odeon-landcover',
+    'base_url': 'https://gitlab.com/dai-projets/odeon',
 
     # Set the color and the accent color
     'color_primary': 'blue',
     'color_accent': 'light-blue',
 
     # Set the repo location to get a badge with stats
-    'repo_url': 'https://gitlab.com/dai-projets/odeon-landcover',
-    'repo_name': 'odeon-landcover',
+    'repo_url': 'https://gitlab.com/dai-projets/odeon',
+    'repo_name': 'odeon',
 
     # Visible levels of the global TOC; -1 means unlimited
     'globaltoc_depth': 1,

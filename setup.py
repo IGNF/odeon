@@ -56,13 +56,16 @@ setup(
     long_description_content_type='text/markdown',
     long_description=long_description,
     license='MIT',
-    url='https://gitlab.com/dai-projets/odeon-landcover',
+    url='https://github.com/IGNF/odeon',
     keywords='machine-learning, semantic segmentation, earth observation',
     classifiers=[
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10'
+        'Programming Language :: Python :: 3.11'
         'License :: OSI Approved :: MIT License'
     ],
     packages=find_packages(),
