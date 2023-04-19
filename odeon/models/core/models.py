@@ -2,16 +2,18 @@ from typing import Dict, List, Union
 
 from pytorch_lightning import LightningModule
 
-from odeon import LOGGER
 from odeon.core.exceptions import MisconfigurationException
+from odeon.core.logger import get_logger
 from odeon.core.registry import GenericRegistry
+
+LOGGER = get_logger(logger_name=__name__)
 
 
 @GenericRegistry.register('models', aliases=['pl_module', 'model', 'lightning_module'])
 class ModelRegistry(GenericRegistry[LightningModule]):
     @classmethod
     def register_fn(cls, cl: LightningModule, name: str):
-        LOGGER.debug(type(cl))
+        # LOGGER.debug(type(cl))
         cls._registry[name] = cl
 
 

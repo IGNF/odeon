@@ -1,18 +1,19 @@
 """ Env module, used to bind configuration at user level """
 import os
 from dataclasses import dataclass, field
-from logging import getLogger
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from .default_path import ODEON_PATH
 from .io_utils import create_path_if_not_exists
+from .logger import get_logger
 # from .types import PARSER
 from .singleton import Singleton
 from .types import PARAMS, URI
 
-logger = getLogger(__name__)
+logger = get_logger(__name__)
 ENV_VARIABLE = 'env_variables'
-ODEON_DEV_MODE_ENV_VARIABLE = 'ODEON_DEV_MODE'
+ODEON_DEBUG_MODE_ENV_VARIABLE = 'ODEON_DEBUG_MODE'
 DEFAULT_PARSER = 'omegaconf'
 
 DEFAULT_CONFIG_STORE = ODEON_PATH / 'config_store'
@@ -41,9 +42,13 @@ def get_env_variable(variable: str) -> Optional[Any]:
     return os.environ.get(variable)
 
 
-def _dev_mode() -> bool:
-    if int(get_env_variable(ODEON_DEV_MODE_ENV_VARIABLE)) == 1:
-        return True
+def _debug_mode() -> bool:
+    dev_mode = get_env_variable(ODEON_DEBUG_MODE_ENV_VARIABLE)
+    if dev_mode:
+        if int(str(dev_mode)) == 1:
+            return True
+        else:
+            return False
     else:
         return False
 
@@ -53,6 +58,7 @@ class Member:
     name: str = ''
     email: str = ''
     role: str = ''
+    id: str = str(uuid4().hex)  # default id, randomly generated
     microsoft_teams_id: str = ''
     current_user: bool = False
 
@@ -66,7 +72,9 @@ class User(Member):
 class Team:
     name: str = ''
     email: str = ''
-    members: List[Member] | Dict[str, Member] | None = None
+    members: List[Member] | Dict[str, Member] | None = field(default_factory=lambda: [Member(current_user=True)])
+    current_team: bool = True
+    _reverse_dict: Dict[str, Member] = field(default=None, init=False)
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True)
@@ -89,7 +97,10 @@ class EnvConf:
     model_store: URI = DEFAULT_MODEL_STORE
     test_store: URI = DEFAULT_TEST_STORE
     delivery_store: URI = DEFAULT_DELIVERY_STORE
-    dev_mode: bool = field(default_factory=_dev_mode)
+    debug_mode: bool = field(default_factory=_debug_mode)
+    user: User = field(default=None, init=False)
+    team: Team = field(default=None, init=False)
+    project: Project = field(default=None)
 
     def __post_init__(self):
 

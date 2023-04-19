@@ -1,15 +1,14 @@
-import logging
 from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
+
+from odeon.core.logger import get_logger
 
 T = TypeVar("T", bound=Any)
 V = TypeVar("V", bound=Any)
-logger = logging.getLogger()
+logger = get_logger(__name__)
 
 
 class RegistryMixin(Protocol):
     """ Registry base class"""
-
-    _registry: Dict[str, T] = {}
 
     @classmethod
     def register(cls,
@@ -47,6 +46,7 @@ class FactoryMixin(Protocol):
 
 
 class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
+    _registry: Dict[str, T] = {}
 
     @classmethod
     def get(cls, name: str) -> T:
@@ -66,7 +66,9 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
     def register(cls, name: str, aliases: Optional[Union[str, List[str]]] = None) -> T:
         def inner_wrapper(wrapped_class: T) -> T:
             if name in cls._registry:
-                logger.warning('Executor %s already exists. Will replace it', name)
+                logger.warning(
+                    f'{wrapped_class} has one name or alias ({name}) in already existing in registry {cls} .'
+                    f' It Will replaces it, old class {cls._registry[name]}')
             cls.register_class(cl=wrapped_class, name=name, aliases=aliases)
             return wrapped_class
         return inner_wrapper
@@ -100,8 +102,8 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
     @classmethod
     def create(cls, name: str, **kwargs) -> Optional[T]:
         """
-        Factory command to create the executor.
-        This method gets the appropriate Executor class from the registry
+        Factory command to create an instance.
+        This method gets the appropriate Registered class from the registry
         and creates an instance of it, while passing in the parameters
         given in ``kwargs``.
 
@@ -122,7 +124,7 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
         """
 
         if name not in cls._registry:
-            logger.warning('Executor %s does not exist in the registry', name)
+            logger.warning(f'class {name} from registry {cls} does not exist in the registry')
             return None
 
         _class = cls._registry[name]

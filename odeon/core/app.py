@@ -1,3 +1,4 @@
+from .registry import GenericRegistry
 from .singleton import Singleton
 
 
@@ -6,3 +7,8 @@ class App(metaclass=Singleton):
     Odeon apps are Singleton"""
     def run(self, *args, **kwargs):
         ...
+
+
+@GenericRegistry.register('app', aliases=['application', 'odeon_app'])
+class AppRegistry(GenericRegistry[App]):
+    ...

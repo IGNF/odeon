@@ -1,14 +1,12 @@
 """
 """
-# from odeon import LOGGER
-# from odeon.core.exceptions import MisconfigurationException
-from odeon.core.registry import GenericRegistry
-from odeon.core.types import OdnData
+from pytorch_lightning import LightningDataModule
+
+from odeon.core.logger import get_logger
+
+LOGGER = get_logger(__name__)
 
 
-@GenericRegistry.register('data', aliases=['data_module'])
-class DataRegistry(GenericRegistry[OdnData]):
-    @classmethod
-    def register_fn(cls, cl: OdnData, name: str):
-
-        cls._registry[name] = cl
+class OdnDataModule(LightningDataModule):
+    def __call__(self, *args, **kwargs):
+        LOGGER.debug(f'{self}')

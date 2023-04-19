@@ -13,7 +13,9 @@ class LoggerRegistry(GenericRegistry[Type[OdnLogger]]):
         cls._registry[name] = cl
 
 
-def build_loggers(loggers: List[Union[Dict, OdnLogger]] | Dict[str, PARAMS]) -> List[OdnLogger]:
+def build_loggers(
+        loggers: List[Union[Dict, OdnLogger]] | Dict[str, PARAMS] | OdnLogger | bool
+) -> List[OdnLogger] | bool | OdnLogger:
     result: List[OdnLogger] = list()
     if isinstance(loggers, list):
         for logger in loggers:
@@ -34,6 +36,10 @@ def build_loggers(loggers: List[Union[Dict, OdnLogger]] | Dict[str, PARAMS]) -> 
                 result.append(cast(LoggerRegistry.create(name=key, **value), OdnLogger))
             else:
                 result.append(cast(LoggerRegistry.create(name=key), OdnLogger))
+    elif isinstance(loggers, OdnLogger):
+        return loggers
+    elif isinstance(loggers, bool):
+        return loggers
     else:
         raise MisconfigurationException(message=f'loggers params {loggers} is neither a list or a dict')
     return result

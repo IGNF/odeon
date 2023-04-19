@@ -1,18 +1,19 @@
-import logging
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Union
 
-from pytorch_lightning import LightningDataModule
 from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
 from torch.utils.data import DataLoader, Dataset
 
 from odeon.core.app_utils import Stages
+from odeon.core.logger import get_logger
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE
 from odeon.data.stage import DataFactory
-from .core.data import DataRegistry
 
-logger = logging.getLogger(__name__)
+from .core.registry import DataRegistry
+from .core.types import OdnData
+
+logger = get_logger(__name__)
 STAGES_D = {stage: stage.value for stage in Stages}
 REVERSED_STAGES_D = {stage.value: stage for stage in Stages}
 
@@ -25,8 +26,8 @@ class Data:
     transform: Optional[Callable]
 
 
-@DataRegistry.register(name='input')
-class Input(LightningDataModule):
+@DataRegistry.register(name='input', aliases=['default_input', 'lightning_data_module'])
+class Input(OdnData):
     """Input DataModule
     Take a
 
@@ -43,7 +44,7 @@ class Input(LightningDataModule):
                  validate_params: List[Dict] | Dict = None,
                  test_params: Dict = None,
                  predict_params: Dict = None):
-        super().__init__()
+        super(Input, self).__init__()
         self.fit_params = fit_params
         self.validate_params = validate_params
         self.test_params = test_params

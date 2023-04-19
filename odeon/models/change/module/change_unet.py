@@ -26,6 +26,7 @@ from odeon.models.core.models import ModelRegistry
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
 DataLoader.__module__ = "torch.utils.data"  # Sphinx bug
+__all__ = ['ChangeUnet']
 
 
 @ModelRegistry.register(name='change_unet', aliases=['c_unet'])

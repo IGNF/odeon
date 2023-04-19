@@ -8,8 +8,10 @@ from segmentation_models_pytorch import create_model
 
 from odeon.models.core.models import ModelRegistry
 
+__all__ = ['SegmentationModule']
 
-@ModelRegistry.register_class(name='segmentation_model', aliases=['seg_model', 'seg_mod'])
+
+@ModelRegistry.register(name='segmentation_model', aliases=['seg_model', 'seg_mod'])
 class SegmentationModule(LightningModule):
 
     def __init__(self,

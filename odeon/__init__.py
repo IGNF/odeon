@@ -14,6 +14,10 @@ from .core.io_utils import create_empty_file, create_path_if_not_exists
 from .core.logger import get_logger
 from .core.types import PARSER
 
+# from odeon.models import *
+
+
+__all__ = ['Env', 'ODEON_ENV', 'ODEON_PATH']
 # DEFAULT_ODEON_PATH: Path = HOME
 _this_dir: Path = pathlib.Path(__file__).resolve().parent
 _URL_ENABLED: bool = True
@@ -55,7 +59,7 @@ def bootstrap() -> Tuple[Env, Logger]:
         create_empty_file(path=ODEON_ENV)
         env: Env = Env(config=EnvConf())
 
-    return env, get_logger(logger_name='odeon', debug=env.config.dev_mode)
+    return env, get_logger(logger_name='odeon', debug=env.config.debug_mode)
 
 
 ENV, LOGGER = bootstrap()  # set the environment of application

@@ -4,7 +4,7 @@ from typing import (Any, Callable, Dict, Iterable, List, Literal, Mapping,
 
 import geopandas as gpd
 import pandas as pd
-from pytorch_lightning import LightningDataModule
+# from pytorch_lightning import LightningDataModule
 from pytorch_lightning.callbacks.callback import Callback
 from pytorch_lightning.loggers.logger import Logger
 from torchmetrics import Metric, MetricCollection
@@ -32,5 +32,4 @@ OdnMetric: TypeAlias = Union[Metric, MetricCollection]
 OdnLogger: TypeAlias = Logger
 OdnCallback: TypeAlias = Callback
 PARAMS: TypeAlias = Dict[str, Any]
-OdnData: TypeAlias = LightningDataModule
 PARSER: TypeAlias = Literal['yaml', 'jsonnet', 'omegaconf']

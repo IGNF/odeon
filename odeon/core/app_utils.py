@@ -11,3 +11,6 @@ class Stages(Enum):
 class Strategy(Enum):
     NORMAL = "normal"
     FINETUNE = "finetune"
+
+
+L_STAGES = ['fit', 'validate', 'test', 'predict', Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT]

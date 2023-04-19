@@ -1,17 +1,18 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional, Tuple, Union, cast
 
 from pytorch_lightning import (LightningDataModule, LightningModule,
                                seed_everything)
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
-from odeon.core.app import App
+from odeon import LOGGER
+from odeon.core.app import App, AppRegistry
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.singleton import Singleton
 from odeon.core.types import (PARAMS, STAGES_OR_VALUE, OdnCallback, OdnLogger,
                               Stages)
-from odeon.data.core.data import DataRegistry
+from odeon.data.core.registry import DataRegistry
 from odeon.models.core.models import ModelRegistry
 
 from .callbacks import build_callbacks
@@ -37,6 +38,8 @@ CKPT_PATH = 'ckpt_path'
 DEFAULT_CKPT_PATH_INFERENCE: str = 'best'
 DEFAULT_INFERENCE_PARAMS: PARAMS = {CKPT_PATH: DEFAULT_CKPT_PATH_INFERENCE}
 # TRAINER_PARAM_FIELD: str = 'trainer_params'
+DEFAULT_MODEL_NAME = 'change_unet'
+DEFAULT_INPUT_NAME = 'input'
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True)
@@ -62,6 +65,11 @@ class TrainerConfig:
     # TODO custom accelerator to implement
     accelerator: Optional[str] = None  # cpu or gpu or tpu or ...,etc.
     deterministic: bool = False
+    max_epochs = 1
+    min_epochs = None
+    max_steps = - 1
+    min_steps = None
+    max_time = None
     lr_monitor: Optional[PARAMS] = None
     loggers: Optional[Dict[str, PARAMS] | OdnLogger | List[OdnLogger]] = None
     model_checkpoint: Optional[PARAMS] = None
@@ -83,7 +91,7 @@ class StageConfig:
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
 class FitConfig:
     """FitApp"""
-    model_name: str = 'change_unet'
+    model_name: str = DEFAULT_MODEL_NAME
     model_params: PARAMS = field(default_factory=lambda: dict())
     input_name: str = 'input'
     input_params: PARAMS = field(default_factory=lambda: dict())
@@ -98,7 +106,7 @@ class FitConfig:
     deterministic: bool = False
     lr_monitor: Optional[PARAMS] = None
     model_checkpoint: Optional[PARAMS] = None
-    loggers: Optional[Dict[str, PARAMS] | OdnLogger | List[OdnLogger]] = None
+    loggers: Dict[str, PARAMS] | OdnLogger | List[OdnLogger] | bool = False
     extra_callbacks: Optional[Dict[str, PARAMS]] = None
     seed: Optional[int] = None
     seed_worker: bool = True
@@ -108,7 +116,10 @@ class FitConfig:
     trainer_config: Optional[TrainerConfig] = None
     seed_config: Optional[SeedConfig] = None
     stage_config: Optional[StageConfig] = None
-
+    _data: Optional[LightningDataModule] = None
+    _model: Optional[LightningModule] = None
+    _callbacks: OdnCallback | List[OdnCallback] | None = None
+    _trainer: Optional[OdnTrainer] = None
     ###################################
     #        Getter / Setter          #
     ###################################
@@ -130,14 +141,6 @@ class FitConfig:
         self._data = data
 
     @property
-    def params(self):
-        return self._params
-
-    @params.setter
-    def params(self, params: Dict[STAGES_OR_VALUE, PARAMS]):
-        self._params = params
-
-    @property
     def trainer(self):
         return self._trainer
 
@@ -157,118 +160,209 @@ class FitConfig:
     #        Post Init                #
     ###################################
     def __post_init__(self):
-        if isinstance(self.model_config, ModelConfig):
-            self.model_name = self.model_config.model_name
-            self.model_params = self.model_config.model_params
-        if isinstance(self.input_config, InputConfig):
-            self.input_name = self.input_config.input_name
-            self.input_params = self.input_config.input_params
-        if isinstance(self.seed_config, SeedConfig):
-            self.seed = self.seed_config.seed
-            self.seed_worker = self.seed_config.seed_worker
-        if isinstance(self.stage_config, StageConfig):
-            self.stages = self.stage_config.stages
-        if isinstance(self.trainer_config, TrainerConfig):
-            self.num_nodes = self.trainer_config.num_nodes
-            self.accelerator = self.trainer_config.accelerator
-            self.devices = self.trainer_config.devices
-            self.deterministic = self.trainer_config.deterministic
-            self.num_nodes = self.trainer_config.num_nodes
-            self.strategy = self.trainer_config.strategy
-            self.loggers = self.trainer_config.loggers
-            self.extra_callbacks = self.trainer_config.extra_callbacks
-            self.extra_params = self.trainer_config.extra_params
-            self.lr_monitor = self.trainer_config.lr_monitor
 
-        self.seed_everything()
-        self.configure_stages()
-        self.configure_loggers()
-        self.model: LightningModule = self.configure_model()
-        self.data: LightningDataModule = self.configure_input()
+        self.seed, self.seed_worker, self.seed_config = FitConfig.seed_everything(seed=self.seed,
+                                                                                  seed_worker=self.seed_worker,
+                                                                                  seed_config=self.seed_config)
+        self._has_fit_stage: bool = False
+        self._has_fit_stage, self.stages, self.stage_config = FitConfig.configure_stages(self.stages,
+                                                                                         self.stage_config)
+        self._model, self.model_config = self.configure_model(model_name=self.model_name,
+                                                              model_params=self.model_params,
+                                                              model_config=self.model_config)
+        self._data, self.input_config = self.configure_input(input_name=self.input_name,
+                                                             input_params=self.input_params,
+                                                             input_config=self.input_config)
         self.lr_monitor_params = {'logging_interval': 'step'} if self.lr_monitor is None \
             else self.lr_monitor
-        self.callbacks = self.configure_callbacks()
-        self.trainer: OdnTrainer = self.configure_trainer()
+
+        self._trainer, self._callbacks, self.trainer_config = self.configure_trainer(
+            loggers=self.loggers,
+            extra_callbacks=self.extra_callbacks,
+            lr_monitor=self.lr_monitor,
+            model_checkpoint=self.model_checkpoint,
+            num_nodes=self.num_nodes,
+            devices=self.devices,
+            strategy=self.strategy,
+            accelerator=self.accelerator,
+            deterministic=self.deterministic,
+            extra_params=self.extra_params,
+            trainer_config=self.trainer_config
+        )
         # _params: Dict[STAGES_OR_VALUE, PARAMS] = field(init=False)
         # _has_fit_stage: bool = field(init=False, default=False)
+
     ###################################
-    #        Methods                #
+    #        Methods                  #
     ###################################
+    @staticmethod
+    def seed_everything(seed: Optional[int] = None,
+                        seed_worker: bool = False,
+                        seed_config: Optional[SeedConfig] = None) -> Tuple[Optional[int], bool, SeedConfig]:
 
-    def seed_everything(self):
-        if self.seed is not None:
-            seed_everything(seed=self.seed, workers=self.seed_worker)
+        if seed_config is not None:
+            seed_everything(seed=seed_config.seed, workers=seed_config.seed_worker)
+            return seed_config.seed, seed_config.seed_worker, seed_config
+        elif seed is not None:
+            seed_everything(seed=seed, workers=seed_worker)
+            cfg = SeedConfig(seed=seed, seed_worker=seed_worker)
+            return seed, seed_worker, cfg
+        else:
+            return seed, seed_worker, SeedConfig(seed=seed, seed_worker=seed_worker)
 
-    def configure_model(self) -> LightningModule:
-        return ModelRegistry.create(name=self.model_name, **self.model_params)
+    @staticmethod
+    def configure_model(model_name: str = DEFAULT_MODEL_NAME,
+                        model_params: Optional[PARAMS] = None,
+                        model_config: Optional[ModelConfig] = None) -> Tuple[LightningModule, ModelConfig]:
+        if model_config is not None:
+            return ModelRegistry.create(name=model_config.model_name, **model_config.model_params), model_config
+        if model_params is None:
+            model_config = ModelConfig(model_name=model_name)
+            return ModelRegistry.create(name=model_name, **dict()), model_config
+        else:
+            model_config = ModelConfig(model_name=model_name, model_params=model_params)
+            return ModelRegistry.create(name=model_name, **model_params), model_config
 
-    def configure_input(self) -> LightningDataModule:
-        return DataRegistry.create(name=self.input_name, **self.input_params)
+    @staticmethod
+    def configure_input(input_name: str = DEFAULT_INPUT_NAME,
+                        input_params: Optional[PARAMS] = None,
+                        input_config: Optional[InputConfig] = None) -> Tuple[LightningDataModule, InputConfig]:
+        if input_config is not None:
+            return DataRegistry.create(name=input_config.input_name,
+                                       **input_config.input_params), input_config
+        else:
+            return DataRegistry.create(name=input_name,
+                                       **input_params), InputConfig(input_name=input_name, input_params=input_params)
 
-    def configure_loggers(self):
-        if self.loggers is not None:
-            self.loggers = build_loggers(loggers=self.loggers)
+    @staticmethod
+    def configure_loggers(loggers: Optional[Dict[str, PARAMS] | OdnLogger | List[OdnLogger | Dict] | bool]
+                          ) -> list[OdnLogger] | OdnLogger | bool:
+        if loggers is not None:
+            build_loggers(loggers=loggers)
+        else:
+            return False
 
-    def configure_callbacks(self) -> List[OdnCallback]:
+    @staticmethod
+    def configure_callbacks(lr_monitor: Optional[PARAMS] = None,
+                            model_checkpoint: Optional[PARAMS] = None,
+                            extra_callbacks: Optional[Dict[str, PARAMS]] = None
+                            ) -> List[OdnCallback]:
         callbacks: List[OdnCallback] = []
-        if self.extra_callbacks is not None:
-            callbacks = build_callbacks(callbacks=self.extra_callbacks)
-        if self.model_checkpoint is not None:
-            model_checkpoint = ModelCheckpoint(**self.model_checkpoint)
+        if extra_callbacks is not None:
+            callbacks = build_callbacks(callbacks=extra_callbacks)
+        if model_checkpoint is not None:
+            model_checkpoint = ModelCheckpoint(**model_checkpoint)
             callbacks.append(model_checkpoint)
-        lr_monitor = LearningRateMonitor(**self.lr_monitor_params)
-        callbacks.append(lr_monitor)
+            if lr_monitor:
+                lr_monitor = LearningRateMonitor(**lr_monitor)
+                callbacks.append(lr_monitor)
         return callbacks
 
-    def configure_stages(self):
-
-        if isinstance(self.stages, str):
-            if self.stages in FIT_STAGES:
-                self._has_fit_stage = True
-                self.stages = [cast(STAGES_OR_VALUE, self.stages)]
+    @staticmethod
+    def configure_stages(
+            stages: STAGES_OR_VALUE | List[STAGES_OR_VALUE] | Dict[STAGES_OR_VALUE, PARAMS],
+            stage_config: Optional[StageConfig]
+    ) -> Tuple[bool, Union[STAGES_OR_VALUE, List[STAGES_OR_VALUE], Dict[STAGES_OR_VALUE, PARAMS]], StageConfig]:
+        _has_fit_stage = False
+        if stage_config is not None:
+            stages = stage_config.stages
+        else:
+            stage_config = StageConfig(stages=stages)
+        if isinstance(stages, str):
+            if stages in FIT_STAGES:
+                _has_fit_stage = True
+                return _has_fit_stage, cast(List[STAGES_OR_VALUE], [stages]), stage_config
             else:
-                raise MisconfigurationException(message=f"stage {self.stages} "
+                raise MisconfigurationException(message=f"stage {stages} "
                                                         f"should be fit if you don't specify ckpt_path")
 
-        elif isinstance(self.stages, List):
-            if len(set(FIT_STAGES).intersection(set(list(self.stages)))) <= 0:
+        elif isinstance(stages, List):
+            if len(set(FIT_STAGES).intersection(set(list(stages)))) <= 0:
                 raise MisconfigurationException(message=f"if you use a list of stage, "
                                                         f"you need to declare the {Stages.FIT.value} "
                                                         f"stage. If you don't want to"
                                                         f"declare a {Stages.FIT.value} stage, you need to"
                                                         f"use a dictionary with the ckpt_path parameter"
                                                         f"filled")
-
-            self._has_fit_stage = True
-            self.stages = sorted(self.stages, key=lambda d: STAGE_ORDER[d])
-
-        elif isinstance(self.stages, Dict):
-            for stage in self.stages.keys():
+            _has_fit_stage = True
+            return _has_fit_stage, sorted(stages, key=lambda d: STAGE_ORDER[d]), stage_config
+        elif isinstance(stages, Dict):
+            for stage in stages.keys():
                 if stage in FIT_STAGES:
-                    self._has_fit_stage = True
-            s = sorted(self.stages, key=lambda d: STAGE_ORDER[d])  # compute sorted keys of Dict in stage order
-            self.stages: Dict[STAGES_OR_VALUE, PARAMS] = {v: self.stages[v] for v in s}
+                    _has_fit_stage = True
+            s = sorted(stages, key=lambda d: STAGE_ORDER[d])  # compute sorted keys of Dict in stage order
+            return _has_fit_stage, {v: stages[v] for v in s}, stage_config
         # TODO, gives possibility to update parameters by stage
 
-    def configure_trainer(self):
+    @staticmethod
+    def configure_trainer(loggers: Dict[str, PARAMS] | OdnLogger | List[OdnLogger] | bool = False,
+                          extra_callbacks: Optional[Dict[str, PARAMS]] = None,
+                          lr_monitor: Optional[PARAMS] = None,
+                          model_checkpoint: Optional[PARAMS] = None,
+                          num_nodes: int = 1,
+                          devices: int | List[int] | str = 1,
+                          strategy: Optional[str] = None,
+                          accelerator: Optional[str] = None,
+                          deterministic: bool = False,
+                          extra_params: Optional[PARAMS] = None,
+                          trainer_config: Optional[TrainerConfig] = None
+                          ) -> Tuple[OdnTrainer, List[OdnCallback], TrainerConfig]:
+        if trainer_config is not None:
+            callbacks: Optional[list[OdnCallback]] = FitConfig.configure_callbacks(
+                lr_monitor=trainer_config.lr_monitor,
+                model_checkpoint=trainer_config.model_checkpoint,
+                extra_callbacks=trainer_config.extra_callbacks)
 
-        return OdnTrainer(logger=self.loggers,
-                          callbacks=self.callbacks,
-                          accelerator=self.accelerator,
-                          devices=self.devices,
-                          strategy=self.strategy,
-                          deterministic=self.deterministic,
-                          num_nodes=self.num_nodes,
-                          **self.extra_params
-                          )  # TODO ends instantiation
+            loggers = trainer_config.loggers
+            num_nodes: int = trainer_config.num_nodes
+            devices = trainer_config.devices
+            strategy = trainer_config.strategy
+            accelerator = trainer_config.accelerator
+            deterministic = trainer_config.deterministic
+            extra_params = trainer_config.extra_params
+        else:
+            callbacks: Optional[list[OdnCallback]] = FitConfig.configure_callbacks(lr_monitor=lr_monitor,
+                                                                                   model_checkpoint=model_checkpoint,
+                                                                                   extra_callbacks=extra_callbacks)
+            trainer_config = TrainerConfig(num_nodes=num_nodes,
+                                           devices=devices,
+                                           strategy=strategy,
+                                           accelerator=accelerator,
+                                           lr_monitor=lr_monitor,
+                                           model_checkpoint=model_checkpoint,
+                                           extra_callbacks=extra_callbacks,
+                                           loggers=loggers,
+                                           deterministic=deterministic,
+                                           extra_params=extra_params)
+
+        loggers = FitConfig.configure_loggers(loggers=loggers)
+        extra_params = dict() if extra_params is None else extra_params
+        return OdnTrainer(logger=loggers,
+                          callbacks=callbacks,
+                          accelerator=accelerator,
+                          devices=devices,
+                          strategy=strategy,
+                          deterministic=deterministic,
+                          num_nodes=num_nodes,
+                          **extra_params
+                          ), callbacks, trainer_config
 
 
+@AppRegistry.register(name='odeon-fit', aliases='fit_app')
 class FitApp(App, metaclass=Singleton):
 
-    def __init__(self, config: FitConfig):
+    def __init__(self, config: FitConfig | Dict):
 
         super().__init__()
-        self.config = config
+        if isinstance(config, FitConfig):
+            self.config = config
+        elif isinstance(config, Dict):
+            self.config = FitConfig(**config)
+
+    def __call__(self, *args, **kwargs):
+        LOGGER.debug(f'stages: {self.config.stages},\n'
+                     f'stages type: {type(self.config.stages)}')
+        self.run()
 
     def run(self):
 
