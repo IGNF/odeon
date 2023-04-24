@@ -1,41 +1,11 @@
-from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
+from typing import (Any, Dict, Generic, List, Optional, Protocol, TypeVar,
+                    Union, cast)
 
 from odeon.core.logger import get_logger
 
 T = TypeVar("T", bound=Any)
 V = TypeVar("V", bound=Any)
 logger = get_logger(__name__)
-
-
-class RegistryMixin(Protocol):
-    """ Registry base class"""
-
-    @classmethod
-    def register(cls,
-                 name: str,
-                 aliases: Optional[Union[str, List[str]]] = None
-                 ) -> T:
-        """
-
-        Parameters
-        ----------
-        name: str
-        aliases: Optional[Union[str, List[str]]]
-        Returns
-        -------
-        value: T (type variable)
-        """
-        ...
-
-    @classmethod
-    def get(cls, name: str) -> T:
-        """
-        """
-        ...
-
-    @classmethod
-    def get_registry(cls) -> Dict[str, T]:
-        ...
 
 
 class FactoryMixin(Protocol):
@@ -45,7 +15,7 @@ class FactoryMixin(Protocol):
         ...
 
 
-class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
+class GenericRegistry(FactoryMixin, Generic[T]):
     _registry: Dict[str, T] = {}
 
     @classmethod
@@ -71,7 +41,7 @@ class GenericRegistry(RegistryMixin, FactoryMixin, Generic[T]):
                     f' It Will replaces it, old class {cls._registry[name]}')
             cls.register_class(cl=wrapped_class, name=name, aliases=aliases)
             return wrapped_class
-        return inner_wrapper
+        return cast(T, inner_wrapper)
 
     @classmethod
     def register_class(cls, cl: T, name: str = 'none', aliases: Optional[Union[str, List[str]]] = None):

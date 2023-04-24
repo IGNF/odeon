@@ -1,24 +1,29 @@
+from typing import cast
+
 import pytorch_lightning.callbacks as C
 import pytorch_lightning.loggers as L
 
-from .callbacks import CallbackRegistry
-from .logger import LoggerRegistry
+from .callbacks import CALLBACK_REGISTRY
+from .logger import LOGGER_REGISTRY
 
-LoggerRegistry.register_class(L.MLFlowLogger, name='mlflow')
-LoggerRegistry.register_class(L.TensorBoardLogger, name='tensorboard', aliases=['ts_board', 'tsb'])
-LoggerRegistry.register_class(L.CometLogger, name='comet')
-LoggerRegistry.register_class(L.CSVLogger, name='csv')
-LoggerRegistry.register_class(L.WandbLogger, name='wandb')
-LoggerRegistry.register_class(L.NeptuneLogger, name='netpune')
+LOGGER_REGISTRY.register_class(cast(L.Logger, L.MLFlowLogger), name='mlflow')
+LOGGER_REGISTRY.register_class(cast(L.Logger, L.TensorBoardLogger), name='tensorboard', aliases=['ts_board', 'tsb'])
+LOGGER_REGISTRY.register_class(cast(L.Logger, L.CometLogger), name='comet')
+LOGGER_REGISTRY.register_class(cast(L.Logger, L.CSVLogger), name='csv')
+LOGGER_REGISTRY.register_class(cast(L.Logger, L.WandbLogger), name='wandb')
+LOGGER_REGISTRY.register_class(cast(L.Logger, L.NeptuneLogger), name='netpune')
 
-CallbackRegistry.register_class(C.Checkpoint, name='checkpoint', aliases=['ckpt'])
-CallbackRegistry.register_class(C.LearningRateMonitor, name='lr_monitor', aliases=['lrm'])
-CallbackRegistry.register_class(C.ModelCheckpoint, name='model_checkpoint', aliases=['mod_ckpt'])
-CallbackRegistry.register_class(C.EarlyStopping, name='early_stopping', aliases=['early_stop', 'e_stop'])
-CallbackRegistry.register_class(C.RichModelSummary, name='rich_model_summary', aliases=['rich_sum'])
-CallbackRegistry.register_class(C.QuantizationAwareTraining, name='quantization')
-CallbackRegistry.register_class(C.StochasticWeightAveraging, name='stochastic_weighted_averaging', aliases=['swa'])
-CallbackRegistry.register_class(C.ModelPruning, name='model_pruning', aliases=['pruning'])
-CallbackRegistry.register_class(C.GradientAccumulationScheduler, name='gradient_accumulator_scheduler',
-                                aliases=['grad_acc_sched', 'gas'])
-CallbackRegistry.register_class(C.TQDMProgressBar, name='tqdm_progress_bar', aliases=['tqdm'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.Checkpoint), name='checkpoint', aliases=['ckpt'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.LearningRateMonitor), name='lr_monitor', aliases=['lrm'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.ModelCheckpoint), name='model_checkpoint', aliases=['mod_ckpt'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.EarlyStopping), name='early_stopping', aliases=['early_stop',
+                                                                                                    'e_stop'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.RichModelSummary), name='rich_model_summary', aliases=['rich_sum'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.QuantizationAwareTraining), name='quantization')
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.StochasticWeightAveraging), name='stochastic_weighted_averaging',
+                                 aliases=['swa'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.ModelPruning), name='model_pruning', aliases=['pruning'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.GradientAccumulationScheduler),
+                                 name='gradient_accumulator_scheduler',
+                                 aliases=['grad_acc_sched', 'gas'])
+CALLBACK_REGISTRY.register_class(cast(C.Callback, C.TQDMProgressBar), name='tqdm_progress_bar', aliases=['tqdm'])

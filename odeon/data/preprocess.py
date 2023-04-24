@@ -112,10 +112,10 @@ class UniversalPreProcessor:
 
             # apply centering between 0 and 1
             # to apply centering between -1 and 1, replace change MEAN_DEFAULT_VALUE value to 0.5
-            mean = [MEAN_DEFAULT_VALUE]
-            mean = np.repeat(mean, raster.shape[0])
-            std = [STD_DEFAULT_VALUE]
-            std = np.repeat(std, raster.shape[0])
+            mean = [float(MEAN_DEFAULT_VALUE) for i in range(raster.shape[0])]
+            assert mean is not None
+            std = [float(MEAN_DEFAULT_VALUE) for i in range(raster.shape[0])]
+            assert std is not None
 
         return normalize(img=img,
                          mean=mean,
@@ -160,12 +160,6 @@ class UniversalDeProcessor:
                  input_fields: Dict):
         self._input_fields = input_fields
 
-    def forward(self, data: Dict, *args, **kwargs) -> Dict:
-        ...
-
-    def __call__(self, data: Dict, *args, **kwargs) -> Dict:
-        ...
-
 
 def normalize(img: np.ndarray,
               mean: List[float],
@@ -184,13 +178,13 @@ def normalize(img: np.ndarray,
     -------
 
     """
-    mean = np.array(mean, dtype=np.float32)
-    mean *= max_pixel_value
-    std = np.array(std, dtype=np.float32)
-    std *= max_pixel_value
-    denominator = np.reciprocal(std, dtype=np.float32)
+    mean_np = np.array(mean, dtype=np.float32)
+    mean_np *= max_pixel_value
+    std_np = np.array(std, dtype=np.float32)
+    std_np *= max_pixel_value
+    denominator = np.reciprocal(std_np, dtype=np.float32)
     img = img.astype(np.float32)
-    img -= mean
+    img -= mean_np
     img *= denominator
     return img
 

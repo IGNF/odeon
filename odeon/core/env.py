@@ -74,7 +74,7 @@ class Team:
     email: str = ''
     members: List[Member] | Dict[str, Member] | None = field(default_factory=lambda: [Member(current_user=True)])
     current_team: bool = True
-    _reverse_dict: Dict[str, Member] = field(default=None, init=False)
+    _reverse_dict: Optional[Dict[str, Member]] = field(default=None, init=False)
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True)
@@ -98,9 +98,9 @@ class EnvConf:
     test_store: URI = DEFAULT_TEST_STORE
     delivery_store: URI = DEFAULT_DELIVERY_STORE
     debug_mode: bool = field(default_factory=_debug_mode)
-    user: User = field(default=None, init=False)
-    team: Team = field(default=None, init=False)
-    project: Project = field(default=None)
+    user: User = field(init=False)
+    team: Team = field(init=False)
+    project: Optional[Project] = field(default=None)
 
     def __post_init__(self):
 

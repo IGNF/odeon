@@ -1,17 +1,9 @@
-from typing import Dict, List, Type
-
-from torchmetrics import Metric, MetricCollection
+from typing import Dict, List
 
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import OdnMetric
 
-
-@GenericRegistry.register('MetricRegistry', aliases=['metricReg', 'metric_reg'])
-class MetricRegistry(GenericRegistry[Type[OdnMetric]]):
-    @classmethod
-    def register_fn(cls, cl: Type[OdnMetric], name: str):
-        assert issubclass(cl, Metric) or issubclass(cl, MetricCollection)
-        cls._registry[name] = cl
+METRIC_REGISTRY = GenericRegistry[OdnMetric]
 
 
 def build_metrics(metrics: List[Dict]) -> List[OdnMetric]:
@@ -20,7 +12,7 @@ def build_metrics(metrics: List[Dict]) -> List[OdnMetric]:
         name = metric['name']
         if 'params' in metric:
             params: Dict = metric['params']
-            MetricRegistry.create(name=name, **params)
+            METRIC_REGISTRY.create(name=name, **params)
         else:
-            MetricRegistry.create(name=name)
+            METRIC_REGISTRY.create(name=name)
     return result

@@ -8,7 +8,8 @@ class App(metaclass=Singleton):
     def run(self, *args, **kwargs):
         ...
 
+    def __call__(self, *args, **kwargs):
+        ...
 
-@GenericRegistry.register('app', aliases=['application', 'odeon_app'])
-class AppRegistry(GenericRegistry[App]):
-    ...
+
+APP_REGISTRY = GenericRegistry[App]

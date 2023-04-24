@@ -56,7 +56,7 @@ class UniversalDataset(Dataset):
         self.patch_size_u = float(self.patch_size[0] * self.patch_resolution[0]), float(
             self.patch_size[1] * self.patch_resolution[1])
         self.random_window = random_window
-        self.overlap = overlap if isinstance(overlap, Tuple) else (overlap, overlap)
+        self.overlap = overlap if isinstance(overlap, tuple) else (overlap, overlap)
         self._crs = self.data.crs
         self._debug = debug
         # case inference by zone, we split

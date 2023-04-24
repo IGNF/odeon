@@ -3,9 +3,9 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
+from odeon.core.app_utils import Stages
 from odeon.core.dataframe import create_dataframe_from_file
 from odeon.core.exceptions import MisconfigurationException
-from odeon.core.app_utils import Stages
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE, URI, GeoTuple
 from odeon.data.core.dataloader_utils import (
     DEFAULT_DATALOADER_OPTIONS, DEFAULT_INFERENCE_DATALOADER_OPTIONS,
@@ -38,7 +38,7 @@ class DataFactory:
     _dataloader: DataLoader = field(init=False)
     _dataframe: DATAFRAME = field(init=False)
     _dataset: Dataset = field(init=False)
-    _transform: Callable = field(init=False, default=None)
+    _transform: Optional[Callable] = field(init=False, default=None)
     _inference_mode: bool = field(init=False)
     _patch_size: Tuple[int, int] = field(init=False)
 
@@ -54,6 +54,7 @@ class DataFactory:
                                                      options={'header': self.input_files_has_header})
         self._transform = AlbuTransform(input_fields=self.input_fields,
                                         pipe=self.transforms)
+        assert self._transform is not None
         self._dataset = UniversalDataset(input_fields=self.input_fields,
                                          data=self._dataframe,
                                          transform=self._transform,

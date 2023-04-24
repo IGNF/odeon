@@ -1,7 +1,7 @@
 # import pandas as pd
 # from dataclasses import dataclass, field
 import logging
-from typing import Dict, Generator, List, Tuple
+from typing import Dict, Generator, List
 
 import geopandas as gpd
 import numpy as np
@@ -31,8 +31,8 @@ def tile(bounds: List, tile_size: OptionalGeoTuple = 256.0, overlap: OptionalGeo
     gdf: gpd.GeoDataFrame
     min_x, min_y = bounds[0], bounds[1]
     max_x, max_y = bounds[2], bounds[3]
-    tile_size_tuple: GeoTuple = tuple(tile_size) if isinstance(tile_size, Tuple) else tuple((tile_size, tile_size))
-    overlap_tuple: GeoTuple = overlap if isinstance(overlap, Tuple) else (overlap, overlap)
+    tile_size_tuple: GeoTuple = tile_size if isinstance(tile_size, tuple) else (tile_size, tile_size)
+    overlap_tuple: GeoTuple = overlap if isinstance(overlap, tuple) else (overlap, overlap)
     assert 2 * overlap_tuple[0] < tile_size_tuple[0]
     assert 2 * overlap_tuple[1] < tile_size_tuple[1]
 

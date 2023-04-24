@@ -24,12 +24,12 @@ STAGES_OR_ALL_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.
                                             'fit', 'validate', 'test', 'predict']
 STAGES_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT,
                                      'fit', 'validate', 'test', 'predict']
-DATAFRAME: TypeAlias = Union[pd.DataFrame, gpd.GeoDataFrame]
-OptionalGeoTuple: TypeAlias = Union[int, float, Tuple[float, float], Tuple[int, int]]
-GeoTuple: TypeAlias = Union[Tuple[float, float], List[float]]  # used for stuf like patch size, overlapd, etc.
-NoneType: TypeAlias = type(None)
-OdnMetric: TypeAlias = Union[Metric, MetricCollection]
-OdnLogger: TypeAlias = Logger
-OdnCallback: TypeAlias = Callback
+DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
+OptionalGeoTuple = Union[int, float, Tuple[float, float], Tuple[int, int]]
+GeoTuple = Union[Tuple[float, float], List[float]]  # used for stuf like patch size, overlapd, etc.
+NoneType = type(None)
+OdnMetric = Union[Metric, MetricCollection]
+OdnLogger = Logger
+OdnCallback = Callback
 PARAMS: TypeAlias = Dict[str, Any]
 PARSER: TypeAlias = Literal['yaml', 'jsonnet', 'omegaconf']

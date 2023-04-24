@@ -9,24 +9,23 @@ from odeon.core.registry import GenericRegistry
 LOGGER = get_logger(logger_name=__name__)
 
 
-@GenericRegistry.register('models', aliases=['pl_module', 'model', 'lightning_module'])
-class ModelRegistry(GenericRegistry[LightningModule]):
-    @classmethod
-    def register_fn(cls, cl: LightningModule, name: str):
-        # LOGGER.debug(type(cl))
-        cls._registry[name] = cl
+MODEL_REGISTRY = GenericRegistry[LightningModule]
 
 
-def build_callbacks(models: List[Union[Dict, LightningModule]]) -> List[LightningModule]:
+def build_models(models: List[Union[Dict, LightningModule]]) -> List[LightningModule]:
     result: List[LightningModule] = list()
     for model in models:
         if isinstance(model, dict):
             name = model['name']
             if 'params' in model:
                 params: Dict = model['params']
-                result.append(ModelRegistry.create(name=name, **params))
+                instance = MODEL_REGISTRY.create(name=name, **params)
+                assert instance is not None
+                result.append(instance)
             else:
-                result.append(ModelRegistry.create(name=name))
+                instance = MODEL_REGISTRY.create(name=name)
+                assert instance is not None
+                result.append(instance)
         elif callable(LightningModule):
             result.append(model)
         else:

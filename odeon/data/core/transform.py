@@ -1,16 +1,10 @@
-from typing import Callable, Dict, List, Type, Union
+from typing import Callable, Dict, List, Union
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS
 
-
-@GenericRegistry.register('transform', aliases=['trans'])
-class TransformRegistry(GenericRegistry[Type[Callable]]):
-    @classmethod
-    def register_fn(cls, cl: Callable, name: str):
-        assert callable(cl)
-        cls._registry[name] = cl
+TRANSFORM_REGISTRY = GenericRegistry[Callable]
 
 
 def build_transform(transforms: List[Union[Dict, Callable]] | Dict[str, PARAMS]) -> List[Callable]:
@@ -21,9 +15,13 @@ def build_transform(transforms: List[Union[Dict, Callable]] | Dict[str, PARAMS])
                 name = transform['name']
                 if 'params' in transform:
                     params: Dict = transform['params']
-                    result.append(TransformRegistry.create(name=name, **params))
+                    instance = TRANSFORM_REGISTRY.create(name=name, **params)
+                    assert instance is not None, f'expected Callable, got None for transform {instance}'
+                    result.append(instance)
                 else:
-                    result.append(TransformRegistry.create(name=name))
+                    instance = TRANSFORM_REGISTRY.create(name=name)
+                    assert instance is not None, f'expected Callable, got None for transform {instance}'
+                    result.append(instance)
             elif callable(transform):
                 result.append(transform)
             else:
@@ -31,10 +29,14 @@ def build_transform(transforms: List[Union[Dict, Callable]] | Dict[str, PARAMS])
     elif isinstance(transforms, dict):
         for key, value in transforms.items():
             if value is not None:
-                result.append(TransformRegistry.create(name=key, **value))
+                instance = TRANSFORM_REGISTRY.create(name=key, **value)
+                assert instance is not None, f'expected Callable, got None for transform {instance}'
+                result.append(instance)
             else:
-                result.append(TransformRegistry.create(name=key))
+                instance = TRANSFORM_REGISTRY.create(name=key)
+                assert instance is not None, f'expected Callable, got None for transform {instance}'
+                result.append(instance)
     else:
-        raise MisconfigurationException(message=f'tranforms params {transforms} is not a list or dict but'
+        raise MisconfigurationException(message=f'transforms params {transforms} is not a list or dict but'
                                                 f'has type {str(type(transforms))}')
     return result

@@ -10,7 +10,7 @@ from odeon.core.logger import get_logger
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE
 from odeon.data.stage import DataFactory
 
-from .core.registry import DataRegistry
+from .core.registry import DATA_REGISTRY
 from .core.types import OdnData
 
 logger = get_logger(__name__)
@@ -26,7 +26,7 @@ class Data:
     transform: Optional[Callable]
 
 
-@DataRegistry.register(name='input', aliases=['default_input', 'lightning_data_module'])
+@DATA_REGISTRY.register(name='input', aliases=['default_input', 'lightning_data_module'])
 class Input(OdnData):
     """Input DataModule
     Take a
@@ -40,8 +40,8 @@ class Input(OdnData):
     """
 
     def __init__(self,
-                 fit_params: List[Dict] | Dict = None,
-                 validate_params: List[Dict] | Dict = None,
+                 fit_params: List[Dict] | Dict | None = None,
+                 validate_params: List[Dict] | Dict | None = None,
                  test_params: Dict = None,
                  predict_params: Dict = None):
         super(Input, self).__init__()
@@ -50,11 +50,11 @@ class Input(OdnData):
         self.test_params = test_params
         self.predict_params = predict_params
         self._fit: Data | Dict[str, Data]
-        self._validate: Data
+        self._validate: Data | Dict[str, Data]
         self._test: Data
         self._predict: Data
 
-    def setup(self, stage: Optional[STAGES_OR_VALUE] = None) -> None:
+    def setup(self, stage: Optional[str] = None) -> None:
         if stage == Stages.FIT.value or stage == Stages.FIT:
             assert self.fit_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
                                     f'{self.fit_params}'
@@ -68,7 +68,7 @@ class Input(OdnData):
                     params=dict(self.validate_params),
                     stage=Stages.VALIDATE)
             else:
-                logger.warning('you are seting up a fit stage without ahaving configured the validation')
+                logger.warning('you are setting up a fit stage without having configured the validation')
 
         if stage == Stages.VALIDATE.value or stage == Stages.VALIDATE:
             assert self.validate_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
@@ -101,7 +101,7 @@ class Input(OdnData):
         return self._fit
 
     @property
-    def validate(self) -> Data:
+    def validate(self) -> Data | Dict[str, Data]:
         return self._validate
 
     @property

@@ -1,16 +1,10 @@
-from typing import Dict, List, Type, Union, cast
+from typing import Dict, List, Union, cast
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS, OdnLogger
 
-
-@GenericRegistry.register('logger', aliases=['log'])
-class LoggerRegistry(GenericRegistry[Type[OdnLogger]]):
-    @classmethod
-    def register_fn(cls, cl: Type[OdnLogger], name: str):
-
-        cls._registry[name] = cl
+LOGGER_REGISTRY = GenericRegistry[OdnLogger]
 
 
 def build_loggers(
@@ -23,9 +17,9 @@ def build_loggers(
                 name = logger['name']
                 if 'params' in logger:
                     params: Dict = logger['params']
-                    result.append(cast(LoggerRegistry.create(name=name, **params), OdnLogger))
+                    result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=name, **params)))
                 else:
-                    result.append(cast(LoggerRegistry.create(name=name), OdnLogger))
+                    result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=name)))
             elif callable(OdnLogger):
                 result.append(logger)
             else:
@@ -33,9 +27,9 @@ def build_loggers(
     elif isinstance(loggers, dict):
         for key, value in loggers.items():
             if value is not None:
-                result.append(cast(LoggerRegistry.create(name=key, **value), OdnLogger))
+                result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=key, **value)))
             else:
-                result.append(cast(LoggerRegistry.create(name=key), OdnLogger))
+                result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=key)))
     elif isinstance(loggers, OdnLogger):
         return loggers
     elif isinstance(loggers, bool):

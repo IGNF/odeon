@@ -40,9 +40,9 @@ class MetricMixin(ABC, MetricInterface):
         self._clone_fit_on_val = clone_fit_on_val
         self._clone_fit_on_test = clone_fit_on_test
         self._clone_val_on_test = clone_val_on_test
-        self._fit_metrics: Optional[OdnMetric]
-        self._val_metrics: Optional[OdnMetric]
-        self._test_metrics: Optional[OdnMetric]
+        self._fit_metrics: Optional[OdnMetric | Dict[str, OdnMetric]] = None
+        self._val_metrics: Optional[OdnMetric | Dict[str, OdnMetric]] = None
+        self._test_metrics: Optional[OdnMetric | Dict[str, OdnMetric]] = None
         self._fit_metrics, self._val_metrics, self._test_metrics = self.configure_metrics()
 
     @property
@@ -64,7 +64,7 @@ class TranferLearningInterface(Protocol):
     @staticmethod
     def transfer_from(source: torch.nn.Module,
                       target: torch.nn.Module,
-                      module_list: List) -> torch.nn.Module:
+                      module_list: List[str]) -> torch.nn.Module:
         """
         algo:
             for key, value in module_dict.items(
@@ -84,11 +84,10 @@ class TransferLearningMixin(ABC, TranferLearningInterface):
     def __init__(self):
         ...
 
+    @staticmethod
     def transfer_from(source: torch.nn.Module, target: torch.nn.Module, module_list: List[str]) -> torch.nn.Module:
 
-        for value in module_list:
-            ...
-        return torch.nn.Module[torch.nn.Identity]
+        ...
 
 
 class OdnModel(LightningModule):

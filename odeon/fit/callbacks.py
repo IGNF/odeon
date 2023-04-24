@@ -1,4 +1,4 @@
-from typing import Dict, List, Type, Union, cast
+from typing import Dict, List, Union, cast
 
 from pytorch_lightning.callbacks.callback import Callback
 
@@ -6,13 +6,7 @@ from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS, OdnCallback
 
-
-@GenericRegistry.register('callbacks', aliases=['calls', 'callback'])
-class CallbackRegistry(GenericRegistry[Type[OdnCallback]]):
-    @classmethod
-    def register_fn(cls, cl: Type[OdnCallback], name: str):
-        # assert isinstance(cl, Callback)
-        cls._registry[name] = cl
+CALLBACK_REGISTRY = GenericRegistry[OdnCallback]
 
 
 def build_callbacks(callbacks: List[Union[PARAMS, Callback]] | Dict[str, PARAMS]) -> List[Callback]:
@@ -23,9 +17,9 @@ def build_callbacks(callbacks: List[Union[PARAMS, Callback]] | Dict[str, PARAMS]
                 name = callback['name']
                 if 'params' in callback:
                     params: Dict = callback['params']
-                    result.append(cast(CallbackRegistry.create(name=name, **params), OdnCallback))
+                    result.append(cast(OdnCallback, CALLBACK_REGISTRY .create(name=name, **params)))
                 else:
-                    result.append(cast(CallbackRegistry.create(name=name), OdnCallback))
+                    result.append(cast(OdnCallback, CALLBACK_REGISTRY .create(name=name)))
             elif callable(Callback):
                 result.append(callback)
             else:
@@ -34,9 +28,9 @@ def build_callbacks(callbacks: List[Union[PARAMS, Callback]] | Dict[str, PARAMS]
     elif isinstance(callbacks, dict):
         for key, value in callbacks.items():
             if value:
-                result.append(cast(CallbackRegistry.create(name=key, **value), OdnCallback))
+                result.append(cast(OdnCallback, CALLBACK_REGISTRY .create(name=key, **value)))
             else:
-                result.append(cast(CallbackRegistry.create(name=key), OdnCallback))
+                result.append(cast(OdnCallback, CALLBACK_REGISTRY.create(name=key)))
     else:
         raise MisconfigurationException(message=f'expected callbacks {callbacks} params to be either a dict or a list')
     return result

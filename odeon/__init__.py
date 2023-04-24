@@ -53,11 +53,12 @@ def bootstrap() -> Tuple[Env, Logger]:
         schema = OmegaConf.structured(EnvConf)
         conf = OmegaConf.load(ODEON_ENV)
         conf = OmegaConf.merge(schema, conf)
+        assert isinstance(conf, dict)
         env_conf: EnvConf = EnvConf(**conf)
         env: Env = Env(config=env_conf)
     else:
         create_empty_file(path=ODEON_ENV)
-        env: Env = Env(config=EnvConf())
+        env = Env(config=EnvConf())
 
     return env, get_logger(logger_name='odeon', debug=env.config.debug_mode)
 

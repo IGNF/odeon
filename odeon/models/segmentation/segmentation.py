@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 import torch.nn as nn
@@ -6,18 +6,18 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from segmentation_models_pytorch import create_model
 
-from odeon.models.core.models import ModelRegistry
+from odeon.models.core.models import MODEL_REGISTRY
 
 __all__ = ['SegmentationModule']
 
 
-@ModelRegistry.register(name='segmentation_model', aliases=['seg_model', 'seg_mod'])
+@MODEL_REGISTRY.register(name='segmentation_model', aliases=['seg_model', 'seg_mod'])
 class SegmentationModule(LightningModule):
 
     def __init__(self,
                  classes: int,
                  model_name: str,
-                 loss: nn.Module = nn.CrossEntropyLoss,
+                 loss: nn.Module = cast(nn.Module, nn.CrossEntropyLoss),
                  encoder_name: str = "resnet34",
                  encoder_weights: Optional[str] = None,
                  in_channels: int = 3,

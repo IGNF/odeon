@@ -36,10 +36,11 @@ class Plugin(OdnPlugin):
     def __init__(self, elements: Union[Element, Elements, Dict[str, PARAMS]]):
         super().__init__()
         assert isinstance(elements, Elements) or isinstance(elements, Element)
+
         if isinstance(elements, Elements):
             self.elements: Elements = elements
         elif isinstance(elements, Element):
-            self.elements: Elements = Elements(elements=[elements])
+            self.elements = Elements(elements=[elements])
         elif isinstance(elements, dict):
             l: List[Element] = list()
             for k, v in elements.items():
@@ -50,8 +51,7 @@ class Plugin(OdnPlugin):
                 name = k
                 registry = GenericRegistry.get(name=v['registry'])
                 l.append(Element(name=name, aliases=aliases, registry=registry))
-            self.elements: Elements = Elements(elements=l)
-
+            self.elements = Elements(elements=l)
         else:
             raise TypeError()
 
@@ -59,7 +59,7 @@ class Plugin(OdnPlugin):
         for element in self.elements:
             try:
                 registry = element.registry
-                registry.register_class(name=element.name, aliases=element.aliases)
+                registry.register(name=element.name, aliases=element.aliases)
             except KeyError as e:
                 raise MisconfigurationException(message=f'something went wrong during plugin configuration,'
                                                         f'it seems like your plugin name or one of your alias is '
