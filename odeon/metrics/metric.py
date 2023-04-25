@@ -4,6 +4,7 @@ from odeon.core.registry import GenericRegistry
 from odeon.core.types import OdnMetric
 
 METRIC_REGISTRY = GenericRegistry[OdnMetric]
+GenericRegistry.register_class(cl=METRIC_REGISTRY, name='metrics', aliases=['metric_registry'])
 
 
 def build_metrics(metrics: List[Dict]) -> List[OdnMetric]:

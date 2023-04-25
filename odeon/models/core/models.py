@@ -10,6 +10,7 @@ LOGGER = get_logger(logger_name=__name__)
 
 
 MODEL_REGISTRY = GenericRegistry[LightningModule]
+GenericRegistry.register_class(cl=MODEL_REGISTRY, name='models', aliases=['model_registry'])
 
 
 def build_models(models: List[Union[Dict, LightningModule]]) -> List[LightningModule]:

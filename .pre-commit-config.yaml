@@ -25,7 +25,7 @@ repos:
     -   id: mypy
         verbose: true
         files: ^odeon/
-        entry: bash -c 'mypy "$@" || true' --show-traceback
+        entry: bash -c 'mypy "$@" --install-types --non-interactive || true' --show-traceback
 
 -   repo: https://github.com/PyCQA/isort
     rev: 5.10.1
