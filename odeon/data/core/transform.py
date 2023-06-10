@@ -1,14 +1,18 @@
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS
 
 TRANSFORM_REGISTRY = GenericRegistry[Callable]
+GenericRegistry.register_class(cl=TRANSFORM_REGISTRY, name='tranform_registry', aliases=['transform'])
+ONE_OFF_NAME = 'one_off'
+ONE_OFF_ALIASES = ['OneOff']
 
 
-def build_transform(transforms: List[Union[Dict, Callable]] | Dict[str, PARAMS]) -> List[Callable]:
-    result: List[Callable] = list()
+def build_transform(transforms: List[Union[Dict, Callable]] | Dict[str, PARAMS],
+                    buffer: Optional[List[Callable]] = None) -> List[Callable]:
+    result: List[Callable] = buffer if isinstance(buffer, list) else list()
     if isinstance(transforms, list):
         for transform in transforms:
             if isinstance(transform, dict):

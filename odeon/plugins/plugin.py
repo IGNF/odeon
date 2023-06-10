@@ -1,10 +1,18 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from enum import Enum
+from typing import Dict, List, Literal, Optional, Union
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS
+
+
+class PluginMaturity(str, Enum):
+    STABLE = 'stable'
+    EXPERIMENTAL = 'experimental'
+    DEVELOPMENT = 'development'
+    NOT_SPECIFIED = 'not_specified'
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True, slots=True)
@@ -27,23 +35,31 @@ class Elements:
                 yield v
 
 
-class OdnPlugin(ABC):
+class BasePlugin(ABC):
     ...
 
 
-class Plugin(OdnPlugin):
+@dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False, slots=True)
+class OdnPlugin(BasePlugin):
 
-    def __init__(self, elements: Union[Element, Elements, Dict[str, PARAMS]]):
-        super().__init__()
-        assert isinstance(elements, Elements) or isinstance(elements, Element)
+    elements: Union[Element, Elements, Dict[str, PARAMS]]
+    version: str = ''
+    author: str = ''
+    plugin_maturity: Literal[PluginMaturity.STABLE, 'stable', PluginMaturity.DEVELOPMENT, 'development',
+                             PluginMaturity.EXPERIMENTAL, 'experimental',
+                             PluginMaturity.NOT_SPECIFIED, 'not_specified'] = PluginMaturity.NOT_SPECIFIED
 
-        if isinstance(elements, Elements):
-            self.elements: Elements = elements
-        elif isinstance(elements, Element):
-            self.elements = Elements(elements=[elements])
-        elif isinstance(elements, dict):
+    def __post_init__(self):
+        self.init()
+
+    def init(self):
+        if isinstance(self.elements, Elements):
+            self.elements: Elements = self.elements
+        elif isinstance(self.elements, Element):
+            self.elements = Elements(elements=[self.elements])
+        elif isinstance(self.elements, dict):
             l: List[Element] = list()
-            for k, v in elements.items():
+            for k, v in self.elements.items():
                 assert isinstance(v, dict), 'your plugin has no dict params'
                 assert 'aliases' in v.keys(), f'your plugin element {str(k)} has no aliases params'
                 assert 'registry' in v.keys(), f'your plugin element {str(k)} has no registry params'

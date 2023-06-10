@@ -1,10 +1,12 @@
 """odeon package
 """
 import pathlib
+from collections.abc import Mapping
 from logging import Logger
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
+import albumentations as A
 from jsonargparse import set_config_read_mode
 from omegaconf import OmegaConf
 
@@ -13,6 +15,9 @@ from .core.env import Env, EnvConf, get_env_variable
 from .core.io_utils import create_empty_file, create_path_if_not_exists
 from .core.logger import get_logger
 from .core.types import PARSER
+from .data.core import ONE_OFF_ALIASES, ONE_OFF_NAME, TRANSFORM_REGISTRY
+
+# from .metrics import *
 
 # from odeon.models import *
 
@@ -53,7 +58,7 @@ def bootstrap() -> Tuple[Env, Logger]:
         schema = OmegaConf.structured(EnvConf)
         conf = OmegaConf.load(ODEON_ENV)
         conf = OmegaConf.merge(schema, conf)
-        assert isinstance(conf, dict)
+        assert isinstance(conf, Mapping)
         env_conf: EnvConf = EnvConf(**conf)
         env: Env = Env(config=env_conf)
     else:
@@ -66,3 +71,22 @@ def bootstrap() -> Tuple[Env, Logger]:
 ENV, LOGGER = bootstrap()  # set the environment of application
 with (_this_dir / ".." / "VERSION").open() as vf:
     __version__ = vf.read().strip()
+
+"""
+TRANSFORM REGISTRY
+"""
+
+TRANSFORM_REGISTRY.register_class(A.VerticalFlip, name='vertical_flip', aliases=['v_flip'])
+TRANSFORM_REGISTRY.register_class(A.HorizontalFlip, name='horizontal_flip', aliases=['h_flip'])
+TRANSFORM_REGISTRY.register_class(A.Transpose, name='transpose')
+TRANSFORM_REGISTRY.register_class(A.Rotate, name='rotate', aliases=['rot'])
+TRANSFORM_REGISTRY.register_class(A.RandomRotate90, name='random_rotate_90', aliases=['rrotate90', 'rrot90'])
+TRANSFORM_REGISTRY.register_class(A.resize, name='resize')
+TRANSFORM_REGISTRY.register_class(A.RandomCrop, name='random_crop', aliases=['r_crop'])
+TRANSFORM_REGISTRY.register_class(A.RandomResizedCrop, name='random_resize_crop', aliases=['rr_crop'])
+TRANSFORM_REGISTRY.register_class(A.RandomSizedCrop, name='random_sized_crop', aliases=['rs_crop'])
+TRANSFORM_REGISTRY.register_class(A.gaussian_blur, name='gaussian_blur', aliases=['g_blur'])
+TRANSFORM_REGISTRY.register_class(A.gauss_noise, name='gauss_noise', aliases=['g_noise', 'gaussian_noise'])
+TRANSFORM_REGISTRY.register_class(A.ColorJitter, name='color_jitter', aliases=['c_jitter', 'c_jit'])
+TRANSFORM_REGISTRY.register_class(A.RandomGamma, name='random_gamma', aliases=['r_gamma'])
+TRANSFORM_REGISTRY.register_class(A.OneOf, name=ONE_OFF_NAME, aliases=ONE_OFF_ALIASES)

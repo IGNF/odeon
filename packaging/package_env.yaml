@@ -28,7 +28,7 @@ dependencies:
   - tensorboardx
   - tqdm
   - seaborn
-  - py-opencv
+  - py-opencv=4.7.0
   - albumentations
   - kornia
   - matplotlib

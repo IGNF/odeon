@@ -29,6 +29,7 @@ class DataFactory:
     patch_size: Union[int, Tuple[int, int], List[int]] = field(default_factory=lambda: DEFAULT_PATCH_SIZE)
     patch_resolution: Union[float, Tuple[float,
                                          float], List[float]] = field(default_factory=lambda: DEFAULT_PATCH_RESOLUTION)
+
     random_window: bool = True
     overlap: Union[GeoTuple] = field(default_factory=lambda: DEFAULT_OVERLAP)
     cache_dataset: Union[bool] = False

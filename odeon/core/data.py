@@ -2,25 +2,25 @@ from enum import Enum
 from typing import List
 
 
-class InputFormat(Enum):
+class InputFormat(str, Enum):
 
     FOLDERS = "folders"
     CSV = "csv"
     VECTORFILE = "vector_file"
 
 
-class InputDataKeys(Enum):
+class InputDataKeys(str, Enum):
     INPUT = "input"
     PREDS = "preds"
     TARGET = "target"
     METADATA = "metadata"
 
 
-class InputType(Enum):
+class InputType(str, Enum):
     RASTER = "raster"
 
 
-class InputDType(Enum):
+class InputDType(str, Enum):
     UINT8 = "uint8"
     UINT16 = "uint16"
 
@@ -35,7 +35,7 @@ class TransformStrategy(Enum):
 """
 
 
-class TargetTYPES(Enum):
+class TargetTYPES(str, Enum):
     MASK = "mask"
 
 
