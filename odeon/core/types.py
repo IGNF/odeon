@@ -25,8 +25,8 @@ STAGES_OR_ALL_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.
 STAGES_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT,
                                      'fit', 'validate', 'test', 'predict']
 DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
-OptionalGeoTuple = Union[int, float, Tuple[float, float], Tuple[int, int]]
-GeoTuple = Union[Tuple[float, float], List[float]]  # used for stuf like patch size, overlapd, etc.
+GeoTuple = int | float | Tuple[float, float] | Tuple[int, int]  # used for stuf like patch size, overlap, etc.
+OptionalGeoTuple = int | float | Tuple[float, float] | Tuple[int, int] | None
 NoneType = type(None)
 OdnMetric = Union[Metric, MetricCollection]
 OdnLogger = Logger

@@ -4,7 +4,6 @@ channels:
   - conda-forge
 dependencies:
   - python >=3.10,<4
-  - pip=23.1.2
   - geopandas>=0.10
   - einops >=0.3,<0.5
   - fiona >=1.8,<2
@@ -29,9 +28,7 @@ dependencies:
   - tensorboardx
   - tqdm
   - seaborn
-#  - libopencv
-#  - opencv
-  - py-opencv=4.7=py310hfdc917e_0
+  - py-opencv=4.7.0
   - albumentations
   - kornia
   - matplotlib

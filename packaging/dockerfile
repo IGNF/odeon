@@ -1,6 +1,6 @@
 FROM nvidia/cuda:10.2-devel-ubuntu18.04
 # FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel
-ARG CONDA_NAME="cd_ortho"
+ARG CONDA_NAME="odeon"
 ARG CONDA_FILE="test"
 ARG HTTP_PROXY=""
 ARG HTTPS_PROXY=""
@@ -50,6 +50,6 @@ RUN mamba env create -f test_env.yaml
 # ENV PATH /Miniconda3/envs/$CONDA_NAME/bin:$PATH
 #
 # RUN mamba update -n $CONDA_NAME  -f test_env.yaml
-# Copy the repository content in /myria3d
-WORKDIR /CD_ORTHO
+# Copy the repository content in /odeon
+WORKDIR /odeon
 COPY . .
