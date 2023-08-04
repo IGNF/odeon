@@ -6,13 +6,13 @@ from typing import Dict, Generator, List
 import geopandas as gpd
 import numpy as np
 
-from .types import GeoTuple, OptionalGeoTuple
+from .types import GeoTuple
 from .vector import box, create_box_from_bounds
 
 logger = logging.getLogger(__name__)
 
 
-def tile(bounds: List, tile_size: OptionalGeoTuple = 256.0, overlap: OptionalGeoTuple = 0,
+def tile(bounds: List, tile_size: GeoTuple = 256.0, overlap: GeoTuple = 0,
          strict_inclusion: bool = True, fit_extent: bool = False) -> Generator[Dict, None, None]:
     """
     Simple function to tile with a regular step in X-axis and Y-axis
