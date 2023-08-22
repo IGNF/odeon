@@ -38,7 +38,7 @@ class GenericRegistry(FactoryMixin, Generic[T]):
             if name in cls._registry:
                 logger.warning(
                     f'{wrapped_class} has one name or alias ({name}) in already existing in registry {cls} .'
-                    f' It Will replaces it, old class {cls._registry[name]}')
+                    f' It Will replace it, old class {cls._registry[name]}')
             cls.register_class(cl=wrapped_class, name=name, aliases=aliases)
             return wrapped_class
         return cast(T, inner_wrapper)
@@ -85,12 +85,6 @@ class GenericRegistry(FactoryMixin, Generic[T]):
         Returns
         -------
          An instance of the executor that is created.
-        """
-        """
-        Args:
-
-        Returns:
-
         """
 
         if name not in cls._registry:

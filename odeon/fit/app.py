@@ -366,11 +366,10 @@ class FitConfig:
                           ), callbacks, trainer_config
 
 
-@APP_REGISTRY.register(name='odeon-fit', aliases='fit_app')
+@APP_REGISTRY.register(name='fit')
 class FitApp(App, metaclass=Singleton):
 
     def __init__(self, config: FitConfig | Dict):
-
         super().__init__()
         if isinstance(config, FitConfig):
             self.config = config
@@ -405,3 +404,6 @@ class FitApp(App, metaclass=Singleton):
                 self.config.trainer.test(model=self.config.model, datamodule=self.config.data, **params)
             else:
                 self.config.trainer.predict(model=self.config.model, datamodule=self.config.data, **params)
+
+    def get_class_config(self) -> object:
+        return FitConfig
