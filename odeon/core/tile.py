@@ -3,12 +3,13 @@
 import logging
 from typing import Dict, Generator, List
 
-import geopandas as gpd
 import numpy as np
 
+from .env import Env
 from .types import GeoTuple, OptionalGeoTuple
 from .vector import box, create_box_from_bounds
 
+env = Env()
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +35,7 @@ def tile(bounds: List, tile_size: OptionalGeoTuple = 256.0, overlap: OptionalGeo
     -------
 
     """
-    gdf: gpd.GeoDataFrame
+    # gdf: gpd.GeoDataFrame
     min_x, min_y = bounds[0], bounds[1]
     max_x, max_y = bounds[2], bounds[3]
     tile_size_tuple: GeoTuple = tile_size if isinstance(tile_size, tuple) else (tile_size, tile_size)

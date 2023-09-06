@@ -19,6 +19,10 @@ class GenericRegistry(FactoryMixin, Generic[T]):
     _registry: Dict[str, T] = {}
 
     @classmethod
+    def get_registry(cls) -> Dict[str, T]:
+        return cls._registry
+
+    @classmethod
     def get(cls, name: str) -> T:
         """
 
@@ -64,10 +68,6 @@ class GenericRegistry(FactoryMixin, Generic[T]):
     @classmethod
     def register_fn(cls, cl: T, name: str):
         cls._registry[name] = cl
-
-    @classmethod
-    def get_registry(cls) -> Dict[str, T]:
-        return cls._registry
 
     @classmethod
     def create(cls, name: str, **kwargs) -> Optional[T]:

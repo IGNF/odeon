@@ -20,6 +20,7 @@ class Element:
     registry: GenericRegistry
     name: str
     aliases: Optional[Union[str, List[str]]]
+    cl: type
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True, slots=True)
@@ -61,12 +62,15 @@ class OdnPlugin(BasePlugin):
             l: List[Element] = list()
             for k, v in self.elements.items():
                 assert isinstance(v, dict), 'your plugin has no dict params'
-                assert 'aliases' in v.keys(), f'your plugin element {str(k)} has no aliases params'
+                # assert 'aliases' in v.keys(), f'your plugin element {str(k)} has no aliases params'
                 assert 'registry' in v.keys(), f'your plugin element {str(k)} has no registry params'
-                aliases = v['aliases']
+                assert 'class' in v.keys(), f'your plugin element {str(k)} has no registry params'
+
+                aliases = v['aliases'] if 'aliases' in v else None
                 name = k
-                registry = GenericRegistry.get(name=v['registry'])
-                l.append(Element(name=name, aliases=aliases, registry=registry))
+                registry = GenericRegistry.get(name=v['registry']) if isinstance(v['registry'], str) else v['registry']
+                cl = v['class']
+                l.append(Element(cl=cl, name=name, aliases=aliases, registry=registry))
             self.elements = Elements(elements=l)
         else:
             raise TypeError()
@@ -75,7 +79,7 @@ class OdnPlugin(BasePlugin):
         for element in self.elements:
             try:
                 registry = element.registry
-                registry.register(name=element.name, aliases=element.aliases)
+                registry.register_class(cl=element.cl, name=element.name, aliases=element.aliases)
             except KeyError as e:
                 raise MisconfigurationException(message=f'something went wrong during plugin configuration,'
                                                         f'it seems like your plugin name or one of your alias is '

@@ -2,21 +2,19 @@
 """
 import pathlib
 from collections.abc import Mapping
-from logging import Logger
+# from dataclasses import fields
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
-import albumentations as A
 from jsonargparse import set_config_read_mode
 from omegaconf import OmegaConf
 
 from .core.default_path import ODEON_ENV, ODEON_PATH
 from .core.env import Env, EnvConf, get_env_variable
 from .core.io_utils import create_empty_file, create_path_if_not_exists
-from .core.logger import get_logger
 from .core.types import PARSER
-from .data.core import ONE_OFF_ALIASES, ONE_OFF_NAME, TRANSFORM_REGISTRY
 
+# TODO load plugins
 # from .metrics import *
 
 # from odeon.models import *
@@ -40,7 +38,7 @@ def _parser_type() -> PARSER:
         return _DEFAULT_PARSER
 
 
-def bootstrap() -> Tuple[Env, Logger]:
+def bootstrap() -> Env:
     """
     Used to check if the .odeon directory is created and env.yml is inside.
     Otherwise, it will create the necessary directory and config file associated
@@ -62,31 +60,14 @@ def bootstrap() -> Tuple[Env, Logger]:
         env_conf: EnvConf = EnvConf(**conf)
         env: Env = Env(config=env_conf)
     else:
+        # env_fields = fields(EnvConf())
+        # end_d = {field.name: field.value}
         create_empty_file(path=ODEON_ENV)
         env = Env(config=EnvConf())
 
-    return env, get_logger(logger_name='odeon', debug=env.config.debug_mode)
+    return env
 
 
-ENV, LOGGER = bootstrap()  # set the environment of application
+ENV = bootstrap()  # set the environment of application
 with (_this_dir / ".." / "VERSION").open() as vf:
     __version__ = vf.read().strip()
-
-"""
-TRANSFORM REGISTRY
-"""
-
-TRANSFORM_REGISTRY.register_class(A.VerticalFlip, name='vertical_flip', aliases=['v_flip'])
-TRANSFORM_REGISTRY.register_class(A.HorizontalFlip, name='horizontal_flip', aliases=['h_flip'])
-TRANSFORM_REGISTRY.register_class(A.Transpose, name='transpose')
-TRANSFORM_REGISTRY.register_class(A.Rotate, name='rotate', aliases=['rot'])
-TRANSFORM_REGISTRY.register_class(A.RandomRotate90, name='random_rotate_90', aliases=['rrotate90', 'rrot90'])
-TRANSFORM_REGISTRY.register_class(A.resize, name='resize')
-TRANSFORM_REGISTRY.register_class(A.RandomCrop, name='random_crop', aliases=['r_crop'])
-TRANSFORM_REGISTRY.register_class(A.RandomResizedCrop, name='random_resize_crop', aliases=['rr_crop'])
-TRANSFORM_REGISTRY.register_class(A.RandomSizedCrop, name='random_sized_crop', aliases=['rs_crop'])
-TRANSFORM_REGISTRY.register_class(A.gaussian_blur, name='gaussian_blur', aliases=['g_blur'])
-TRANSFORM_REGISTRY.register_class(A.gauss_noise, name='gauss_noise', aliases=['g_noise', 'gaussian_noise'])
-TRANSFORM_REGISTRY.register_class(A.ColorJitter, name='color_jitter', aliases=['c_jitter', 'c_jit'])
-TRANSFORM_REGISTRY.register_class(A.RandomGamma, name='random_gamma', aliases=['r_gamma'])
-TRANSFORM_REGISTRY.register_class(A.OneOf, name=ONE_OFF_NAME, aliases=ONE_OFF_ALIASES)

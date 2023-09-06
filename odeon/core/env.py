@@ -1,12 +1,15 @@
 """ Env module, used to bind configuration at user level """
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from .default_path import ODEON_PATH
 from .io_utils import create_path_if_not_exists
 from .logger import get_logger
+from .plugins.plugin import OdnPlugin
+# from .logger import get_logger
 # from .types import PARSER
 from .singleton import Singleton
 from .types import PARAMS, URI
@@ -101,23 +104,45 @@ class EnvConf:
     user: Optional[User] = field(default=None)
     team: Optional[Team] = field(default=None)
     project: Optional[Project] = field(default=None)
-
-    def __post_init__(self):
-
-        if self.set_env_variables is not None:
-            set_env_variables(variables=self.set_env_variables)
-
-        create_path_if_not_exists(self.config_store)
-        create_path_if_not_exists(self.artefact_store)
-        create_path_if_not_exists(self.feature_store)
-        create_path_if_not_exists(self.dataset_store)
-        create_path_if_not_exists(self.model_store)
-        create_path_if_not_exists(self.test_store)
-        create_path_if_not_exists(self.delivery_store)
+    plugins: List[OdnPlugin | str] | OdnPlugin | None = field(default=None)
 
 
 class Env(metaclass=Singleton):
-    def __init__(self, config: EnvConf):
+    def __init__(self, config: EnvConf | None = None):
 
-        self.config: EnvConf = config
-    # TODO :build stores if not exists
+        self.config: EnvConf = config if config is not None else EnvConf()
+        if self.config.set_env_variables is not None:
+            set_env_variables(variables=self.config.set_env_variables)
+        self.user_path: URI | None = self._create_user_path()
+        self.user_config_store = Path(self.config.config_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.config_store)
+        self.user_artefact_store = Path(self.config.artefact_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.artefact_store)
+        self.user_feature_store = Path(self.config.feature_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.feature_store)
+        self.user_dataset_store = Path(self.config.dataset_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.dataset_store)
+        self.user_model_store = Path(self.config.model_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.model_store)
+        self.user_test_store = Path(self.config.test_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.test_store)
+        self.user_delivery_store = Path(self.config.delivery_store) / self.user_path if self.user_path is not None\
+            else Path(self.config.delivery_store)
+
+        create_path_if_not_exists(self.config.config_store)
+        create_path_if_not_exists(self.config.artefact_store)
+        create_path_if_not_exists(self.config.feature_store)
+        create_path_if_not_exists(self.config.dataset_store)
+        create_path_if_not_exists(self.config.model_store)
+        create_path_if_not_exists(self.config.test_store)
+        create_path_if_not_exists(self.config.delivery_store)
+
+    def _create_user_path(self) -> URI | None:
+        p: URI | None = None
+        if self.config.project.name != '':
+            p = Path(str(self.config.project.name))
+        if self.config.team.name != '':
+            p = Path(str(self.config.project.name)) if p is None else Path(p) / str(self.config.project.name)
+        if self.config.user.name != '':
+            p = Path(str(self.config.user.name)) if p is None else Path(p) / str(self.config.user.name)
+        return p

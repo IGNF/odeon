@@ -4,7 +4,6 @@ import albumentations as A
 import numpy as np
 import torch
 
-from odeon import LOGGER
 from odeon.core.data import IMAGE_MODALITY
 from odeon.core.types import PARAMS
 
@@ -24,7 +23,7 @@ class AlbuTransform:
 
         if len(self._pipe) > 0:
             for p in self._pipe:
-                LOGGER.info(f'pipe transform value {str(p)}: {type(p)}')
+                # LOGGER.info(f'pipe transform value {str(p)}: {type(p)}')
                 # assert isinstance(p, A.BasicTransform)
                 assert callable(p)
         if to_tensor:

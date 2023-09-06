@@ -52,6 +52,7 @@ def run_process_1() -> None:
     zone_gdf["area"] = zone_gdf["geometry"].apply(lambda x: x.area)
     zone_gdf["per_change"] = 0.0
     crs = None
+
     for key, value in worksite_dict.items():
 
         # Step 2/ filter polygon with change

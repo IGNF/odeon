@@ -6,7 +6,7 @@ from pytorch_lightning import (LightningDataModule, LightningModule,
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
-from odeon import LOGGER
+# from odeon import LOGGER
 from odeon.core.app import APP_REGISTRY, App
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.singleton import Singleton
@@ -377,8 +377,10 @@ class FitApp(App, metaclass=Singleton):
             self.config = FitConfig(**config)
 
     def __call__(self, *args, **kwargs):
-        LOGGER.debug(f'stages: {self.config.stages},\n'
+        """
+        .debug(f'stages: {self.config.stages},\n'
                      f'stages type: {type(self.config.stages)}')
+        """
         self.run()
 
     def run(self):

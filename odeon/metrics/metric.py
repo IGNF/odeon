@@ -3,7 +3,12 @@ from typing import Dict, List
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import OdnMetric
 
-METRIC_REGISTRY = GenericRegistry[OdnMetric]
+
+class MetricRegistry(GenericRegistry[OdnMetric]):
+    _registry: Dict[str, OdnMetric] = {}
+
+
+METRIC_REGISTRY = MetricRegistry
 GenericRegistry.register_class(cl=METRIC_REGISTRY, name='metrics', aliases=['metric_registry'])
 
 

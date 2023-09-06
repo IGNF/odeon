@@ -2,6 +2,7 @@ channels:
   - pytorch
   - nvidia
   - conda-forge
+
 dependencies:
   # Core dependencies
   - pip

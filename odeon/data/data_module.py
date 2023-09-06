@@ -10,7 +10,6 @@ from odeon.core.logger import get_logger
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE
 from odeon.data.stage import DataFactory
 
-from .core.registry import DATA_REGISTRY
 from .core.types import OdnData
 
 logger = get_logger(__name__)
@@ -26,7 +25,6 @@ class Data:
     transform: Optional[Callable]
 
 
-@DATA_REGISTRY.register(name='input', aliases=['default_input', 'lightning_data_module'])
 class Input(OdnData):
     """Input DataModule
     Take a

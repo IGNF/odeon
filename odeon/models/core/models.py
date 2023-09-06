@@ -9,7 +9,11 @@ from odeon.core.registry import GenericRegistry
 LOGGER = get_logger(logger_name=__name__)
 
 
-MODEL_REGISTRY = GenericRegistry[LightningModule]
+class ModelRegistry(GenericRegistry[LightningModule]):
+    _registry: Dict[str, LightningModule] = {}
+
+
+MODEL_REGISTRY = ModelRegistry
 GenericRegistry.register_class(cl=MODEL_REGISTRY, name='models', aliases=['model_registry'])
 
 

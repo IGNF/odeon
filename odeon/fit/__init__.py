@@ -1,29 +1,51 @@
-from typing import cast
+# from typing import cast
 
 import pytorch_lightning.callbacks as C
 import pytorch_lightning.loggers as L
 
+from odeon.core.app import APP_REGISTRY
+from odeon.core.plugins.plugin import OdnPlugin
+
+from .app import FitApp
 from .callbacks import CALLBACK_REGISTRY
 from .logger import LOGGER_REGISTRY
+from .trainer import OdnTrainer
 
-LOGGER_REGISTRY.register_class(cast(L.Logger, L.MLFlowLogger), name='mlflow')
-LOGGER_REGISTRY.register_class(cast(L.Logger, L.TensorBoardLogger), name='tensorboard', aliases=['ts_board', 'tsb'])
-LOGGER_REGISTRY.register_class(cast(L.Logger, L.CometLogger), name='comet')
-LOGGER_REGISTRY.register_class(cast(L.Logger, L.CSVLogger), name='csv')
-LOGGER_REGISTRY.register_class(cast(L.Logger, L.WandbLogger), name='wandb')
-LOGGER_REGISTRY.register_class(cast(L.Logger, L.NeptuneLogger), name='netpune')
+__all__ = ['pl_logger_plugin', 'calback_plugin', 'fit_plugin', 'FitApp', 'OdnTrainer', 'APP_REGISTRY',
+           'CALLBACK_REGISTRY', 'LOGGER_REGISTRY']
+"""APP PLUGIN
+"""
+fit_plugin = OdnPlugin(elements={'fit': {'registry': APP_REGISTRY, 'class': FitApp}})
 
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.Checkpoint), name='checkpoint', aliases=['ckpt'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.LearningRateMonitor), name='lr_monitor', aliases=['lrm'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.ModelCheckpoint), name='model_checkpoint', aliases=['mod_ckpt'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.EarlyStopping), name='early_stopping', aliases=['early_stop',
-                                                                                                    'e_stop'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.RichModelSummary), name='rich_model_summary', aliases=['rich_sum'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.QuantizationAwareTraining), name='quantization')
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.StochasticWeightAveraging), name='stochastic_weighted_averaging',
-                                 aliases=['swa'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.ModelPruning), name='model_pruning', aliases=['pruning'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.GradientAccumulationScheduler),
-                                 name='gradient_accumulator_scheduler',
-                                 aliases=['grad_acc_sched', 'gas'])
-CALLBACK_REGISTRY.register_class(cast(C.Callback, C.TQDMProgressBar), name='tqdm_progress_bar', aliases=['tqdm'])
+"""LOGGER PLUGIN
+"""
+pl_logger_plugin = OdnPlugin(elements={'mlflow': {'registry': LOGGER_REGISTRY, 'class': L.MLFlowLogger},
+                                       'tensorboard': {'registry': LOGGER_REGISTRY, 'class': L.TensorBoardLogger},
+                                       'comet': {'registry': LOGGER_REGISTRY, 'class': L.CometLogger},
+                                       'csv': {'registry': LOGGER_REGISTRY, 'class': L.CSVLogger},
+                                       'wandb': {'registry': LOGGER_REGISTRY, 'class': L.WandbLogger},
+                                       'neptune': {'registry': LOGGER_REGISTRY, 'class': L.NeptuneLogger}})
+
+"""CALLBACK PLUGIN
+"""
+calback_plugin = OdnPlugin(elements={'checkpoint': {'registry': CALLBACK_REGISTRY, 'class': C.Checkpoint,
+                                                    'aliases': ['ckpt']},
+                                     'lr_monitor': {'registry': CALLBACK_REGISTRY, 'class': C.LearningRateMonitor,
+                                                    'aliases': ['lrm']},
+                                     'model_checkpoint': {'registry': CALLBACK_REGISTRY, 'class': C.ModelCheckpoint,
+                                                          'aliases': ['mod_ckpt']},
+                                     'early_stopping': {'registry': CALLBACK_REGISTRY, 'class': C.EarlyStopping,
+                                                        'aliases': ['mod_ckpt']},
+                                     'rich_model_summary': {'registry': CALLBACK_REGISTRY, 'class': C.RichModelSummary,
+                                                            'aliases': ['mod_ckpt']},
+                                     'quantization': {'registry': CALLBACK_REGISTRY,
+                                                      'class': C.QuantizationAwareTraining},
+                                     'stochastic_weighted_averaging': {'registry': CALLBACK_REGISTRY,
+                                                                       'class': C.StochasticWeightAveraging,
+                                                                       'aliases': ['swa']},
+                                     'model_pruning': {'registry': CALLBACK_REGISTRY, 'class': C.ModelPruning,
+                                                       'aliases': ['pruning']},
+                                     'gradient_accumulator_scheduler': {'registry': CALLBACK_REGISTRY,
+                                                                        'class': C.GradientAccumulationScheduler,
+                                                                        'aliases': ['grad_acc_sched', 'gas']},
+                                     'tqdm_progress_bar': {'registry': CALLBACK_REGISTRY, 'class': C.TQDMProgressBar}})
