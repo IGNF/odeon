@@ -7,7 +7,7 @@ from .core.transform import (ALBU_TRANSFORM_REGISTRY, ONE_OFF_ALIASES,
                              ONE_OFF_NAME)
 from .data_module import Input
 
-__all__ = ['data_plugin', 'albu_transform_plugin', 'Input', 'DATA_REGISTRY']
+__all__ = ['data_plugin', 'albu_transform_plugin', 'Input', 'DATA_REGISTRY', 'ALBU_TRANSFORM_REGISTRY']
 
 
 """
@@ -52,7 +52,6 @@ albu_transform_plugin = OdnPlugin(elements={'vertical_flip': {'class': A.Vertica
                                                            'registry': ALBU_TRANSFORM_REGISTRY}
                                             })
 
-albu_transform_plugin.register()
 
 """DATA PLUGIN
 """
