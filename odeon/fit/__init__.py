@@ -11,8 +11,11 @@ from .callbacks import CALLBACK_REGISTRY
 from .logger import LOGGER_REGISTRY
 from .trainer import OdnTrainer
 
-__all__ = ['pl_logger_plugin', 'pl_callback_plugin', 'fit_plugin', 'FitApp', 'OdnTrainer', 'APP_REGISTRY',
+__all__ = ['pl_logger_plugin', 'pl_callback_plugin',
+           'fit_plugin', 'FitApp',
+           'OdnTrainer', 'APP_REGISTRY',
            'CALLBACK_REGISTRY', 'LOGGER_REGISTRY']
+
 """APP PLUGIN
 """
 fit_plugin = OdnPlugin(elements={'fit': {'registry': APP_REGISTRY, 'class': FitApp}})

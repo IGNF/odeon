@@ -42,6 +42,7 @@ class Input(OdnData):
                  validate_params: List[Dict] | Dict | None = None,
                  test_params: Dict = None,
                  predict_params: Dict = None):
+
         super(Input, self).__init__()
         self.fit_params = fit_params
         self.validate_params = validate_params

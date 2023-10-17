@@ -60,6 +60,7 @@ class UniversalDataset(Dataset):
         self._crs = self.data.crs
         self._debug = debug
         # case inference by zone, we split
+        # TODO this part should be in the DataFactory
         if self.by_zone and self.inference_mode:
             assert isinstance(self.data, gpd.GeoDataFrame)
             d = []
