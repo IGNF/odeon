@@ -1,229 +1,53 @@
-import argparse
-import os
-import sys
-from pprint import pformat
-import json
-from odeon.commons.timer import Timer
-from odeon.commons.json_interpreter import JsonInterpreter
-from odeon import LOGGER
-from odeon.commons.exception import OdeonError, ErrorCodes
+"""main module
 
+This module is used as command line entrypoint of odeon
+The main function is the entrypoint.
 
-def parse_arguments():
+this command line tools brings the ability to use an Odeon App registered in the app registry
+from the command line. The app is configured with a configuration file (omegaconf by default,
+the parameter of the parser mode is controlled with the Env class and the env configuration file)
 
-    """
-    parse arguments
-    Returns
-    -------
+odeon --help or -h gives access to the main help, which presents
+the how-to of the cli, and gives the list of the available Apps
 
-    """
+"""
+from sys import argv
+from typing import List
 
-    available_tools = ['sample_grid', 'sample_sys', 'stats', 'generate', 'train', 'detect', 'metrics']
-    parser = argparse.ArgumentParser()
-    parser.add_argument("tool", help="command to be launched", choices=available_tools)
-    parser.add_argument("-c", "--config", action='store', type=str, help="json configuration file (required)",
-                        required=True)
-    parser.add_argument("-v", "--verbosity", action="store_true", help="increase output verbosity", default=0)
-    args = parser.parse_args()
-    schema_path = os.path.join(os.path.dirname(__file__), *["scripts", "json_defaults",
-                               f"{args.tool}_schema.json"])
+from odeon.core.app import APP_REGISTRY, App
+from odeon.core.env import Env
 
-    with open(schema_path) as schema_file:
-        schema = json.load(schema_file)
+ENV = Env()
 
-    if args.config is None or not os.path.exists(args.config):
+AVAILABLE_APP = [f"app: {key}, \n doc: {value.__doc__} \n\n\n" for key, value in APP_REGISTRY.get_registry().items()]
+HELP_MESSAGE = f"""
+to use odeon at command line you have to call an  odeon app.
+An Odeon app is a class inheriting from `odeon.core.app.App` taking as argument a configuration dataclass.
 
-        message = "ERROR: config file not found (check path)"
-        LOGGER.error(message)
-        raise OdeonError(ErrorCodes.ERR_IO, message)
+An example of command line call with the Fit App is `odeon fit --conf my_config_file.yaml
+if you want help for a specific App, you can use the `odeon my_app_name --help` command
+by example: `odeon fit --help`
 
-    try:
-        with open(args.config, 'r') as json_file:
-            json_dict = JsonInterpreter(json_file)
-            # json_dict.check_content(["data_sources", "model_setup"])
-            if json_dict.is_valid(schema):
-                return args.tool, json_dict.__dict__, args.verbosity
-
-            # return args.tool, json_dict.get_dict(), args.verbosity
-    except IOError:
-
-        message = "JSON file incorrectly formatted"
-        LOGGER.error(message + str(IOError))
-
-        raise OdeonError(
-            ErrorCodes.ERR_JSON_SCHEMA_ERROR,
-            message,
-            stack_trace=IOError)
+The available apps in your environment are \n {AVAILABLE_APP}
+"""
 
 
 def main():
 
-    try:
-
-        tool, conf, verbosity = parse_arguments()
-
-    except OdeonError:
-
-        return ErrorCodes.ERR_MAIN_CONF_ERROR
-
-    if verbosity:
-
-        LOGGER.setLevel('DEBUG')
+    app_name: str = argv[1]
+    if argv[1] in ['--help', '-h']:
+        return HELP_MESSAGE
     else:
-        LOGGER.setLevel('INFO')
-
-    LOGGER.debug(f"Loaded configuration: \n{pformat(conf, indent=4)}")
-
-    if tool == "sample_grid":
-
-        from odeon.scripts.sample_grid import SampleGrid
-
-        with Timer("Sample Grid"):
-
-            image_conf, sampler_conf = conf['image'], conf['sampler']
-            grid_sample = SampleGrid(verbosity, **sampler_conf, **image_conf)
-            grid_sample()
-
-        return 0
-
-    elif tool == "sample_sys":
-
-        from odeon.scripts.sample_sys import SampleSys
-
-        with Timer("Systematic sampling"):
-
-            try:
-
-                io = conf["io"]
-                sampling = conf["sampling"]
-                patch = conf["patch"]
-                LOGGER.debug(io)
-                LOGGER.debug(sampling)
-                LOGGER.debug(patch)
-                sample_sys = SampleSys(**io, **sampling, **patch)
-                sample_sys()
-
-            except OdeonError as oe:
-
-                LOGGER.error(oe)
-                return oe.error_code
-
-    elif tool == "generate":
-
-        from odeon.scripts.generate import Generator
-
-        with Timer("Generate data"):
-
-            try:
-
-                image_layers = conf["image_layers"]
-                vector_classes = conf["vector_classes"]
-                image = conf["image"]
-                generator_conf = conf["generator"]
-                generator = Generator(image_layers, vector_classes, **image, **generator_conf)
-                generator()
-                return 0
-
-            except OdeonError as oe:
-
-                LOGGER.error(oe)
-                return oe.error_code
-
-    elif tool == "stats":
-
-        from odeon.scripts.stats import Stats
-
-        with Timer("Statistics"):
-
-            try:
-                stats_conf = conf['stats_setup']
-                statistics = Stats(**stats_conf)
-                statistics()
-                return 0
-
-            except OdeonError as oe:
-                LOGGER.error(oe)
-                return oe.error_code
-
-    elif tool == "train":
-
-        from odeon.scripts.train import Trainer
-
-        with Timer("Train model"):
-
-            try:
-
-                datasource_conf = conf.get('data_source')
-                model_conf = conf.get('model_setup')
-                train_conf = conf.get('train_setup')
-                trainer = Trainer(verbosity, **datasource_conf, **model_conf, **train_conf)
-                trainer()
-                return 0
-
-            except OdeonError as oe:
-
-                LOGGER.error(oe)
-                return oe.error_code
-
-    elif tool == "detect":
-
-        from odeon.scripts.detect import DetectionTool
-
-        with Timer("Detecting"):
-
-            try:
-
-                model = conf["model"]
-                output_param = conf["output_param"]
-                detect_param = conf["detect_param"]
-                image = conf["image"]
-
-                if "zone" in conf.keys():
-
-                    zone = conf["zone"]
-                    detector = DetectionTool(verbosity, **image, **model, **output_param, **detect_param, zone=zone)
-                    detector()
-
-                else:
-
-                    dataset = conf["dataset"]
-                    detector = DetectionTool(verbosity,
-                                             **image,
-                                             **model,
-                                             **output_param,
-                                             **detect_param,
-                                             dataset=dataset)
-                    detector()
-
-                return 0
-
-            except OdeonError as oe:
-
-                LOGGER.error(oe)
-                return oe.error_code
-
-    elif tool == "metrics":
-
-        from odeon.scripts.cli_metrics import CLIMetrics
-
-        with Timer("Metrics"):
-
-            try:
-                metrics_conf = conf['metrics_setup']
-                metrics = CLIMetrics(**metrics_conf)
-                metrics()
-                return 0
-
-            except OdeonError as oe:
-
-                LOGGER.error(oe)
-                return oe.error_code
-
-    else:
-
-        return ErrorCodes.ERR_MAIN_CONF_ERROR
+        assert len(argv) > 2, 'your command line should of form `odeon app_name --conf my_conf_file` or `odeon --help`'
+        app_args: List = argv[2:]
+        app: App = APP_REGISTRY.get(app_name)
+        app_config = app.get_class_config()
+        parser, cfg, debug = app.parse_args(app_config, app_args, parser_mode=ENV.config.config_parser)
+        # logger = get_logger(__name__, debug=debug)
+        instance = app.get_instance(parser=parser, cfg=cfg)
+        instance()
 
 
 if __name__ == '__main__':
 
-    sys.exit(main())
+    main()
