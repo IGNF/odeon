@@ -1,67 +1,36 @@
-# python ml skeleton project
-generic skeleton for machine learning project with python, hydra, pytest, sphinx, github actions, etc.
-with dummy functionalities!
-It is mostly oriented geospatial projects
+# ODEON
 
-[![PyPI python](https://img.shields.io/pypi/pyversions/pmps)](https://pypi.org/project/pmps)
-[![PyPI version](https://badge.fury.io/py/pmps.svg)](https://pypi.org/project/pmps)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENCE)
-[![Documentation Status](https://readthedocs.org/projects/kornia/badge/?version=latest)](https://python-ml-project-skeleton.readthedocs.io/en/latest)
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/samysung/python_ml_project_skeleton/main.svg)](https://results.pre-commit.ci/latest/github/samysung/python_ml_project_skeleton/main)
-[![codecov](https://codecov.io/gh/samysung/python_ml_project_skeleton/branch/main/graph/badge.svg?token=AP5UNFJXCU)](https://codecov.io/gh/samysung/python_ml_project_skeleton)
 
-English | [Français](README_fr-FR.md)
 
-## Why this project?
+English | [Francais](README_fr-FR.md)
 
-The goal of this project is to present a standard architecture of python repository/package
-including a full CiCd pipeline to document/test/deploy your project with standard methods
-of 2022. It can be used as starting point for any project without reinventing the wheel.
+## Why this name
+ODEON stands for Object Delineation on Earth Observations with Neural network.
 
-## The code has no interest!
-
-The code of this project is totally dummy: it makes simple
-mathematics operations like addition and subtration!
-The next iteration will make the opetations more interesting by
-using multi-layers perceptron! It will try to add a complete example of Hydra
-configuration.
-<br/><br/>In a close future, it will serve as a demonstrator by the example
-of a standard ML pipeline for experimentation and production
+## What is the purpose of this library?
+It used to be a set of command line tool for semantic segmentation,
+it is now pivoting to an agnostic framework for deep learning applied to
+GIS industry
 
 ## Installation
+The new version is still in high development phase, but you can still
+use the legacy version
 
-### Install requirements
-As Gdal dependencies are presents it's preferable to
-install dependencis via conda before installing the package:
+### Installation requirements
+As Gdal dependencies are presents we recommend to
+install the dependencies via conda/mamba before installing the package:
+#### Legacy version
 ```bash
-  git clone https://github.com/samysung/python_ml_project_skeleton
-  cd python_ml_project_skeleton/packaging
-  conda env create -f package_env.yml
-  ```
-### From pip:
-
-  ```bash
-  pip install pmps
-  or pip install pmps==vx.x # for a specific version
-  ```
-
-<details>
-  <summary>Other installation options</summary>
-
-  #### From source:
-
-  ```bash
-  python setup.py install
-  ```
-
-  #### From source with symbolic links:
-
-  ```bash
+  git clone -b odeon-legacy git@github.com:IGNF/odeon.git
+  cd cd odeon
+  conda(or mamba) env create -f package_env.yml
   pip install -e .
-  ```
-
-  #### From source using pip:
-
-  ```bash
-  pip install git+https://github.com/samysung/python_ml_project_skeleton
+```
+#### New version
+```bash
+  git clone git:odeon-legacy git@github.com:IGNF/odeon.git
+  cd cd odeon/packaging
+  conda(or mamba) env create -f package_env.yaml
+  pip install -e .
   ```
