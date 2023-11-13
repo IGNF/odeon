@@ -1,4 +1,14 @@
 # Changes
+## 0.3.0 (2023-11-13)
+ ***V.0.3.0 merge the new version of Odeon into the main code***
+- Old code has been totally removed excepted changelogs
+- Changelogs has been converted into markdown
+- New version is based on a modular architecture based on Generic Registry Pattern
+- Segmentation Lightning module and Binary Change detection module are integrated
+- Data Module is multi modal and multi task by nature
+- OdeonFit is the App for training deep learning models
+- The first augmentation library is Albumentation
+- Plugin system is still in development
 
 ## 0.2.20 (2023-03-19)
 - missing one odeon-landcover occurrence to update
