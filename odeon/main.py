@@ -38,7 +38,8 @@ def main():
     if argv[1] in ['--help', '-h']:
         return HELP_MESSAGE
     else:
-        assert len(argv) > 2, 'your command line should of form `odeon app_name --conf my_conf_file` or `odeon --help`'
+        assert len(argv) > 2, ('your command line should '
+                               'be of form `odeon app_name --conf my_conf_file` or `odeon --help`')
         app_args: List = argv[2:]
         app: App = APP_REGISTRY.get(app_name)
         app_config = app.get_class_config()

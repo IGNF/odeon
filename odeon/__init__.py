@@ -30,6 +30,7 @@ __all__ = ['Env', 'ODEON_ENV', 'ODEON_PATH', 'binary_metric_plugin', 'multilabel
            'ChangeUnet', 'FitApp', 'fit_plugin', 'pl_callback_plugin', 'pl_logger_plugin', 'APP_REGISTRY',
            'GenericRegistry', 'DATA_REGISTRY', 'Input', 'data_plugin', 'ALBU_TRANSFORM_REGISTRY',
            'albu_transform_plugin']
+
 # DEFAULT_ODEON_PATH: Path = HOME
 _this_dir: Path = pathlib.Path(__file__).resolve().parent
 _URL_ENABLED: bool = True
@@ -52,7 +53,11 @@ def bootstrap() -> Env:
     Used to check if the .odeon directory is created and env.yml is inside.
     Otherwise, it will create the necessary directory and config file associated
 
+    Returns
+    -------
+    Env
     """
+
     create_path_if_not_exists(ODEON_PATH)
 
     if ODEON_ENV.is_file():
