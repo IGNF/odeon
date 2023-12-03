@@ -139,10 +139,13 @@ class Env(metaclass=Singleton):
 
     def _create_user_path(self) -> URI | None:
         p: URI | None = None
-        if self.config.project.name != '':
-            p = Path(str(self.config.project.name))
-        if self.config.team.name != '':
-            p = Path(str(self.config.project.name)) if p is None else Path(p) / str(self.config.project.name)
-        if self.config.user.name != '':
-            p = Path(str(self.config.user.name)) if p is None else Path(p) / str(self.config.user.name)
+        if self.config.project is not None:
+            if self.config.project.name != '':
+                p = Path(str(self.config.project.name))
+        if self.config.team is not None:
+            if self.config.team.name != '':
+                p = Path(str(self.config.project.name)) if p is None else Path(p) / str(self.config.project.name)
+        if self.config.user is not None:
+            if self.config.user.name != '':
+                p = Path(str(self.config.user.name)) if p is None else Path(p) / str(self.config.user.name)
         return p

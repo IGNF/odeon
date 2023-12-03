@@ -4,11 +4,11 @@ Experiment name: organization/project/team/phase/experiment_name/run_id
 
 from typing import Protocol
 
-import mlflow
+# import mlflow
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import MLFlowLogger
+# from pytorch_lightning.loggers import MLFlowLogger
 
-
+"""
 class MlFlowProtocol(Protocol):
 
     def configure_mlflow(self, uri, experiment_name: str, run_name: str) -> MLFlowLogger:
@@ -22,6 +22,7 @@ class MlFlowProtocol(Protocol):
             run_id=mlflow.active_run().info.run_id,
         )
         return mlf_logger
+"""
 
 
 class OdnTrainer(Trainer):

@@ -22,13 +22,17 @@ from torchmetrics.classification import (  # type: ignore[attr-defined]
     MulticlassPrecision, MulticlassJaccardIndex, MulticlassF1Score)
 
 from odeon.core.types import OdnMetric
-from odeon.models.change.arch.change_unet import FCSiamConc, FCSiamDiff
+from odeon.core.types import PARAMS, URI
+from odeon.models.change.arch.change_unet import FCSiamDiff
 from odeon.models.core.models import MODEL_REGISTRY
 
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
 DataLoader.__module__ = "torch.utils.data"  # Sphinx bug
 __all__ = ['MultiTaskChangeUnet']
+
+DEFAULT_LOSS_PARAMS = {'change': {'loss': 'bce'}, 'segmentation': {'loss': 'ce'}}
+DEFAULT_METRICS_PARAMS = {'change': {'loss': 'bce'}, 'segmentation': {'loss': 'ce'}}
 
 
 @MODEL_REGISTRY.register(name='multi_task_change_unet', aliases=['mtc_unet'])
@@ -37,10 +41,11 @@ class MultiTaskChangeUnet(pl.LightningModule):
 
     """
     def __init__(self,
-                 model: str = 'fc_siam_conc',
                  model_params: Optional[Dict] = None,
-                 loss: str = 'bce',
-                 lr: float = 0.0001,
+                 loss_params: Optional[Dict[str, PARAMS]] = None,
+                 metric_params: Optional[Dict[str, PARAMS]] = None,
+                 optimizer_params: Optional[Dict[str, PARAMS]] = None,
+                 pretrained_trunk: URI | nn.Module | None = None,
                  threshold: float = 0.5,
                  **kwargs: Any) -> None:
         """Initialize the LightningModule with a model and loss function
@@ -49,8 +54,8 @@ class MultiTaskChangeUnet(pl.LightningModule):
             ValueError: if kwargs arguments are invalid
         """
         super().__init__()
-        self.model = self.configure_model(model=model, model_params=model_params)
-        self.loss = self.configure_loss(loss=loss)
+        self.model = self.configure_model(model_params=model_params)
+        self.loss = self.configure_loss(loss_params=loss_params)
         self.train_metrics, self.val_metrics, self.test_metrics = self.configure_metrics(metric_params={})
         # Creates `self.hparams` from kwargs
         self.save_hyperparameters()  # type: ignore[operator]
@@ -70,13 +75,11 @@ class MultiTaskChangeUnet(pl.LightningModule):
         """
 
     def configure_model(self,
-                        model: str = 'fc_siam_conc',
                         model_params: Optional[Dict] = None) -> nn.Module:
         """
         Configures the task based on kwargs parameters passed to the constructor.
         Parameters
         ----------
-        model
         model_params
 
         Returns
@@ -86,18 +89,11 @@ class MultiTaskChangeUnet(pl.LightningModule):
 
         if model_params is None:
             model_params = {}
-        if model == "fc_siam_diff":
-            return FCSiamDiff(**model_params)
-        elif model == "fc_siam_conc":
-            return FCSiamConc(**model_params)
-        else:
-            raise ValueError(
-                f"Model type '{model}' is not valid. "
-                f"Currently, only supports 'unet'."
-            )
+
+        return FCSiamDiff(**model_params)
 
     def configure_loss(self,
-                       loss: str) -> nn.Module:
+                       loss_params: Optional[Dict[str, PARAMS]]) -> nn.Module:
         if loss == "bce":
             # ignore_value = -1000 if self.ignore_index is None else self.ignore_index
             return nn.BCEWithLogitsLoss(reduction='mean')
