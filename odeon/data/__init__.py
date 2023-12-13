@@ -13,7 +13,8 @@ __all__ = ['data_plugin', 'albu_transform_plugin', 'Input', 'DATA_REGISTRY', 'AL
 """
 ALBU TRANSFORM REGISTRY
 """
-albu_transform_plugin = OdnPlugin(elements={'vertical_flip': {'class': A.VerticalFlip,
+albu_transform_plugin = OdnPlugin(name='albu_transform',
+                                  elements={'vertical_flip': {'class': A.VerticalFlip,
                                                               'registry': ALBU_TRANSFORM_REGISTRY,
                                                               'aliases': ['v_flip']},
                                             'horizontal_flip': {'class': A.HorizontalFlip,
@@ -55,7 +56,8 @@ albu_transform_plugin = OdnPlugin(elements={'vertical_flip': {'class': A.Vertica
 
 """DATA PLUGIN
 """
-data_plugin = OdnPlugin({'input': {'class': Input,
-                                   'registry': DATA_REGISTRY, 'name': 'input',
-                                   'aliases': ['default_input', 'lightning_data_module']}
-                         })
+data_plugin = OdnPlugin(name='input',
+                        elements={'input': {'class': Input,
+                                  'registry': DATA_REGISTRY, 'name': 'input',
+                                  'aliases': ['default_input', 'lightning_data_module']}}
+                        )

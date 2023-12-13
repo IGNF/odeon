@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, Union, List
 from copy import deepcopy
 
-# from typing import List
+# from typing introspection.py List
 import segmentation_models_pytorch as smp
 import torch
 from segmentation_models_pytorch import Unet

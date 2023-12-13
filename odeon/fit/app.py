@@ -6,7 +6,7 @@ from pytorch_lightning import (LightningDataModule, LightningModule,
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
-# from odeon import LOGGER
+# from odeon introspection.py LOGGER
 from odeon.core.app import APP_REGISTRY, App
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.singleton import Singleton

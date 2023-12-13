@@ -2,33 +2,30 @@
 """
 import pathlib
 from collections.abc import Mapping
-# from dataclasses import fields
+# from dataclasses introspection.py fields
 from pathlib import Path
 from typing import Any, List, Optional
 
 from jsonargparse import set_config_read_mode
 from jsonargparse import ArgumentParser
-# from omegaconf import OmegaConf
+# from omegaconf introspection.py OmegaConf
 
 from odeon.core.app import APP_REGISTRY
 from odeon.core.registry import GenericRegistry
-from odeon.data import (ALBU_TRANSFORM_REGISTRY, DATA_REGISTRY, Input,
-                        albu_transform_plugin, data_plugin)
-from odeon.models import (MODEL_REGISTRY, ChangeUnet, SegmentationModule,
-                          model_plugin)
+from odeon.data import (ALBU_TRANSFORM_REGISTRY, DATA_REGISTRY, Input)
+from odeon.models import (MODEL_REGISTRY, ChangeUnet, SegmentationModule)
 
 from .core.default_path import ODEON_ENV, ODEON_PATH
 from .core.env import Env, EnvConf, get_env_variable
 from .core.io_utils import create_empty_file, create_path_if_not_exists
 from .core.types import PARSER
-# from .fit import FitApp, fit_plugin, pl_callback_plugin, pl_logger_plugin
+# from .fit introspection.py FitApp, fit_plugin, pl_callback_plugin, pl_logger_plugin
 # TODO load plugins
-from .metrics import (METRIC_REGISTRY, binary_metric_plugin,
-                      multiclass_metric_plugin, multilabel_metric_plugin)
+from .metrics import METRIC_REGISTRY
 
-__all__ = ['Env', 'ODEON_ENV', 'ODEON_PATH', 'binary_metric_plugin', 'multilabel_metric_plugin',
-           'MODEL_REGISTRY', 'METRIC_REGISTRY', 'SegmentationModule', 'ChangeUnet', 'FitApp', 'APP_REGISTRY',
-           'GenericRegistry', 'DATA_REGISTRY', 'Input', 'data_plugin', 'ALBU_TRANSFORM_REGISTRY']
+__all__ = ['Env', 'ODEON_ENV', 'ODEON_PATH', 'MODEL_REGISTRY', 'METRIC_REGISTRY',
+           'SegmentationModule', 'ChangeUnet', 'APP_REGISTRY',
+           'GenericRegistry', 'DATA_REGISTRY', 'Input', 'ALBU_TRANSFORM_REGISTRY']
 
 # DEFAULT_ODEON_PATH: Path = HOME
 _this_dir: Path = pathlib.Path(__file__).resolve().parent
@@ -62,7 +59,6 @@ def bootstrap() -> Env:
     parser.add_dataclass_arguments(theclass=EnvConf, nested_key='--env')
     if ODEON_ENV.is_file():
 
-
         cfg = parser.parse_path(str(ODEON_ENV))
         instantiated_conf = parser.instantiate_classes(cfg=cfg)
         env = instantiated_conf.env
@@ -77,7 +73,9 @@ def bootstrap() -> Env:
     else:
         # env_fields = fields(EnvConf())
         # end_d = {field.name: field.value}
-        create_empty_file(path=ODEON_ENV)
+        with open('default_config.yaml', 'w') as file:
+            # Exporting as YAML
+            file.write(parser.dump(cfg=parser.parse_args([])))
         env = Env()
 
     return env
