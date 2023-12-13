@@ -61,7 +61,8 @@ def bootstrap() -> Env:
 
         cfg = parser.parse_path(str(ODEON_ENV))
         instantiated_conf = parser.instantiate_classes(cfg=cfg)
-        env = instantiated_conf.env
+        conf_env = instantiated_conf.env
+        env = Env(config=conf_env)
         """"
         schema = OmegaConf.structured(EnvConf)
         conf = OmegaConf.load(ODEON_ENV)

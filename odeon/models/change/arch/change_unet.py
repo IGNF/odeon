@@ -428,7 +428,7 @@ class MultiTaskSiamDiff(FCSiamDiff):
 
             if self.segmentation_trunk:
 
-                self.change_head = self.segmentation_trunk.
+                self.change_head = self.segmentation_trunk
     def build(self):
         ...
 

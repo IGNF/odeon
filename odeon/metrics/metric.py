@@ -1,15 +1,25 @@
 from typing import Dict, List
 
 from odeon.core.registry import GenericRegistry
-from odeon.core.types import OdnMetric
+
+from .types import OdnMetric
 
 
-class MetricRegistry(GenericRegistry[OdnMetric]):
+class BinaryMetricRegistry(GenericRegistry[OdnMetric]):
     _registry: Dict[str, OdnMetric] = {}
+    _alias_registry: Dict[str, str] = {}
 
+class MulticlassMetricRegistry(GenericRegistry[OdnMetric]):
+    _registry: Dict[str, OdnMetric] = {}
+    _alias_registry: Dict[str, str] = {}
 
-METRIC_REGISTRY = MetricRegistry
-GenericRegistry.register_class(cl=METRIC_REGISTRY, name='metrics', aliases=['metric_registry'])
+class MultilabelMetricRegistry(GenericRegistry[OdnMetric]):
+    _registry: Dict[str, OdnMetric] = {}
+    _alias_registry: Dict[str, str] = {}
+
+BINARY_METRIC_REGISTRY = BinaryMetricRegistry
+MULTICLASS_METRIC_REGISTRY = MulticlassMetricRegistry
+MULTILABEL_METRIC_REGISTRY = MultilabelMetricRegistry
 
 
 def build_metrics(metrics: List[Dict]) -> List[OdnMetric]:
@@ -18,7 +28,7 @@ def build_metrics(metrics: List[Dict]) -> List[OdnMetric]:
         name = metric['name']
         if 'params' in metric:
             params: Dict = metric['params']
-            METRIC_REGISTRY.create(name=name, **params)
+            BINARY_METRIC_REGISTRY.create(name=name, **params)
         else:
-            METRIC_REGISTRY.create(name=name)
+            BINARY_METRIC_REGISTRY.create(name=name)
     return result

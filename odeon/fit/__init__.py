@@ -16,11 +16,13 @@ __all__ = ['pl_logger_plugin', 'pl_callback_plugin',
 
 """APP PLUGIN
 """
-fit_plugin = OdnPlugin(elements={'fit': {'registry': APP_REGISTRY, 'class': FitApp}})
+fit_plugin = OdnPlugin(name='fit',
+                       elements={'fit': {'registry': APP_REGISTRY, 'class': FitApp}})
 
 """LOGGER PLUGIN
 """
-pl_logger_plugin = OdnPlugin(elements={'mlflow': {'registry': LOGGER_REGISTRY, 'class': L.MLFlowLogger},
+pl_logger_plugin = OdnPlugin(name='pl_logger',
+                             elements={'mlflow': {'registry': LOGGER_REGISTRY, 'class': L.MLFlowLogger},
                                        'tensorboard': {'registry': LOGGER_REGISTRY, 'class': L.TensorBoardLogger},
                                        'comet': {'registry': LOGGER_REGISTRY, 'class': L.CometLogger},
                                        'csv': {'registry': LOGGER_REGISTRY, 'class': L.CSVLogger},
@@ -29,7 +31,8 @@ pl_logger_plugin = OdnPlugin(elements={'mlflow': {'registry': LOGGER_REGISTRY, '
 
 """CALLBACK PLUGIN
 """
-pl_callback_plugin = OdnPlugin(elements={'checkpoint': {'registry': CALLBACK_REGISTRY, 'class': C.Checkpoint,
+pl_callback_plugin = OdnPlugin(name='pl_callback',
+                               elements={'checkpoint': {'registry': CALLBACK_REGISTRY, 'class': C.Checkpoint,
                                                         'aliases': ['ckpt']},
                                          'lr_monitor': {'registry': CALLBACK_REGISTRY, 'class': C.LearningRateMonitor,
                                                         'aliases': ['lrm']},

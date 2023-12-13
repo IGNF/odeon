@@ -21,7 +21,7 @@ from torchmetrics.classification import (  # type: ignore[attr-defined]
     BinaryRecall, BinarySpecificity, MulticlassAccuracy, MulticlassRecall, MulticlassSpecificity,
     MulticlassPrecision, MulticlassJaccardIndex, MulticlassF1Score)
 
-from odeon.core.types import OdnMetric
+from odeon.metrics.types import OdnMetric
 from odeon.core.types import PARAMS, URI
 from odeon.models.change.arch.change_unet import FCSiamDiff
 from odeon.models.core.models import MODEL_REGISTRY
