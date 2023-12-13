@@ -58,6 +58,6 @@ albu_transform_plugin = OdnPlugin(name='albu_transform',
 """
 data_plugin = OdnPlugin(name='input',
                         elements={'input': {'class': Input,
-                                  'registry': DATA_REGISTRY, 'name': 'input',
-                                  'aliases': ['default_input', 'lightning_data_module']}}
+                                            'registry': DATA_REGISTRY,
+                                            'aliases': ['default_input', 'lightning_data_module']}}
                         )

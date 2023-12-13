@@ -5,12 +5,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from omegaconf import OmegaConf
-
 from .default_path import ODEON_PATH
 from .io_utils import create_path_if_not_exists
 from .logger import get_logger
-from .plugins.plugin import OdnPlugin, PluginRegistry
+from .plugins.plugin import OdnPlugin
 # from .logger introspection.py get_logger
 # from .types introspection.py PARSER
 from .singleton import Singleton
@@ -32,6 +30,16 @@ DEFAULT_MODEL_STORE = ODEON_PATH / 'model_store'
 DEFAULT_TEST_STORE = ODEON_PATH / 'test_store'
 
 DEFAULT_DELIVERY_STORE = ODEON_PATH / 'delivery_store'
+
+DEFAULT_PLUGIN_CONF = {'albu_transform': 'odeon.data:albu_transform_plugin',
+                       'data': 'odeon.data:data_plugin',
+                       'model': 'odeon.models:model_plugin',
+                       'fit': 'odeon.fit:fit_plugin',
+                       'pl_logger': 'oeon.fit.pl_logger_plugin',
+                       'pl_callback': 'odeon.fit.pl_callback_plugin',
+                       'binary_metric': 'odeon.metrics.binary_metric_plugin',
+                       'multiclass_metric': 'odeon.metrics:multiclass_metric_plugin',
+                       'multilabel_metric': 'odeon.metrics:multilabel_metric_plugin'}
 
 
 def set_env_variables(variables: Dict):

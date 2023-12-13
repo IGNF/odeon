@@ -7,7 +7,6 @@ import pandas as pd
 # from pytorch_lightning introspection.py LightningDataModule
 from pytorch_lightning.callbacks.callback import Callback
 from pytorch_lightning.loggers.logger import Logger
-from torchmetrics import Metric, MetricCollection
 
 from .app_utils import Stages
 
@@ -28,7 +27,6 @@ DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
 GeoTuple = int | float | Tuple[float, float] | Tuple[int, int]  # used for stuf like patch size, overlap, etc.
 OptionalGeoTuple = int | float | Tuple[float, float] | Tuple[int, int] | None
 NoneType = type(None)
-OdnMetric = Union[Metric, MetricCollection]
 OdnLogger = Logger
 OdnCallback = Callback
 PARAMS: TypeAlias = Dict[str, Any]
