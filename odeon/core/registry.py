@@ -1,4 +1,4 @@
-from typing import (Any, Dict, Generic, List, Optional, Protocol, TypeVar,
+from typing import (Any, Dict, Generic, List, Optional, TypeVar,
                     Union, cast)
 
 from odeon.core.logger import get_logger
@@ -8,19 +8,24 @@ V = TypeVar("V", bound=Any)
 logger = get_logger(__name__)
 
 
-class FactoryMixin(Protocol):
-    """ Behavioural Protocol for """
-    @classmethod
-    def create(cls, name: str, **kwargs):
-        ...
+class MetaRegistry(type):
+
+    def __str__(self):
+        return self.__class__.__name__
 
 
-class GenericRegistry(FactoryMixin, Generic[T]):
+class GenericRegistry(Generic[T], metaclass=MetaRegistry):
     _registry: Dict[str, T] = {}
+    _alias_registry: Dict[str, str] = {}
+    __name__ = f"registry of type {str(T)}"
 
     @classmethod
     def get_registry(cls) -> Dict[str, T]:
         return cls._registry
+
+    @classmethod
+    def get_aliases_registry(cls) -> Dict[str, T]:
+        return cls._alias_registry
 
     @classmethod
     def get(cls, name: str) -> T:
@@ -33,41 +38,56 @@ class GenericRegistry(FactoryMixin, Generic[T]):
         Returns
         -------
 
+        Raises
+        ------
+        KeyError if name is not registered
         """
-        return cls._registry[name]
+        if name in cls._registry.keys():
+            return cls._registry[name]
+        elif name in cls._alias_registry.keys():
+            return cls._registry[cls._alias_registry[name]]
+        else:
+            raise KeyError(f'Unknown name for registry{str(cls)}')
 
     @classmethod
     def register(cls, name: str, aliases: Optional[Union[str, List[str]]] = None) -> T:
         def inner_wrapper(wrapped_class: T) -> T:
-            if name in cls._registry:
-                logger.warning(
-                    f'{wrapped_class} has one name or alias ({name}) in already existing in registry {cls} .'
-                    f' It Will replace it, old class {cls._registry[name]}')
-            cls.register_class(cl=wrapped_class, name=name, aliases=aliases)
+
+            cls.register_class(cl=wrapped_class, name=name)
+            cls.register_aliases(name=name, aliases=aliases)
             return wrapped_class
         return cast(T, inner_wrapper)
 
     @classmethod
-    def register_class(cls, cl: T, name: str = 'none', aliases: Optional[Union[str, List[str]]] = None):
+    def register_class(cls, cl: T, name: str = 'none'):
         if name != 'none':
             if name in cls._registry:
                 raise KeyError(f'name {name} already in Registry {str(cls)}')
             else:
                 cls.register_fn(cl=cl, name=name)
-        if isinstance(aliases, str):
-            if aliases in cls._registry:
-                raise KeyError(f'alias {aliases} already in Registry {str(cls)}')
-            else:
-                cls.register_fn(cl=cl, name=name)
-        elif isinstance(aliases, List):
-            if len(aliases) > 0:
-                cls.register_class(cl, name='none', aliases=aliases[1:])
+        else:
+            pass
+
+    @classmethod
+    def register_aliases(cls, name: str, aliases: Optional[Union[str, List[str]]] = None):
+        if name != 'none':
+            if aliases is None:
+                pass
+            elif isinstance(aliases, str):
+                cls.register_aliases_fn(alias=aliases, name=name)
+            elif isinstance(aliases, list):
+                for alias in aliases:
+                    cls.register_aliases_fn(alias=str(alias), name=name)
         else:
             pass
 
     @classmethod
     def register_fn(cls, cl: T, name: str):
         cls._registry[name] = cl
+
+    @classmethod
+    def register_aliases_fn(cls, alias: str, name: str):
+        cls._alias_registry[alias] = name
 
     @classmethod
     def create(cls, name: str, **kwargs) -> Optional[T]:

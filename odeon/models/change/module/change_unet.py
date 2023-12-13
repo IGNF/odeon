@@ -1,19 +1,19 @@
 """Segmentation tasks"""
 
-# import warnings
+# introspection.py warnings
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple, cast
 
-# import matplotlib.pyplot as plt
+# introspection.py matplotlib.pyplot as plt
 import pytorch_lightning as pl
 import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 from torch import Tensor
-# from torch.nn.functional import one_hot
+# from torch.nn.functional introspection.py one_hot
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
-# from torchmetrics import Metric
+# from torchmetrics introspection.py Metric
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (  # type: ignore[attr-defined]
     BinaryAccuracy, BinaryF1Score, BinaryJaccardIndex, BinaryPrecision,

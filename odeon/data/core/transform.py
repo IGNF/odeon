@@ -7,10 +7,11 @@ from odeon.core.types import PARAMS
 
 class AlbuTransformRegistry(GenericRegistry[Callable]):
     _registry: Dict[str, Callable] = {}
+    _alias_registry: Dict[str, str] = {}
 
 
 ALBU_TRANSFORM_REGISTRY = AlbuTransformRegistry
-GenericRegistry.register_class(cl=ALBU_TRANSFORM_REGISTRY, name='albu_tranform_registry', aliases=['transform'])
+# GenericRegistry.register_class(cl=ALBU_TRANSFORM_REGISTRY, name='albu_tranform_registry', aliases=['transform'])
 ONE_OFF_NAME = 'one_off'
 ONE_OFF_ALIASES = ['OneOff']
 

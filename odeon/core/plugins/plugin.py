@@ -4,9 +4,9 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 from odeon.core.exceptions import MisconfigurationException
-from odeon.core.registry import GenericRegistry
+from odeon.core.registry import GenericRegistry, T
 from odeon.core.types import PARAMS
-
+from odeon.core.introspection import load_instance
 
 class PluginMaturity(str, Enum):
     STABLE = 'stable'
@@ -43,6 +43,7 @@ class BasePlugin(ABC):
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False, slots=True)
 class OdnPlugin(BasePlugin):
 
+    name: str
     elements: Union[Element, Elements, Dict[str, PARAMS]]
     version: str = ''
     author: str = ''
@@ -79,9 +80,33 @@ class OdnPlugin(BasePlugin):
         for element in self.elements:
             try:
                 registry = element.registry
-                registry.register_class(cl=element.cl, name=element.name, aliases=element.aliases)
+                registry.register_class(cl=element.cl, name=element.name)
+                registry.register_aliases(name=element.name, aliases=element.aliases)
             except KeyError as e:
                 raise MisconfigurationException(message=f'something went wrong during plugin configuration,'
                                                         f'it seems like your plugin name or one of your alias is '
                                                         f'already exists in registry {str(element.registry)},'
                                                         f' details of the error: {str(e)}')
+
+
+PLUGIN_REGISTRY: Dict[str, OdnPlugin] = dict()
+
+
+def _register_plugin(OdnPlugin) -> None:
+    PLUGIN_REGISTRY[OdnPlugin.name] = OdnPlugin
+
+
+def register_plugins_elements():
+    for name, plugin in PLUGIN_REGISTRY.items():
+        plugin.register()
+
+
+def register_plugins(plugins: List[OdnPlugin] | List[str] | str | OdnPlugin | None) -> None:
+    if plugins is None:
+        pass
+    elif isinstance(plugins, OdnPlugin):
+        _register_plugin(plugins)
+    elif isinstance(plugins, str):
+        plugin = load_instance(plugins)
+        _register_plugin(plugin)
+

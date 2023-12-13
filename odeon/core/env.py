@@ -5,14 +5,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from omegaconf import OmegaConf
+
 from .default_path import ODEON_PATH
 from .io_utils import create_path_if_not_exists
 from .logger import get_logger
-from .plugins.plugin import OdnPlugin
-# from .logger import get_logger
-# from .types import PARSER
+from .plugins.plugin import OdnPlugin, PluginRegistry
+# from .logger introspection.py get_logger
+# from .types introspection.py PARSER
 from .singleton import Singleton
 from .types import PARAMS, URI
+
 
 logger = get_logger(__name__)
 ENV_VARIABLE = 'env_variables'
@@ -104,7 +107,7 @@ class EnvConf:
     user: Optional[User] = field(default=None)
     team: Optional[Team] = field(default=None)
     project: Optional[Project] = field(default=None)
-    plugins: List[OdnPlugin | str] | OdnPlugin | None = field(default=None)
+    plugins: List[OdnPlugin] | List[str] | str | OdnPlugin | None = field(default=None)
 
 
 class Env(metaclass=Singleton):
