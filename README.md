@@ -1,9 +1,9 @@
 # ODEON
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENCE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 
-English | [Francais](README_fr-FR.md)
+English | [Francais](./README_fr-FR.md)
 
 ## Why this name
 ODEON stands for Object Delineation on Earth Observations with Neural network.

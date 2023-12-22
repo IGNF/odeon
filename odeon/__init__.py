@@ -1,7 +1,6 @@
 """odeon package
 """
 import pathlib
-from collections.abc import Mapping
 # from dataclasses introspection.py fields
 from pathlib import Path
 from typing import Any, List, Optional
@@ -16,14 +15,13 @@ from odeon.data import (ALBU_TRANSFORM_REGISTRY, DATA_REGISTRY, Input)
 from odeon.models import (MODEL_REGISTRY, ChangeUnet, SegmentationModule)
 
 from .core.default_path import ODEON_ENV, ODEON_PATH
-from .core.env import Env, EnvConf, get_env_variable
-from .core.io_utils import create_empty_file, create_path_if_not_exists
+from .core.env import Env, EnvConf, get_env_variable, DEFAULT_ENV_CONF, DOC_ENV_CONF
+from .core.io_utils import create_empty_file, create_path_if_not_exists, generate_yaml_with_doc
 from .core.types import PARSER
 # from .fit introspection.py FitApp, fit_plugin, pl_callback_plugin, pl_logger_plugin
-# TODO load plugins
-from .metrics import METRIC_REGISTRY
 
-__all__ = ['Env', 'ODEON_ENV', 'ODEON_PATH', 'MODEL_REGISTRY', 'METRIC_REGISTRY',
+
+__all__ = ['Env', 'ODEON_ENV', 'ODEON_PATH', 'MODEL_REGISTRY',
            'SegmentationModule', 'ChangeUnet', 'APP_REGISTRY',
            'GenericRegistry', 'DATA_REGISTRY', 'Input', 'ALBU_TRANSFORM_REGISTRY']
 
@@ -51,18 +49,16 @@ def bootstrap() -> Env:
 
     Returns
     -------
+
     Env
     """
 
-    create_path_if_not_exists(ODEON_PATH)
-    parser = ArgumentParser()
-    parser.add_dataclass_arguments(theclass=EnvConf, nested_key='--env')
-    if ODEON_ENV.is_file():
 
-        cfg = parser.parse_path(str(ODEON_ENV))
-        instantiated_conf = parser.instantiate_classes(cfg=cfg)
-        conf_env = instantiated_conf.env
-        env = Env(config=conf_env)
+    if ODEON_ENV.is_file() is False:
+        create_path_if_not_exists(ODEON_PATH)
+        generate_yaml_with_doc(config_d=DEFAULT_ENV_CONF, docstring=DOC_ENV_CONF)
+        # env_fields = fields(EnvConf())
+        # end_d = {field.name: field.value}
         """"
         schema = OmegaConf.structured(EnvConf)
         conf = OmegaConf.load(ODEON_ENV)
@@ -71,17 +67,17 @@ def bootstrap() -> Env:
         env_conf: EnvConf = EnvConf(**conf)
         """
 
-    else:
-        # env_fields = fields(EnvConf())
-        # end_d = {field.name: field.value}
-        with open('default_config.yaml', 'w') as file:
-            # Exporting as YAML
-            file.write(parser.dump(cfg=parser.parse_args([])))
-        env = Env()
-
+    parser = ArgumentParser()
+    parser.add_dataclass_arguments(theclass=EnvConf, nested_key='--env')
+    cfg = parser.parse_path(str(ODEON_ENV))
+    instantiated_conf = parser.instantiate_classes(cfg=cfg)
+    conf_env = instantiated_conf.env
+    env = Env(config=conf_env)
     return env
 
 
 ENV = bootstrap()  # set the environment of application
+ENV.load_plugins() # load the configured plugins
+
 with (_this_dir / ".." / "VERSION").open() as vf:
     __version__ = vf.read().strip()

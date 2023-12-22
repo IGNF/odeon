@@ -4,7 +4,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from .types import DATAFRAME, URI
+from odeon.core.types import DATAFRAME, URI
 
 CSV_SUFFIX = ".csv"
 

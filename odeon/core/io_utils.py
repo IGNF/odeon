@@ -137,3 +137,55 @@ def save_yaml_file(path: URI, data: Dict) -> None:
 def create_empty_file(path: URI):
     with open(path, 'w'):
         pass
+
+
+def generate_yaml_with_doc(config_d, docstring, filename='config_with_doc.yaml'):
+    """
+    Generate a YAML file from a given dictionary with a documentation header.
+
+    This function takes a dictionary and a documentation string, then generates
+    a YAML file with the documentation as a header. Each line of the documentation
+    is prefixed with a '#' to be interpreted as a comment in YAML.
+
+    Parameters
+    ----------
+    config_d : dict
+        The dictionary to be converted into YAML format.
+    docstring : str
+        The documentation string to be included as a header in the YAML file.
+    filename : str, optional
+        The name of the YAML file to be created. Default is 'config_with_doc.yaml'.
+
+    Returns
+    -------
+    None
+        The function doesn't return anything but writes to a file.
+
+    Examples
+    --------
+    >>> config_d = {'key1': 'value1', 'key2': 42, 'key3': True}
+    >>> docstring = '''This YAML file configures XYZ features.
+    ... It supports multiple data types like string, integer, boolean.'''
+    >>> generate_yaml_with_doc(config_d, docstring, 'example.yaml')
+
+    This will create a file named 'example.yaml' with the following content:
+    # Documentation:
+    # This YAML file configures XYZ features.
+    # It supports multiple data types like string, integer, boolean.
+
+    config:
+      key1: value1
+      key2: 42
+      key3: true
+    """
+    output = docstring.replace('\n', '\n# ')
+    # Preparing the documentation header
+    doc_header = f"# Documentation:\n# {output}\n\n"
+
+    # Converting the dictionary to YAML format
+    yaml_content = yaml.dump({'config': config_d}, default_flow_style=False)
+
+    # Writing to the file
+    with open(filename, 'w') as file:
+        file.write(doc_header + yaml_content)
+

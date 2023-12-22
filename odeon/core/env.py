@@ -13,7 +13,7 @@ from .plugins.plugin import OdnPlugin
 # from .types introspection.py PARSER
 from .singleton import Singleton
 from .types import PARAMS, URI
-
+from .plugins.plugin import load_plugins
 
 logger = get_logger(__name__)
 ENV_VARIABLE = 'env_variables'
@@ -35,11 +35,78 @@ DEFAULT_PLUGIN_CONF = {'albu_transform': 'odeon.data:albu_transform_plugin',
                        'data': 'odeon.data:data_plugin',
                        'model': 'odeon.models:model_plugin',
                        'fit': 'odeon.fit:fit_plugin',
-                       'pl_logger': 'oeon.fit.pl_logger_plugin',
+                       'pl_logger': 'odeon.fit.pl_logger_plugin',
                        'pl_callback': 'odeon.fit.pl_callback_plugin',
                        'binary_metric': 'odeon.metrics.binary_metric_plugin',
                        'multiclass_metric': 'odeon.metrics:multiclass_metric_plugin',
-                       'multilabel_metric': 'odeon.metrics:multilabel_metric_plugin'}
+                       'multilabel_metric': 'odeon.metrics:multilabel_metric_plugin',
+                       'app_plugin': 'odeon.core.app_plugin'}
+
+DEFAULT_ENV_CONF = {'plugins': DEFAULT_PLUGIN_CONF,
+                    'model_store': DEFAULT_MODEL_STORE,
+                    'test_store': DEFAULT_TEST_STORE,
+                    'delivery_store': DEFAULT_DELIVERY_STORE,
+                    'dataset_store': DEFAULT_DATASET_STORE,
+                    'artefact_store': DEFAULT_ARTEFACT_STORE,
+                    'config_store': DEFAULT_CONFIG_STORE,
+                    'feature_store': DEFAULT_FEATURE_STORE}
+
+DOC_ENV_CONF = '''
+                Here is a complete example of how to configure an Odeon environment with your env.yml.
+                By default, your env.yml will be loaded from $HOME, but you can also
+                configure your path with the following environment variable: ODEON_INSTALL_PATH.
+                
+                
+                set_env_variables:
+                  API_KEY: "abc123"
+                  ANOTHER_VAR: "xyz789"
+                get_env_variables:
+                  - "PATH"
+                  - "HOME"
+                config_parser: "json"
+                config_store: "file:///path/to/config/store"
+                artefact_store: "file:///path/to/artefact/store"
+                feature_store: "file:///path/to/feature/store"
+                dataset_store: "file:///path/to/dataset/store"
+                model_store: "file:///path/to/model/store"
+                test_store: "file:///path/to/test/store"
+                delivery_store: "file:///path/to/delivery/store"
+                debug_mode: true
+                user:
+                  name: "John Doe"
+                  email: "john.doe@example.com"
+                  role: "Data Scientist"
+                  id: "123456"
+                  microsoft_teams_id: "78910"
+                  current_user: true
+                team:
+                  name: "Data Team"
+                  email: "data.team@example.com"
+                  members:
+                    - name: "Jane Smith"
+                      email: "jane.smith@example.com"
+                      role: "Analyst"
+                      id: "234567"
+                      microsoft_teams_id: "891011"
+                      current_user: false
+                  current_team: true
+                project:
+                  name: "Remote Sensing Project"
+                  email: "project@example.com"
+                  teams:
+                    - name: "Research Team"
+                      email: "research.team@example.com"
+                plugins: 'albu_transform': 'odeon.data:albu_transform_plugin',
+                         'data': 'odeon.data:data_plugin',
+                         'model': 'odeon.models:model_plugin',
+                         'fit': 'odeon.fit:fit_plugin',
+                         'pl_logger': 'odeon.fit.pl_logger_plugin',
+                         'pl_callback': 'odeon.fit.pl_callback_plugin',
+                         'binary_metric': 'odeon.metrics.binary_metric_plugin',
+                         'multiclass_metric': 'odeon.metrics:multiclass_metric_plugin',
+                         'multilabel_metric': 'odeon.metrics:multilabel_metric_plugin',
+                         'app_plugin': 'odeon.core.app_plugin'
+                '''
 
 
 def set_env_variables(variables: Dict):
@@ -115,7 +182,7 @@ class EnvConf:
     user: Optional[User] = field(default=None)
     team: Optional[Team] = field(default=None)
     project: Optional[Project] = field(default=None)
-    plugins: List[OdnPlugin] | List[str] | str | OdnPlugin | None = field(default=None)
+    plugins: List[OdnPlugin | str] | str | OdnPlugin | None = field(default=None)
 
 
 class Env(metaclass=Singleton):
@@ -148,6 +215,7 @@ class Env(metaclass=Singleton):
         create_path_if_not_exists(self.config.test_store)
         create_path_if_not_exists(self.config.delivery_store)
 
+
     def _create_user_path(self) -> URI | None:
         p: URI | None = None
         if self.config.project is not None:
@@ -160,3 +228,10 @@ class Env(metaclass=Singleton):
             if self.config.user.name != '':
                 p = Path(str(self.config.user.name)) if p is None else Path(p) / str(self.config.user.name)
         return p
+
+    def load_plugins(self):
+        load_plugins(self.config.plugins, force_registry=False)
+
+    def reload_plugins(self):
+        load_plugins(self.config.plugins, force_registry=True)
+
