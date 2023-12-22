@@ -5,9 +5,9 @@ from typing import Dict, Generator, List
 
 import numpy as np
 
-from .env import Env
-from .types import GeoTuple, OptionalGeoTuple
-from .vector import box, create_box_from_bounds
+from odeon.core.env import Env
+from odeon.core.types import GeoTuple, OptionalGeoTuple
+from odeon.layers.vector import box, create_box_from_bounds
 
 env = Env()
 logger = logging.getLogger(__name__)

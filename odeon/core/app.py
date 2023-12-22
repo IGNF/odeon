@@ -42,4 +42,3 @@ class AppRegistry(GenericRegistry[App]):
 
 
 APP_REGISTRY = AppRegistry
-GenericRegistry.register_class(cl=APP_REGISTRY, name='app_registry', aliases=['apps', 'odn_app', 'app'])

@@ -8,8 +8,8 @@ from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
 from torch import Tensor
 
-from odeon.core.data import DTYPE_MAX, InputDType
-from odeon.core.raster import get_dataset, read
+from odeon.layers.data import DTYPE_MAX, InputDType
+from odeon.layers.raster import get_dataset, read
 from odeon.core.types import URI
 
 logger = getLogger(__name__)

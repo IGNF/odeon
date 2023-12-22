@@ -12,9 +12,9 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from torch.utils.data import Dataset
 
-from odeon.core.tile import tile
+from odeon.layers.tile import tile
 from odeon.core.types import DATAFRAME, OptionalGeoTuple
-from odeon.core.vector import create_gdf_from_list, gpd
+from odeon.layers.vector import create_gdf_from_list, gpd
 from odeon.data.core.dataloader_utils import (DEFAULT_OVERLAP,
                                               DEFAULT_PATCH_RESOLUTION,
                                               DEFAULT_PATCH_SIZE)

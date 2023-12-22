@@ -6,7 +6,11 @@ from typing import Dict, List, Literal, Optional, Union
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS
+from odeon.core.introspection import load_instance
+from odeon.core.logger import get_logger
+from odeon.core.python_env import debug_mode
 
+logger = get_logger(logger_name=__name__, debug=debug_mode)
 
 class PluginMaturity(str, Enum):
     STABLE = 'stable'
@@ -50,6 +54,7 @@ class OdnPlugin(BasePlugin):
     plugin_maturity: Literal[PluginMaturity.STABLE, 'stable', PluginMaturity.DEVELOPMENT, 'development',
                              PluginMaturity.EXPERIMENTAL, 'experimental',
                              PluginMaturity.NOT_SPECIFIED, 'not_specified'] = PluginMaturity.NOT_SPECIFIED
+    _is_registered: bool = False
 
     def __post_init__(self):
         self.init()
@@ -76,14 +81,44 @@ class OdnPlugin(BasePlugin):
         else:
             raise TypeError()
 
-    def register(self):
-        for element in self.elements:
-            try:
-                registry = element.registry
-                registry.register_class(cl=element.cl, name=element.name)
-                registry.register_aliases(name=element.name, aliases=element.aliases)
-            except KeyError as e:
-                raise MisconfigurationException(message=f'something went wrong during plugin configuration,'
-                                                        f'it seems like your plugin name or one of your alias is '
-                                                        f'already exists in registry {str(element.registry)},'
-                                                        f' details of the error: {str(e)}')
+    def register(self, force_registry: bool = False):
+        if self._is_registered is False or force_registry:
+            for element in self.elements:
+                try:
+                    registry = element.registry
+                    registry.register_class(cl=element.cl, name=element.name)
+                    registry.register_aliases(name=element.name, aliases=element.aliases)
+                except KeyError as e:
+                    raise MisconfigurationException(message=f'something went wrong during plugin configuration,'
+                                                            f'it seems like your plugin name or one of your alias is '
+                                                            f'already exists in registry {str(element.registry)},'
+                                                            f' details of the error: {str(e)}')
+            self._is_registered = True
+
+
+def _register_plugin(plugin: str | OdnPlugin, force_registry: bool = False):
+    if isinstance(plugin, str):
+        instance = load_instance(plugin)
+        try:
+            assert isinstance(instance, OdnPlugin)
+        except AssertionError:
+            logger.error(f'plugin {instance} is not an instance of OdnPlugin')
+        instance.register(force_registry=force_registry)
+    else:
+        try:
+            assert isinstance(plugin, OdnPlugin)
+        except AssertionError:
+            logger.error(f'plugin {plugin} is not an instance of OdnPlugin')
+
+        plugin.register(force_registry=force_registry)
+
+
+def load_plugins(plugins: List[OdnPlugin | str] | str | OdnPlugin | None, force_registry: bool = False) -> None:
+
+    if isinstance(plugins, list):
+        for plugin in plugins:
+            _register_plugin(plugin=plugin, force_registry=force_registry)
+    elif isinstance(plugins, OdnPlugin):
+        _register_plugin(plugin=plugins, force_registry=force_registry)
+    elif isinstance(plugins, str):
+        _register_plugin(plugin=plugins, force_registry=force_registry)

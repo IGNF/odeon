@@ -57,3 +57,5 @@ dependencies:
   - furo
   - sphinx-design
   - sphinx-autobuild
+  - sphinx_rtd_theme
+  - sphinx-intl
