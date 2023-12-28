@@ -12,6 +12,7 @@ from odeon.core.python_env import debug_mode
 
 logger = get_logger(logger_name=__name__, debug=debug_mode)
 
+
 class PluginMaturity(str, Enum):
     STABLE = 'stable'
     EXPERIMENTAL = 'experimental'
@@ -113,12 +114,19 @@ def _register_plugin(plugin: str | OdnPlugin, force_registry: bool = False):
         plugin.register(force_registry=force_registry)
 
 
-def load_plugins(plugins: List[OdnPlugin | str] | str | OdnPlugin | None, force_registry: bool = False) -> None:
-
+def load_plugins(plugins: Dict[str, OdnPlugin | str] | List[OdnPlugin | str] | str | OdnPlugin | None,
+                 force_registry: bool = False) -> None:
+    logger.debug(f'plugins will be loaded: {plugins}')
     if isinstance(plugins, list):
         for plugin in plugins:
+            _register_plugin(plugin=plugin, force_registry=force_registry)
+    if isinstance(plugins, dict):
+        logger.debug(f'plugins are loaded as dict: {plugins}')
+        for _, plugin in plugins.items():
             _register_plugin(plugin=plugin, force_registry=force_registry)
     elif isinstance(plugins, OdnPlugin):
         _register_plugin(plugin=plugins, force_registry=force_registry)
     elif isinstance(plugins, str):
         _register_plugin(plugin=plugins, force_registry=force_registry)
+    else:
+        logger.debug(f'plugin or plugins are not from a supported type: {type(plugins)}')

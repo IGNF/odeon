@@ -1,13 +1,42 @@
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union, Any, Type
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
 from odeon.core.types import PARAMS
+from odeon.core.logger import get_logger
+from odeon.core.python_env import debug_mode
+
+logger = get_logger(__name__, debug=debug_mode)
 
 
-class AlbuTransformRegistry(GenericRegistry[Callable]):
-    _registry: Dict[str, Callable] = {}
+class AlbuTransformRegistry(GenericRegistry[Type[Callable[..., Any]]]):
+    _registry: Dict[str, Type[Callable[..., Any]]] = {}
     _alias_registry: Dict[str, str] = {}
+
+    @classmethod
+    def create(cls, name: str, **kwargs) -> Callable[..., Any]:
+        """
+        Factory command to create an instance.
+        This method gets the appropriate Registered class from the registry
+        and creates an instance of it, while passing in the parameters
+        given in ``kwargs``.
+
+        Parameters
+        ----------
+         name: str, The name of the executor to create.
+         kwargs
+
+        Returns
+        -------
+         Callable: An instance of the executor that is created.
+        """
+
+        if name not in cls._registry:
+            logger.error(f"{name} not registered in registry {str(name)}")
+            raise KeyError()
+
+        _class = cls.get(name=name)
+        return _class(**kwargs)
 
 
 ALBU_TRANSFORM_REGISTRY = AlbuTransformRegistry

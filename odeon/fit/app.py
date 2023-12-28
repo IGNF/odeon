@@ -7,14 +7,15 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
 # from odeon introspection.py LOGGER
-from odeon.core.app import APP_REGISTRY, App
+from odeon.core.app import App
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.singleton import Singleton
-from odeon.core.types import (PARAMS, STAGES_OR_VALUE, OdnCallback, OdnLogger,
+from odeon.core.types import (PARAMS, STAGES_OR_VALUE,
                               Stages)
 from odeon.data.core.registry import DATA_REGISTRY
 from odeon.models.core.models import MODEL_REGISTRY
 
+from .core.types import OdnCallback, OdnLogger
 from .callbacks import build_callbacks
 from .logger import build_loggers
 from .trainer import OdnTrainer
@@ -366,7 +367,6 @@ class FitConfig:
                           ), callbacks, trainer_config
 
 
-@APP_REGISTRY.register(name='fit')
 class FitApp(App, metaclass=Singleton):
 
     def __init__(self, config: FitConfig | Dict):

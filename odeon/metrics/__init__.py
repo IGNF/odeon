@@ -1,13 +1,17 @@
 from torchmetrics.classification import (BinaryAccuracy, BinaryAUROC,
                                          BinaryAveragePrecision,
                                          BinaryCalibrationError,
-                                         BinaryConfusionMatrix, BinaryF1Score,
-                                         BinaryJaccardIndex, BinaryPrecision,
+                                         BinaryConfusionMatrix,
+                                         BinaryF1Score,
+                                         BinaryJaccardIndex,
+                                         BinaryPrecision,
                                          BinaryPrecisionRecallCurve,
                                          BinaryRecall,
                                          BinaryRecallAtFixedPrecision,
-                                         BinaryROC, BinarySpecificity,
-                                         MulticlassAccuracy, MulticlassAUROC,
+                                         BinaryROC,
+                                         BinarySpecificity,
+                                         MulticlassAccuracy,
+                                         MulticlassAUROC,
                                          MulticlassAveragePrecision,
                                          MulticlassCalibrationError,
                                          MulticlassConfusionMatrix,
@@ -17,8 +21,10 @@ from torchmetrics.classification import (BinaryAccuracy, BinaryAUROC,
                                          MulticlassPrecisionRecallCurve,
                                          MulticlassRecall,
                                          MulticlassRecallAtFixedPrecision,
-                                         MulticlassROC, MulticlassSpecificity,
-                                         MultilabelAccuracy, MultilabelAUROC,
+                                         MulticlassROC,
+                                         MulticlassSpecificity,
+                                         MultilabelAccuracy,
+                                         MultilabelAUROC,
                                          MultilabelAveragePrecision,
                                          MultilabelConfusionMatrix,
                                          MultilabelF1Score,
@@ -27,9 +33,11 @@ from torchmetrics.classification import (BinaryAccuracy, BinaryAUROC,
                                          MultilabelPrecisionRecallCurve,
                                          MultilabelRecall,
                                          MultilabelRecallAtFixedPrecision,
-                                         MultilabelROC, MultilabelSpecificity)
+                                         MultilabelROC,
+                                         MultilabelSpecificity)
 
-from odeon.core.plugins.plugin import OdnPlugin
+from odeon.core.plugins.plugin import OdnPlugin, PluginMaturity
+from odeon.core.registry import GENERIC_REGISTRY
 
 from .metric import BINARY_METRIC_REGISTRY, MULTILABEL_METRIC_REGISTRY, MULTICLASS_METRIC_REGISTRY
 
@@ -37,7 +45,14 @@ __all__ = ['binary_metric_plugin', 'multiclass_metric_plugin', 'multilabel_metri
            'MULTILABEL_METRIC_REGISTRY', 'MULTICLASS_METRIC_REGISTRY', 'BINARY_METRIC_REGISTRY']
 
 binary_metric_plugin = OdnPlugin(name='binary_metric',
-                                 elements={'bin-auc': {'registry': BINARY_METRIC_REGISTRY, 'class': BinaryAUROC},
+                                 author='samy KHELIFI-RICHARDS',
+                                 plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                                 version='0.1',
+                                 elements={
+                                           'binary_metric_registry': {'registry': GENERIC_REGISTRY,
+                                                                      'class': BINARY_METRIC_REGISTRY,
+                                                                      'aliases': ['binary_m_reg']},
+                                           'bin-auc': {'registry': BINARY_METRIC_REGISTRY, 'class': BinaryAUROC},
                                            'bin-accuracy': {'registry': BINARY_METRIC_REGISTRY,
                                                             'class': BinaryAccuracy,
                                                             'aliases': ['bin-acc']},
@@ -73,7 +88,10 @@ binary_metric_plugin = OdnPlugin(name='binary_metric',
                                            })
 
 multiclass_metric_plugin = OdnPlugin(name='multiclass_metric',
-                                     elements={'multic-auc': {'registry': MULTICLASS_METRIC_REGISTRY,
+                                     elements={'multiclass_metric_registry': {'registry': GENERIC_REGISTRY,
+                                                                              'class': MULTICLASS_METRIC_REGISTRY,
+                                                                              'aliases': ['multiclass_m_reg']},
+                                               'multic-auc': {'registry': MULTICLASS_METRIC_REGISTRY,
                                                               'class': MulticlassAUROC},
                                                'multic-accuracy': {'registry': MULTICLASS_METRIC_REGISTRY,
                                                                    'class': MulticlassAccuracy,
@@ -115,7 +133,10 @@ multiclass_metric_plugin = OdnPlugin(name='multiclass_metric',
                                                })
 
 multilabel_metric_plugin = OdnPlugin(name='multilabel_metric',
-                                     elements={'multil-auc': {'registry': MULTILABEL_METRIC_REGISTRY,
+                                     elements={'multilabel_metric_registry': {'registry': GENERIC_REGISTRY,
+                                                                              'class': MULTILABEL_METRIC_REGISTRY,
+                                                                              'aliases': ['multilabel_m_reg']},
+                                               'multil-auc': {'registry': MULTILABEL_METRIC_REGISTRY,
                                                               'class': MultilabelAUROC},
                                                'multil-accuracy': {'registry': MULTILABEL_METRIC_REGISTRY,
                                                                    'class': MultilabelAccuracy,

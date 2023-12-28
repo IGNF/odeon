@@ -29,7 +29,6 @@ DataLoader.__module__ = "torch.utils.data"  # Sphinx bug
 __all__ = ['ChangeUnet']
 
 
-@MODEL_REGISTRY.register(name='change_unet', aliases=['c_unet'])
 class ChangeUnet(pl.LightningModule):
     """
 

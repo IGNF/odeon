@@ -15,14 +15,11 @@ from sys import argv
 from typing import List
 
 from odeon.core.app import APP_REGISTRY, App
-from odeon.core.env import Env
-
-ENV = Env()
 
 AVAILABLE_APP = [f"app: {key}, \n doc: {value.__doc__} \n\n\n" for key, value in APP_REGISTRY.get_registry().items()]
 HELP_MESSAGE = f"""
 to use odeon at command line you have to call an  odeon app.
-An Odeon app is a class inheriting from `odeon.core.app.App` taking as argument a configuration dataclass.
+An Odeon app is a class inheriting from `odeon.core.app.App` taking as argument a configuration dataclass
 
 An example of command line call with the Fit App is `odeon fit --conf my_config_file.yaml
 if you want help for a specific App, you can use the `odeon my_app_name --help` command
@@ -30,6 +27,7 @@ by example: `odeon fit --help`
 
 The available apps in your environment are \n {AVAILABLE_APP}
 """
+from jsonargparse import CLI, Namespace
 
 
 def main():

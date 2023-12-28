@@ -2,7 +2,8 @@ import pytorch_lightning.callbacks as C
 import pytorch_lightning.loggers as L
 
 from odeon.core.app import APP_REGISTRY
-from odeon.core.plugins.plugin import OdnPlugin
+from odeon.core.plugins.plugin import OdnPlugin, PluginMaturity
+from odeon.core.registry import GENERIC_REGISTRY
 
 from .app import FitApp
 from .callbacks import CALLBACK_REGISTRY
@@ -17,12 +18,20 @@ __all__ = ['pl_logger_plugin', 'pl_callback_plugin',
 """APP PLUGIN
 """
 fit_plugin = OdnPlugin(name='fit',
+                       author='samy KHELIFI-RICHARDS',
+                       plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                       version='0.1',
                        elements={'fit': {'registry': APP_REGISTRY, 'class': FitApp}})
 
 """LOGGER PLUGIN
 """
 pl_logger_plugin = OdnPlugin(name='pl_logger',
-                             elements={'mlflow': {'registry': LOGGER_REGISTRY, 'class': L.MLFlowLogger},
+                             author='samy KHELIFI-RICHARDS',
+                             plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                             version='0.1',
+                             elements={'logger_registry': {'class': LOGGER_REGISTRY, 'registry': GENERIC_REGISTRY,
+                                                           'aliases': ['logger_r']},
+                                       'mlflow': {'registry': LOGGER_REGISTRY, 'class': L.MLFlowLogger},
                                        'tensorboard': {'registry': LOGGER_REGISTRY, 'class': L.TensorBoardLogger},
                                        'comet': {'registry': LOGGER_REGISTRY, 'class': L.CometLogger},
                                        'csv': {'registry': LOGGER_REGISTRY, 'class': L.CSVLogger},
@@ -32,7 +41,13 @@ pl_logger_plugin = OdnPlugin(name='pl_logger',
 """CALLBACK PLUGIN
 """
 pl_callback_plugin = OdnPlugin(name='pl_callback',
-                               elements={'checkpoint': {'registry': CALLBACK_REGISTRY, 'class': C.Checkpoint,
+                               author='samy KHELIFI-RICHARDS',
+                               plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                               version='0.1',
+                               elements={'callback_registry': {'class': CALLBACK_REGISTRY,
+                                                               'registry': GENERIC_REGISTRY,
+                                                               'aliases': ['callback_r']},
+                                         'checkpoint': {'registry': CALLBACK_REGISTRY, 'class': C.Checkpoint,
                                                         'aliases': ['ckpt']},
                                          'lr_monitor': {'registry': CALLBACK_REGISTRY, 'class': C.LearningRateMonitor,
                                                         'aliases': ['lrm']},

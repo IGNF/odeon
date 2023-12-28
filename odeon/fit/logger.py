@@ -1,10 +1,45 @@
-from typing import Dict, List, Union, cast
+from typing import Dict, List, Union
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
-from odeon.core.types import PARAMS, OdnLogger
+from odeon.core.types import PARAMS
+from odeon.core.logger import get_logger
+from odeon.core.python_env import debug_mode
 
-LOGGER_REGISTRY = GenericRegistry[OdnLogger]
+from .core.types import OdnLogger
+logger = get_logger(__name__, debug=debug_mode)
+
+
+class LoggerRegistry(GenericRegistry[type[OdnLogger]]):
+    _registry: Dict[str, type[OdnLogger]] = {}
+    _alias_registry: Dict[str, str] = {}
+
+    @classmethod
+    def create(cls, name: str, **kwargs) -> OdnLogger:
+        """
+        Factory command to create an instance.
+        This method gets the appropriate Registered class from the registry
+        and creates an instance of it, while passing in the parameters
+        given in ``kwargs``.
+
+        Parameters
+        ----------
+         name: str, The name of the executor to create.
+         kwargs
+
+        Returns
+        -------
+         OdnLogger: An instance of the executor that is created.
+        """
+
+        if name not in cls._registry:
+            logger.error(f"{name} not registered in registry {str(cls.__name__)}")
+            raise KeyError()
+        _class = cls.get(name=name)
+        return _class(**kwargs)
+
+
+LOGGER_REGISTRY = LoggerRegistry
 
 
 def build_loggers(
@@ -17,9 +52,9 @@ def build_loggers(
                 name = logger['name']
                 if 'params' in logger:
                     params: Dict = logger['params']
-                    result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=name, **params)))
+                    result.append(LOGGER_REGISTRY.create(name=name, **params))
                 else:
-                    result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=name)))
+                    result.append(LOGGER_REGISTRY.create(name=name))
             elif callable(OdnLogger):
                 result.append(logger)
             else:
@@ -27,9 +62,9 @@ def build_loggers(
     elif isinstance(loggers, dict):
         for key, value in loggers.items():
             if value is not None:
-                result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=key, **value)))
+                result.append(LOGGER_REGISTRY.create(name=key, **value))
             else:
-                result.append(cast(OdnLogger, LOGGER_REGISTRY.create(name=key)))
+                result.append(LOGGER_REGISTRY.create(name=key))
     elif isinstance(loggers, OdnLogger):
         return loggers
     elif isinstance(loggers, bool):
