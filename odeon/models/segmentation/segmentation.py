@@ -5,13 +5,12 @@ import torch.nn as nn
 from pytorch_lightning import LightningModule
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from segmentation_models_pytorch import create_model
-from segmentation_models_pytorch.losses import FocalLoss, TverskyLoss
+
 from odeon.models.core.models import MODEL_REGISTRY
 
 __all__ = ['SegmentationModule']
 
 
-@MODEL_REGISTRY.register(name='segmentation_model', aliases=['seg_model', 'seg_mod'])
 class SegmentationModule(LightningModule):
     """Segmentation module for multiclass segmentation with pytorch segmentation models
 

@@ -8,20 +8,22 @@ dependencies:
   - pip
   - python >=3.10,<4
   - tqdm
-  - numpy >=1.17.2,<2
-  - omegaconf >=2.1,<3
+  - numpy >=1.17.2
+  - omegaconf >=2.1
   - jsonargparse
 
   # Geo Dependencies
   - geopandas>=0.10
-  - fiona >=1.8,<2
-  - pyproj >=2.2,<4
-  - rasterio >=1.0.20,<2
-  - rtree >=1,<2
+  - fiona >=1.8
+  - pyproj >=2.2
+  - rasterio >=1.0.20
+  - rtree >=1
+  - shapely >=1.3
+  - pyogrio
 
   # Machine Learning / Dataviz / Computer Vision
   - matplotlib
-  - scikit-learn >=0.21,<2
+  - scikit-learn >=0.21
   - seaborn
   - matplotlib-base >=3.3,<4
   - pillow >=6.2,<10
@@ -29,12 +31,11 @@ dependencies:
 
   # Deep Learning / Pytorch ecosystem
   - pytorch-cuda
-  - pytorch>=2.1.0
+  - pytorch>=2.0.0
   - torchvision >=0.14.1
   - pytorch-lightning >=1.8.4
-  - segmentation-models-pytorch >=0.2,<0.4
-  - shapely >=1.3,<2
-  - timm >=0.4.12,<1
+  - segmentation-models-pytorch >=0.2
+  - timm >=0.4.12
   - torchmetrics
   - tensorboard
   - tensorboardx
@@ -61,7 +62,6 @@ dependencies:
   - sphinx-intl
 
   # TEST DEPENDENCIES
-
   - pytest
   - pytest-flake8==1.0.7
   - flake8==3.9.2  # flake8==4.0.1 is buggy
@@ -74,3 +74,4 @@ dependencies:
   - jupyter
   - jupyterlab
   - voila
+  - conda-build

@@ -3,7 +3,7 @@ from logging import getLogger
 import torch
 
 from odeon.core.registry import GenericRegistry
-from odeon.metrics.metric import METRIC_REGISTRY
+from odeon.metrics.metric import BINARY_METRIC_REGISTRY
 
 logger = getLogger(__name__)
 
@@ -33,7 +33,7 @@ def test_generic_metric_registry():
     aliases = ['b_acc', 'binary_acc']
     pred = torch.tensor([1, 0, 0, 1])
     target = torch.tensor([1, 1, 1, 1])
-    METRIC_REGISTRY.register_class(cl=BinaryAccuracy, name=cl_name, aliases=aliases)
-    bin_acc_fact = METRIC_REGISTRY.create(name=cl_name, aliases=aliases)
+    BINARY_METRIC_REGISTRY.register_class(cl=BinaryAccuracy, name=cl_name)
+    bin_acc_fact = BINARY_METRIC_REGISTRY.create(name=cl_name)
     assert isinstance(bin_acc_fact, BinaryAccuracy)
     assert bin_acc(pred, target) == bin_acc_fact(pred, target)

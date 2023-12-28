@@ -1,6 +1,8 @@
 import albumentations as A
 
-from odeon.core.plugins.plugin import OdnPlugin
+from odeon.core.plugins.plugin import OdnPlugin, PluginMaturity
+from odeon.core.registry import GENERIC_REGISTRY
+
 
 from .core.registry import DATA_REGISTRY
 from .core.transform import (ALBU_TRANSFORM_REGISTRY, ONE_OFF_ALIASES,
@@ -14,7 +16,13 @@ __all__ = ['data_plugin', 'albu_transform_plugin', 'Input', 'DATA_REGISTRY', 'AL
 ALBU TRANSFORM REGISTRY
 """
 albu_transform_plugin = OdnPlugin(name='albu_transform',
-                                  elements={'vertical_flip': {'class': A.VerticalFlip,
+                                  author='samy KHELIFI-RICHARDS',
+                                  plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                                  version='0.1',
+                                  elements={'albu_registry': {'class': ALBU_TRANSFORM_REGISTRY,
+                                                              'registry': GENERIC_REGISTRY,
+                                                              'aliases': ['albu_r']},
+                                            'vertical_flip': {'class': A.VerticalFlip,
                                                               'registry': ALBU_TRANSFORM_REGISTRY,
                                                               'aliases': ['v_flip']},
                                             'horizontal_flip': {'class': A.HorizontalFlip,
@@ -57,7 +65,13 @@ albu_transform_plugin = OdnPlugin(name='albu_transform',
 """DATA PLUGIN
 """
 data_plugin = OdnPlugin(name='input',
-                        elements={'input': {'class': Input,
+                        author='samy KHELIFI-RICHARDS',
+                        plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                        version='0.1',
+                        elements={'data_registry': {'class': DATA_REGISTRY,
+                                                    'registry': GENERIC_REGISTRY,
+                                                    'aliases': ['data_reg']},
+                                  'input': {'class': Input,
                                             'registry': DATA_REGISTRY,
-                                            'aliases': ['default_input', 'lightning_data_module']}}
+                                            'aliases': ['default_input', 'universal_data_module']}}
                         )

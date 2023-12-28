@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 
 """Fully convolutional change detection (FCCD) implementations."""
-from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence, Union, List
 from copy import deepcopy
 
@@ -12,11 +11,9 @@ import segmentation_models_pytorch as smp
 import torch
 from segmentation_models_pytorch import Unet
 from segmentation_models_pytorch.base.model import SegmentationModel
-from segmentation_models_pytorch import create_model
 from torch import Tensor
 import einops
 
-from odeon.core.types import PARAMS
 
 Unet.__module__ = "segmentation_models_pytorch"
 

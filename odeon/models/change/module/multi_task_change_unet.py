@@ -35,7 +35,6 @@ DEFAULT_LOSS_PARAMS = {'change': {'loss': 'bce'}, 'segmentation': {'loss': 'ce'}
 DEFAULT_METRICS_PARAMS = {'change': {'loss': 'bce'}, 'segmentation': {'loss': 'ce'}}
 
 
-@MODEL_REGISTRY.register(name='multi_task_change_unet', aliases=['mtc_unet'])
 class MultiTaskChangeUnet(pl.LightningModule):
     """
 

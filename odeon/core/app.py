@@ -3,10 +3,13 @@ from typing import Callable, Dict, List, Optional, Tuple
 from jsonargparse import ArgumentParser, Namespace
 
 from .registry import GenericRegistry
-from .singleton import Singleton
+from .logger import get_logger
+from .python_env import debug_mode
+
+logger = get_logger(__name__, debug=debug_mode)
 
 
-class App(metaclass=Singleton):
+class App:
     """ abstract base class for any Odeon App like fit, feature, etc.
     Odeon apps are Singleton taking a dataclass configuration as argument """
 
@@ -37,8 +40,34 @@ class App(metaclass=Singleton):
         ...
 
 
-class AppRegistry(GenericRegistry[App]):
-    _registry: Dict[str, App] = {}
+class AppRegistry(GenericRegistry[type[App]]):
+    _registry: Dict[str, type[App]] = {}
+
+    @classmethod
+    def create(cls, name: str, **kwargs) -> App:
+        """
+        Factory command to create an instance.
+        This method gets the appropriate Registered class from the registry
+        and creates an instance of it, while passing in the parameters
+        given in ``kwargs``.
+
+        Parameters
+        ----------
+         name: str, The name of the executor to create.
+         kwargs
+
+        Returns
+        -------
+         App: An instance of the executor that is created.
+        """
+
+        if name not in cls._registry:
+            logger.error(f"{name} not registered in registry {str(name)}")
+            raise KeyError()
+
+        _class = cls.get(name=name)
+        _instance = _class(**kwargs)
+        return _instance
 
 
 APP_REGISTRY = AppRegistry

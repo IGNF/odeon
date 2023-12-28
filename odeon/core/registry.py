@@ -1,10 +1,10 @@
 from typing import (Any, Dict, Generic, List, Optional, TypeVar,
-                    Union, cast)
+                    Union, cast, Callable)
 
 from odeon.core.logger import get_logger
 
-T = TypeVar("T", bound=Any)
-V = TypeVar("V", bound=Any)
+T = TypeVar("T", bound=Union[Callable[..., Any], object])
+# V = TypeVar("V", bound=Any)
 logger = get_logger(__name__)
 
 
@@ -14,17 +14,19 @@ class MetaRegistry(type):
         return self.__class__.__name__
 
 
-class GenericRegistry(Generic[T], metaclass=MetaRegistry):
+class GenericRegistry(Generic[T]):
     _registry: Dict[str, T] = {}
     _alias_registry: Dict[str, str] = {}
-    __name__ = f"registry of type {str(T)}"
+
+    __name__ = "generic_registry"
+
 
     @classmethod
     def get_registry(cls) -> Dict[str, T]:
         return cls._registry
 
     @classmethod
-    def get_aliases_registry(cls) -> Dict[str, T]:
+    def get_aliases_registry(cls) -> Dict[str, str]:
         return cls._alias_registry
 
     @classmethod
@@ -62,7 +64,7 @@ class GenericRegistry(Generic[T], metaclass=MetaRegistry):
     def register_class(cls, cl: T, name: str = 'none'):
         if name != 'none':
             if name in cls._registry:
-                raise KeyError(f'name {name} already in Registry {str(cls)}')
+                raise KeyError(f'name {name} already in Registry {str(cls.__name__)}')
             else:
                 cls.register_fn(cl=cl, name=name)
         else:
@@ -90,27 +92,30 @@ class GenericRegistry(Generic[T], metaclass=MetaRegistry):
         cls._alias_registry[alias] = name
 
     @classmethod
-    def create(cls, name: str, **kwargs) -> Optional[T]:
+    def create(cls, name: str, **kwargs) -> None:
         """
         Factory command to create an instance.
         This method gets the appropriate Registered class from the registry
         and creates an instance of it, while passing in the parameters
         given in ``kwargs``.
 
+        You will need to implement this method in any registry
+
         Parameters
         ----------
          name: str, The name of the executor to create.
          kwargs
 
-        Returns
+        Raises
         -------
-         An instance of the executor that is created.
+         NotImplementedError
+
+        Warnings
+        --------
+        You will need to implement this method in any registry
         """
+        logger.warning(f'to use a registry as factory, you need to implement this method in your own registry')
+        raise NotImplementedError('generic registry does not implement this method')
 
-        if name not in cls._registry:
-            logger.warning(f'class {name} from registry {cls} does not exist in the registry')
-            return None
 
-        _class = cls._registry[name]
-        _instance = _class(**kwargs)
-        return _instance
+GENERIC_REGISTRY = GenericRegistry

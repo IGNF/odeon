@@ -139,7 +139,7 @@ def create_empty_file(path: URI):
         pass
 
 
-def generate_yaml_with_doc(config_d, docstring, filename='config_with_doc.yaml'):
+def generate_yaml_with_doc(config_d, docstring, filename='config_with_doc.yaml', sort_keys=False):
     """
     Generate a YAML file from a given dictionary with a documentation header.
 
@@ -155,6 +155,8 @@ def generate_yaml_with_doc(config_d, docstring, filename='config_with_doc.yaml')
         The documentation string to be included as a header in the YAML file.
     filename : str, optional
         The name of the YAML file to be created. Default is 'config_with_doc.yaml'.
+    sort_keys : bool, optional
+        sort dictionnary keys or not before dump
 
     Returns
     -------
@@ -183,9 +185,8 @@ def generate_yaml_with_doc(config_d, docstring, filename='config_with_doc.yaml')
     doc_header = f"# Documentation:\n# {output}\n\n"
 
     # Converting the dictionary to YAML format
-    yaml_content = yaml.dump({'config': config_d}, default_flow_style=False)
+    yaml_content = yaml.dump(config_d, default_flow_style=False, sort_keys=sort_keys)
 
     # Writing to the file
     with open(filename, 'w') as file:
         file.write(doc_header + yaml_content)
-

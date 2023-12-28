@@ -5,6 +5,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from jsonargparse import set_config_read_mode
+from jsonargparse import ArgumentParser
+
+from .default_path import ODEON_ENV
+from .io_utils import generate_yaml_with_doc
 from .default_path import ODEON_PATH
 from .io_utils import create_path_if_not_exists
 from .logger import get_logger
@@ -12,13 +17,22 @@ from .plugins.plugin import OdnPlugin
 # from .logger introspection.py get_logger
 # from .types introspection.py PARSER
 from .singleton import Singleton
-from .types import PARAMS, URI
+from .types import PARAMS, URI, PARSER
 from .plugins.plugin import load_plugins
+from .python_env import debug_mode
 
-logger = get_logger(__name__)
+# enable URL with Parser
+_URL_ENABLED: bool = True
+set_config_read_mode(urls_enabled=_URL_ENABLED)  # enable URL as path file
+
+logger = get_logger(__name__, debug=debug_mode)
 ENV_VARIABLE = 'env_variables'
 ODEON_DEBUG_MODE_ENV_VARIABLE = 'ODEON_DEBUG_MODE'
-DEFAULT_PARSER = 'omegaconf'
+
+
+DEFAULT_PARSER: PARSER = 'yaml'
+ODEON_PARSE_ENV_VARIABLE = 'ODEON_PARSER'
+ODEON_PARSER_AVAILABLE: List[PARSER] = ['yaml', 'jsonnet', 'omegaconf']
 
 DEFAULT_CONFIG_STORE = ODEON_PATH / 'config_store'
 DEFAULT_ARTEFACT_STORE = ODEON_PATH / 'artefact_store'
@@ -35,21 +49,23 @@ DEFAULT_PLUGIN_CONF = {'albu_transform': 'odeon.data:albu_transform_plugin',
                        'data': 'odeon.data:data_plugin',
                        'model': 'odeon.models:model_plugin',
                        'fit': 'odeon.fit:fit_plugin',
-                       'pl_logger': 'odeon.fit.pl_logger_plugin',
-                       'pl_callback': 'odeon.fit.pl_callback_plugin',
-                       'binary_metric': 'odeon.metrics.binary_metric_plugin',
+                       'pl_logger': 'odeon.fit:pl_logger_plugin',
+                       'pl_callback': 'odeon.fit:pl_callback_plugin',
+                       'binary_metric': 'odeon.metrics:binary_metric_plugin',
                        'multiclass_metric': 'odeon.metrics:multiclass_metric_plugin',
                        'multilabel_metric': 'odeon.metrics:multilabel_metric_plugin',
-                       'app_plugin': 'odeon.core.app_plugin'}
+                       'app_plugin': 'odeon.core:app_plugin'}
 
-DEFAULT_ENV_CONF = {'plugins': DEFAULT_PLUGIN_CONF,
-                    'model_store': DEFAULT_MODEL_STORE,
-                    'test_store': DEFAULT_TEST_STORE,
-                    'delivery_store': DEFAULT_DELIVERY_STORE,
-                    'dataset_store': DEFAULT_DATASET_STORE,
-                    'artefact_store': DEFAULT_ARTEFACT_STORE,
-                    'config_store': DEFAULT_CONFIG_STORE,
-                    'feature_store': DEFAULT_FEATURE_STORE}
+ENV_PREFIX: str = 'env'
+
+DEFAULT_ENV_CONF: Dict[str, PARAMS] = {ENV_PREFIX: {'plugins': DEFAULT_PLUGIN_CONF,
+                                                    'model_store': str(DEFAULT_MODEL_STORE),
+                                                    'test_store': str(DEFAULT_TEST_STORE),
+                                                    'delivery_store': str(DEFAULT_DELIVERY_STORE),
+                                                    'dataset_store': str(DEFAULT_DATASET_STORE),
+                                                    'artefact_store': str(DEFAULT_ARTEFACT_STORE),
+                                                    'config_store': str(DEFAULT_CONFIG_STORE),
+                                                    'feature_store': str(DEFAULT_FEATURE_STORE)}}
 
 DOC_ENV_CONF = '''
                 Here is a complete example of how to configure an Odeon environment with your env.yml.
@@ -178,60 +194,112 @@ class EnvConf:
     model_store: URI = DEFAULT_MODEL_STORE
     test_store: URI = DEFAULT_TEST_STORE
     delivery_store: URI = DEFAULT_DELIVERY_STORE
-    debug_mode: bool = field(default_factory=_debug_mode)
-    user: Optional[User] = field(default=None)
-    team: Optional[Team] = field(default=None)
-    project: Optional[Project] = field(default=None)
-    plugins: List[OdnPlugin | str] | str | OdnPlugin | None = field(default=None)
+    debug_mode: bool = debug_mode
+    user: Optional[User] = None
+    team: Optional[Team] = None
+    project: Optional[Project] = None
+    plugins: Dict[str, OdnPlugin | str] | List[OdnPlugin | str] | str | OdnPlugin | None = None
 
 
 class Env(metaclass=Singleton):
-    def __init__(self, config: EnvConf | None = None):
+    def __init__(self, config: Optional[EnvConf] = None):
 
-        self.config: EnvConf = config if config is not None else EnvConf()
-        if self.config.set_env_variables is not None:
-            set_env_variables(variables=self.config.set_env_variables)
+        config = config if config is not None else EnvConf()
+        self.set_env_variables: Optional[PARAMS] = None
+        self.get_env_variables: Optional[List[str]] = None
+        self.config_parser: str = DEFAULT_PARSER
+        self.project: Project | None = config.project
+        self.team: Team | None = config.team
+        self.user: User | None = config.user
+        self.plugins: Dict[str, OdnPlugin | str] | List[OdnPlugin | str] | str | OdnPlugin | None = config.plugins
+        self.debug_mode: bool = config.debug_mode
+
+        if self.set_env_variables is not None:
+            set_env_variables(variables=self.set_env_variables)
         self.user_path: URI | None = self._create_user_path()
-        self.user_config_store = Path(self.config.config_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.config_store)
-        self.user_artefact_store = Path(self.config.artefact_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.artefact_store)
-        self.user_feature_store = Path(self.config.feature_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.feature_store)
-        self.user_dataset_store = Path(self.config.dataset_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.dataset_store)
-        self.user_model_store = Path(self.config.model_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.model_store)
-        self.user_test_store = Path(self.config.test_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.test_store)
-        self.user_delivery_store = Path(self.config.delivery_store) / self.user_path if self.user_path is not None\
-            else Path(self.config.delivery_store)
+        self.user_config_store = Path(config.config_store) / self.user_path if self.user_path is not None\
+            else Path(config.config_store)
+        self.user_artefact_store = Path(config.artefact_store) / self.user_path if self.user_path is not None\
+            else Path(config.artefact_store)
+        self.user_feature_store = Path(config.feature_store) / self.user_path if self.user_path is not None\
+            else Path(config.feature_store)
+        self.user_dataset_store = Path(config.dataset_store) / self.user_path if self.user_path is not None\
+            else Path(config.dataset_store)
+        self.user_model_store = Path(config.model_store) / self.user_path if self.user_path is not None\
+            else Path(config.model_store)
+        self.user_test_store = Path(config.test_store) / self.user_path if self.user_path is not None\
+            else Path(config.test_store)
+        self.user_delivery_store = Path(config.delivery_store) / self.user_path if self.user_path is not None\
+            else Path(config.delivery_store)
 
-        create_path_if_not_exists(self.config.config_store)
-        create_path_if_not_exists(self.config.artefact_store)
-        create_path_if_not_exists(self.config.feature_store)
-        create_path_if_not_exists(self.config.dataset_store)
-        create_path_if_not_exists(self.config.model_store)
-        create_path_if_not_exists(self.config.test_store)
-        create_path_if_not_exists(self.config.delivery_store)
+        create_path_if_not_exists(config.config_store)
+        create_path_if_not_exists(config.artefact_store)
+        create_path_if_not_exists(config.feature_store)
+        create_path_if_not_exists(config.dataset_store)
+        create_path_if_not_exists(config.model_store)
+        create_path_if_not_exists(config.test_store)
+        create_path_if_not_exists(config.delivery_store)
 
 
     def _create_user_path(self) -> URI | None:
         p: URI | None = None
-        if self.config.project is not None:
-            if self.config.project.name != '':
-                p = Path(str(self.config.project.name))
-        if self.config.team is not None:
-            if self.config.team.name != '':
-                p = Path(str(self.config.project.name)) if p is None else Path(p) / str(self.config.project.name)
-        if self.config.user is not None:
-            if self.config.user.name != '':
-                p = Path(str(self.config.user.name)) if p is None else Path(p) / str(self.config.user.name)
+        if self.project is not None:
+            if self.project.name != '':
+                p = Path(str(self.project.name))
+        if self.team is not None:
+            if self.team.name != '':
+                p = Path(str(self.project.name)) if p is None else Path(p) / str(self.project.name)
+        if self.user is not None:
+            if self.user.name != '':
+                p = Path(str(self.user.name)) if p is None else Path(p) / str(self.user.name)
         return p
 
     def load_plugins(self):
-        load_plugins(self.config.plugins, force_registry=False)
+
+        load_plugins(self.plugins, force_registry=False)
 
     def reload_plugins(self):
-        load_plugins(self.config.plugins, force_registry=True)
+        load_plugins(self.plugins, force_registry=True)
 
+
+ENV: Optional[Env] = None
+
+
+def get_env() -> Env:
+    """
+    Used to check if the .odeon directory is created and env.yml is inside.
+    Otherwise, it will create the necessary directory and config file associated
+
+    Returns
+    -------
+
+    Env
+    """
+
+    if ENV is None:
+        if ODEON_ENV.is_file() is False:
+            create_path_if_not_exists(ODEON_PATH)
+            generate_yaml_with_doc(config_d=DEFAULT_ENV_CONF, docstring=DOC_ENV_CONF, filename=str(ODEON_ENV))
+            # env_fields = fields(EnvConf())
+            # end_d = {field.name: field.value}
+            """"
+            schema = OmegaConf.structured(EnvConf)
+            conf = OmegaConf.load(ODEON_ENV)
+            conf = OmegaConf.merge(schema, conf)
+            assert isinstance(conf, Mapping)
+            env_conf: EnvConf = EnvConf(**conf)
+            """
+
+        parser = ArgumentParser()
+        parser.add_dataclass_arguments(theclass=EnvConf, nested_key='--env')
+        cfg = parser.parse_path(str(ODEON_ENV))
+        logger.debug(f'Config: {cfg}')
+        instantiated_conf = parser.instantiate_classes(cfg=cfg)
+        logger.debug(f'instanciated conf: {instantiated_conf}')
+        conf_env = instantiated_conf.env
+        logger.debug(f'instanciated conf env: {conf_env}')
+        env = Env(config=conf_env)
+        logger.debug(f'env: {env.plugins}')
+        return env
+    else:
+        return ENV

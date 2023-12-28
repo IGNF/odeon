@@ -1,26 +1,62 @@
-from typing import Dict, List, Union, cast
-
-from pytorch_lightning.callbacks.callback import Callback
+from typing import Dict, List, Union
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
-from odeon.core.types import PARAMS, OdnCallback
+from odeon.core.types import PARAMS
+from odeon.core.logger import get_logger
+from odeon.core.python_env import debug_mode
 
-CALLBACK_REGISTRY = GenericRegistry[OdnCallback]
+from .core.types import OdnCallback
 
 
-def build_callbacks(callbacks: List[Union[PARAMS, Callback]] | Dict[str, PARAMS]) -> List[Callback]:
-    result: List[Callback] = list()
+logger = get_logger(__name__, debug=debug_mode)
+
+
+class CallbackRegistry(GenericRegistry[type[OdnCallback]]):
+    _registry: Dict[str, type[OdnCallback]] = {}
+    _alias_registry: Dict[str, str] = {}
+
+    @classmethod
+    def create(cls, name: str, **kwargs) -> OdnCallback:
+        """
+        Factory command to create an instance.
+        This method gets the appropriate Registered class from the registry
+        and creates an instance of it, while passing in the parameters
+        given in ``kwargs``.
+
+        Parameters
+        ----------
+         name: str, The name of the executor to create.
+         kwargs
+
+        Returns
+        -------
+         Callable: An instance of the executor that is created.
+        """
+
+        if name not in cls._registry:
+            logger.error(f"{name} not registered in registry {str(name)}")
+            raise KeyError()
+
+        _class = cls.get(name=name)
+        return _class(**kwargs)
+
+
+CALLBACK_REGISTRY = CallbackRegistry
+
+
+def build_callbacks(callbacks: List[Union[PARAMS, OdnCallback]] | Dict[str, PARAMS]) -> List[OdnCallback]:
+    result: List[OdnCallback] = list()
     if isinstance(callbacks, list):
         for callback in callbacks:
             if isinstance(callback, dict):
                 name = callback['name']
                 if 'params' in callback:
                     params: Dict = callback['params']
-                    result.append(cast(OdnCallback, CALLBACK_REGISTRY .create(name=name, **params)))
+                    result.append(CALLBACK_REGISTRY.create(name=name, **params))
                 else:
-                    result.append(cast(OdnCallback, CALLBACK_REGISTRY .create(name=name)))
-            elif callable(Callback):
+                    result.append(CALLBACK_REGISTRY .create(name=name))
+            elif isinstance(callback, OdnCallback):
                 result.append(callback)
             else:
                 raise MisconfigurationException(message=f'callback '
@@ -28,9 +64,9 @@ def build_callbacks(callbacks: List[Union[PARAMS, Callback]] | Dict[str, PARAMS]
     elif isinstance(callbacks, dict):
         for key, value in callbacks.items():
             if value:
-                result.append(cast(OdnCallback, CALLBACK_REGISTRY .create(name=key, **value)))
+                result.append(CALLBACK_REGISTRY.create(name=key, **value))
             else:
-                result.append(cast(OdnCallback, CALLBACK_REGISTRY.create(name=key)))
+                result.append(CALLBACK_REGISTRY.create(name=key))
     else:
         raise MisconfigurationException(message=f'expected callbacks {callbacks} params to be either a dict or a list')
     return result

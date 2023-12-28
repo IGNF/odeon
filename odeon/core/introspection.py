@@ -29,7 +29,9 @@ def load_instance(path):
     >>> instance = load_instance('mypackage.mymodule:myinstance')
     """
 
-    module_path, instance_name = path.split(':')
+    sp = path.split(':')
+    assert len(sp) == 2, f'invalid path: {path}, should be something like (mypackage.mymodule:my_plugin)'
+    module_path, instance_name = sp[0], sp[1]
     module = importlib.import_module(module_path)
     instance = getattr(module, instance_name)
     return instance

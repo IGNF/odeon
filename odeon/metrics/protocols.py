@@ -10,20 +10,20 @@ METRIC_TUPLE = Tuple[Optional[Dict[str, OdnMetric]], Optional[Dict[str, OdnMetri
 
 class MetricInterface(Protocol):
 
-    def update_metrics(self, preds: Tensor, targets: Tensor, metric: OdnMetric):
+    def update(self, preds: Tensor, targets: Tensor, metric: OdnMetric):
         ...
 
-    def compute_metrics(self, preds: Tensor, targets: Tensor, metric: OdnMetric):
+    def compute(self, preds: Tensor, targets: Tensor, metric: OdnMetric):
         ...
 
-    def configure_metrics(self, *args, **kwargs) -> METRIC_TUPLE:
+    def configure(self, *args, **kwargs) -> METRIC_TUPLE:
         ...
 
-    def log_metrics(self):
+    def log(self):
         ...
 
 
-class MetricMixin(ABC, MetricInterface):
+class MetricMixin(ABC):
     """Class implementing data and behaviour of Metric computing in OdnModule
     """
 
@@ -40,7 +40,7 @@ class MetricMixin(ABC, MetricInterface):
         self._fit_metrics: Optional[OdnMetric | Dict[str, OdnMetric]] = None
         self._val_metrics: Optional[OdnMetric | Dict[str, OdnMetric]] = None
         self._test_metrics: Optional[OdnMetric | Dict[str, OdnMetric]] = None
-        self._fit_metrics, self._val_metrics, self._test_metrics = self.configure_metrics()
+        self._fit_metrics, self._val_metrics, self._test_metrics = self.configure()
 
     @property
     def fit_metrics(self):
@@ -53,3 +53,6 @@ class MetricMixin(ABC, MetricInterface):
     @property
     def test_metrics(self):
         return self._test_metrics
+
+    def configure(self) -> METRIC_TUPLE:
+        ...
