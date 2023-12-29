@@ -1,7 +1,7 @@
 from abc import ABC
 from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Literal, Optional, Union
+from enum import Enum, unique
+from typing import Dict, List, Literal, Optional, Union, Callable, Any
 
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.registry import GenericRegistry
@@ -13,7 +13,14 @@ from odeon.core.python_env import debug_mode
 logger = get_logger(logger_name=__name__, debug=debug_mode)
 
 
+@unique
 class PluginMaturity(str, Enum):
+    """
+    Enum class representing the maturity levels of a plugin.
+
+    The PluginMaturity class provides options for specifying the maturity level
+    of a plugin, including stable, experimental, development, and not specified.
+    """
     STABLE = 'stable'
     EXPERIMENTAL = 'experimental'
     DEVELOPMENT = 'development'
@@ -22,10 +29,10 @@ class PluginMaturity(str, Enum):
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True, slots=True)
 class Element:
-    registry: GenericRegistry
+    registry: type[GenericRegistry]
     name: str
     aliases: Optional[Union[str, List[str]]]
-    cl: type
+    type_or_callable: Union[type, Callable[..., Any]]
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True, slots=True)
@@ -47,7 +54,6 @@ class BasePlugin(ABC):
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False, slots=True)
 class OdnPlugin(BasePlugin):
-
     name: str
     elements: Union[Element, Elements, Dict[str, PARAMS]]
     version: str = ''
@@ -76,8 +82,8 @@ class OdnPlugin(BasePlugin):
                 aliases = v['aliases'] if 'aliases' in v else None
                 name = k
                 registry = GenericRegistry.get(name=v['registry']) if isinstance(v['registry'], str) else v['registry']
-                cl = v['class']
-                l.append(Element(cl=cl, name=name, aliases=aliases, registry=registry))
+                t = v['class']
+                l.append(Element(type_or_callable=t, name=name, aliases=aliases, registry=registry))
             self.elements = Elements(elements=l)
         else:
             raise TypeError()
@@ -87,7 +93,7 @@ class OdnPlugin(BasePlugin):
             for element in self.elements:
                 try:
                     registry = element.registry
-                    registry.register_class(cl=element.cl, name=element.name)
+                    registry.register_element(t=element.type_or_callable, name=element.name)
                     registry.register_aliases(name=element.name, aliases=element.aliases)
                 except KeyError as e:
                     raise MisconfigurationException(message=f'something went wrong during plugin configuration,'
