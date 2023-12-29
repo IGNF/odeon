@@ -53,20 +53,20 @@ class GenericRegistry(Generic[T]):
 
     @classmethod
     def register(cls, name: str, aliases: Optional[Union[str, List[str]]] = None) -> T:
-        def inner_wrapper(wrapped_class: T) -> T:
+        def inner_wrapper(wrapped_t: T) -> T:
 
-            cls.register_class(cl=wrapped_class, name=name)
+            cls.register_element(t=wrapped_t, name=name)
             cls.register_aliases(name=name, aliases=aliases)
-            return wrapped_class
+            return wrapped_t
         return cast(T, inner_wrapper)
 
     @classmethod
-    def register_class(cls, cl: T, name: str = 'none'):
+    def register_element(cls, t: T, name: str = 'none'):
         if name != 'none':
             if name in cls._registry:
                 raise KeyError(f'name {name} already in Registry {str(cls.__name__)}')
             else:
-                cls.register_fn(cl=cl, name=name)
+                cls.register_fn(t=t, name=name)
         else:
             pass
 
@@ -84,8 +84,8 @@ class GenericRegistry(Generic[T]):
             pass
 
     @classmethod
-    def register_fn(cls, cl: T, name: str):
-        cls._registry[name] = cl
+    def register_fn(cls, t: T, name: str):
+        cls._registry[name] = t
 
     @classmethod
     def register_aliases_fn(cls, alias: str, name: str):
