@@ -5,8 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from jsonargparse import set_config_read_mode
-from jsonargparse import ArgumentParser
+from jsonargparse import set_config_read_mode, ArgumentParser
 
 from .default_path import ODEON_ENV
 from .io_utils import generate_yaml_with_doc
@@ -43,6 +42,7 @@ DEFAULT_DATASET_STORE = ODEON_PATH / 'dataset_store'
 DEFAULT_MODEL_STORE = ODEON_PATH / 'model_store'
 DEFAULT_TEST_STORE = ODEON_PATH / 'test_store'
 
+DEFAULT_LOG_STORE = ODEON_PATH / 'log_store'
 DEFAULT_DELIVERY_STORE = ODEON_PATH / 'delivery_store'
 
 DEFAULT_PLUGIN_CONF = {'albu_transform': 'odeon.data:albu_transform_plugin',
@@ -65,7 +65,8 @@ DEFAULT_ENV_CONF: Dict[str, PARAMS] = {ENV_PREFIX: {'plugins': DEFAULT_PLUGIN_CO
                                                     'dataset_store': str(DEFAULT_DATASET_STORE),
                                                     'artefact_store': str(DEFAULT_ARTEFACT_STORE),
                                                     'config_store': str(DEFAULT_CONFIG_STORE),
-                                                    'feature_store': str(DEFAULT_FEATURE_STORE)}}
+                                                    'feature_store': str(DEFAULT_FEATURE_STORE),
+                                                    'log_store': str(DEFAULT_LOG_STORE)}}
 
 DOC_ENV_CONF = '''
                 Here is a complete example of how to configure an Odeon environment with your env.yml.
@@ -87,6 +88,7 @@ DOC_ENV_CONF = '''
                 model_store: "file:///path/to/model/store"
                 test_store: "file:///path/to/test/store"
                 delivery_store: "file:///path/to/delivery/store"
+                log_store: "file:///path/to/log/store"
                 debug_mode: true
                 user:
                   name: "John Doe"
@@ -194,6 +196,7 @@ class EnvConf:
     model_store: URI = DEFAULT_MODEL_STORE
     test_store: URI = DEFAULT_TEST_STORE
     delivery_store: URI = DEFAULT_DELIVERY_STORE
+    log_store: URI = DEFAULT_LOG_STORE
     debug_mode: bool = debug_mode
     user: Optional[User] = None
     team: Optional[Team] = None
@@ -231,6 +234,8 @@ class Env(metaclass=Singleton):
             else Path(config.test_store)
         self.user_delivery_store = Path(config.delivery_store) / self.user_path if self.user_path is not None\
             else Path(config.delivery_store)
+        self.user_log_store = Path(config.log_store) / self.user_path if self.user_path is not None\
+            else Path(config.log_store)
 
         create_path_if_not_exists(config.config_store)
         create_path_if_not_exists(config.artefact_store)
@@ -239,6 +244,7 @@ class Env(metaclass=Singleton):
         create_path_if_not_exists(config.model_store)
         create_path_if_not_exists(config.test_store)
         create_path_if_not_exists(config.delivery_store)
+        create_path_if_not_exists(config.log_store)
 
 
     def _create_user_path(self) -> URI | None:
