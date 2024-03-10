@@ -74,7 +74,6 @@ class UniversalPreProcessor:
                                                         std=std)
 
             if value["type"] == "mask":
-
                 path = data[value["name"]] if self.root_dir is None else Path(str(self.root_dir)) / data[value["name"]]
                 band_indices = value["band_indices"] if "band_indices" in value else None
                 output_dict[key] = self.apply_to_mask(path=path,
@@ -109,12 +108,11 @@ class UniversalPreProcessor:
             raster = raster[..., np.newaxis]
         img = reshape_as_image(raster)
         if mean is None or std is None:
-
             # apply centering between 0 and 1
             # to apply centering between -1 and 1, replace change MEAN_DEFAULT_VALUE value to 0.5
-            mean = [float(MEAN_DEFAULT_VALUE) for i in range(raster.shape[0])]
+            mean = [float(MEAN_DEFAULT_VALUE) for _ in range(raster.shape[0])]
             assert mean is not None
-            std = [float(MEAN_DEFAULT_VALUE) for i in range(raster.shape[0])]
+            std = [float(MEAN_DEFAULT_VALUE) for _ in range(raster.shape[0])]
             assert std is not None
 
         return normalize(img=img,
@@ -125,7 +123,8 @@ class UniversalPreProcessor:
     def apply_to_mask(self,
                       path: URI,
                       band_indices: Optional[List] = None,
-                      bounds: Optional[List] = None
+                      bounds: Optional[List] = None,
+                      one_hot_encoding: bool = False
                       ) -> np.ndarray:
         # TODO Could be interesting to optimize window computation (DON'T REPEAT COMPUTATION FOR EACH MODALITY)
         # TODO but it bring side effect
@@ -133,7 +132,10 @@ class UniversalPreProcessor:
         mask = read(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
         if self.cache_dataset is False:
             src.close()
-        return reshape_as_image(mask)
+        mask = reshape_as_image(mask)
+        if one_hot_encoding:
+            mask = np.argmax(a=mask, axis=0)
+        return mask
 
     def _get_dataset(self,
                      path: Union[str, Path],
@@ -189,7 +191,7 @@ def normalize(img: np.ndarray,
     return img
 
 
-def denoromalize_tensor(image: Tensor, mean: List[float], std: List[float]):
+def denormalize_tensor(image: Tensor, mean: List[float], std: List[float]):
     """
     Denormalize a tensor image with mean and standard deviation.
     Parameters
