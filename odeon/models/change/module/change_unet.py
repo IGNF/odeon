@@ -21,7 +21,7 @@ from torchmetrics.classification import (  # type: ignore[attr-defined]
 
 from odeon.metrics.types import OdnMetric
 from odeon.models.change.arch.change_unet import FCSiamConc, FCSiamDiff
-from odeon.models.core.models import MODEL_REGISTRY
+# from odeon.models.core.models import MODEL_REGISTRY
 
 # https://github.com/pytorch/pytorch/issues/60979
 # https://github.com/pytorch/pytorch/pull/61045
@@ -48,7 +48,7 @@ class ChangeUnet(pl.LightningModule):
         super().__init__()
         self.model = self.configure_model(model=model, model_params=model_params)
         self.loss = self.configure_loss(loss=loss)
-        self.train_metrics, self.val_metrics, self.test_metrics = self.configure_metrics(metric_params={})
+        self.train_metrics, self.val_metrics, self.test_metrics = self.configure_metrics()
         # Creates `self.hparams` from kwargs
         self.save_hyperparameters()  # type: ignore[operator]
         self.hyperparams = cast(Dict[str, Any], self.hparams)
@@ -111,7 +111,7 @@ class ChangeUnet(pl.LightningModule):
                      differential: Optional[Dict[str, float]] = None):
         ...
 
-    def configure_metrics(self, metric_params: Dict) -> Tuple[OdnMetric, OdnMetric, OdnMetric]:
+    def configure_metrics(self) -> Tuple[OdnMetric, OdnMetric, OdnMetric]:
 
         train_metrics = MetricCollection(
             {"bin_acc": BinaryAccuracy(),

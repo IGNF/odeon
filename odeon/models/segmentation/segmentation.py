@@ -6,7 +6,7 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from segmentation_models_pytorch import create_model
 
-from odeon.models.core.models import MODEL_REGISTRY
+# from odeon.models.core.models import MODEL_REGISTRY
 
 __all__ = ['SegmentationModule']
 

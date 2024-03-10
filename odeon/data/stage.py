@@ -21,15 +21,15 @@ class DataFactory:
     stage: STAGES_OR_VALUE
     input_file: URI
     input_fields: Dict
+    by_zone: bool = False
     transforms: Union[List[Callable], None] = None
     dataloader_options: Dict = field(default_factory=lambda: {})
     root_dir: Optional[URI] = None
-    input_files_has_header: bool = True  # Rather input files have header or not
-    by_zone: bool = False
+    header: bool | str | None = True  # Rather input files have header or not
+    header_list: List[str] | None = None
     patch_size: Union[int, Tuple[int, int], List[int]] = field(default_factory=lambda: DEFAULT_PATCH_SIZE)
     patch_resolution: Union[float, Tuple[float,
                                          float], List[float]] = field(default_factory=lambda: DEFAULT_PATCH_RESOLUTION)
-
     random_window: bool = True
     overlap: Union[GeoTuple] = field(default_factory=lambda: DEFAULT_OVERLAP)
     cache_dataset: Union[bool] = False
@@ -52,7 +52,8 @@ class DataFactory:
 
         self._inference_mode = False if self.stage in [Stages.FIT, Stages.FIT.value] else True
         self._dataframe = create_dataframe_from_file(path=self.input_file,
-                                                     options={'header': self.input_files_has_header})
+                                                     options={'has_header': self.header,
+                                                              'header': self.header_list})
         self._transform = AlbuTransform(input_fields=self.input_fields,
                                         pipe=self.transforms)
         assert self._transform is not None
@@ -119,7 +120,8 @@ class DataFactory:
                    transform: Union[List[Callable], None] = None,
                    dataloader_options: Dict = None,
                    root_dir: Optional[URI] = None,
-                   input_files_has_header: bool = True,
+                   header: bool | str | None = None,
+                   header_list: List[str] | None = None,
                    by_zone: bool = False,
                    patch_size: Union[int, Tuple[int, int], List[int]] = None,
                    patch_resolution: Union[float, Tuple[float, float], List[float]] = None,
@@ -149,6 +151,7 @@ class DataFactory:
                            cache_dataset=cache_dataset,
                            random_window=random_window,
                            root_dir=root_dir,
-                           input_files_has_header=input_files_has_header,
+                           header=header,
+                           header_list=header_list,
                            by_zone=by_zone)
         return data_factory.dataloader, data_factory.dataset, data_factory.transform, data_factory.dataframe
