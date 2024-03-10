@@ -38,9 +38,29 @@ def create_pandas_dataframe_from_file(path: URI, options: Optional[Dict] = None)
     -------
      DataFrame
     """
-    return pd.read_csv(path, header=options["header"])\
-        if (options is not None and "header" in options.keys())\
-        else pd.read_csv(path)
+
+    if options is not None:
+        if 'header' not in options.keys():
+            options['header'] = "infer"
+        if 'header_list' not in options.keys():
+            options['header_list'] = None
+
+        header_list = options['header'] if options['header'] is not None else None
+        header = None if options['has_header'] is False else options['header']
+        del options['header']
+        del options['header_list']
+        df: pd.DataFrame = pd.read_csv(path, header=header, **options)
+        if header_list is not None:
+            error_message = f"""header list must have same length than csv columns,
+                                                but header has {len(options['header'])} and columns equals to
+                                                 {len(df.columns)}"""
+            assert len(header_list) == len(df.columns), error_message
+            df.columns = header_list
+        return df
+
+
+    else:
+        return pd.read_csv(path)
 
 
 def create_geopandas_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> gpd.GeoDataFrame:

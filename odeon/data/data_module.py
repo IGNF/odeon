@@ -48,10 +48,10 @@ class Input(OdnData):
         self.validate_params = validate_params
         self.test_params = test_params
         self.predict_params = predict_params
-        self._fit: Data | Dict[str, Data]
-        self._validate: Data | Dict[str, Data]
-        self._test: Data
-        self._predict: Data
+        self._fit: Data | Dict[str, Data] | None = None
+        self._validate: Data | Dict[str, Data] | None = None
+        self._test: Data | None = None
+        self._predict: Data | None = None
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == Stages.FIT.value or stage == Stages.FIT:
