@@ -14,6 +14,33 @@ class ModelRegistry(GenericRegistry[LightningModule]):
     _registry: Dict[str, LightningModule] = {}
     __name__ = 'model registry'
 
+    @classmethod
+    def create(cls, name: str, **kwargs) -> LightningModule:
+        """
+        Factory command to create an instance.
+        This method gets the appropriate Registered class from the registry
+        and creates an instance of it, while passing in the parameters
+        given in ``kwargs``.
+
+        Parameters
+        ----------
+         name: str, The name of the executor to create.
+         kwargs
+
+        Returns
+        -------
+         App: An instance of the executor that is created.
+        """
+
+        if name not in cls._registry:
+            logger.error(f"{name} not registered in registry {str(name)}")
+            raise KeyError()
+
+        _class = cls.get(name=name)
+        _instance = _class(**kwargs)
+        return _instance
+
+
 
 MODEL_REGISTRY = ModelRegistry
 

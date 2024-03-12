@@ -29,7 +29,7 @@ ENV_VARIABLE = 'env_variables'
 ODEON_DEBUG_MODE_ENV_VARIABLE = 'ODEON_DEBUG_MODE'
 
 
-DEFAULT_PARSER: PARSER = 'yaml'
+DEFAULT_PARSER: PARSER = 'omegaconf'
 ODEON_PARSE_ENV_VARIABLE = 'ODEON_PARSER'
 ODEON_PARSER_AVAILABLE: List[PARSER] = ['yaml', 'jsonnet', 'omegaconf']
 
@@ -80,7 +80,7 @@ DOC_ENV_CONF = '''
                 get_env_variables:
                   - "PATH"
                   - "HOME"
-                config_parser: "json"
+                config_parser: "omegaconf"
                 config_store: "file:///path/to/config/store"
                 artefact_store: "file:///path/to/artefact/store"
                 feature_store: "file:///path/to/feature/store"

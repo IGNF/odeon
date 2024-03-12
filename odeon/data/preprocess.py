@@ -13,7 +13,7 @@ from odeon.layers.raster import get_dataset, read
 from odeon.core.types import URI
 
 logger = getLogger(__name__)
-MEAN_DEFAULT_VALUE = 0.0
+MEAN_DEFAULT_VALUE = 0.5
 STD_DEFAULT_VALUE = 0.5
 
 
@@ -36,23 +36,17 @@ class UniversalPreProcessor:
         self._sanitize_input_fields()
 
     def _sanitize_input_fields(self):
-
         for value in self._input_fields.values():
             assert "name" in value
             assert "type" in value
 
     def forward(self, data: Dict, bounds: Optional[List] = None) -> Dict:
-
         output_dict = dict()
         # window = None  # used to cache the first computation of window to not repeat unnecessary computation
-
         if bounds:
             output_dict["bounds"] = np.array(bounds)
-
         for key, value in self._input_fields.items():
-
             if value["type"] == "raster":
-
                 path = data[value["name"]] if self.root_dir is None else Path(str(self.root_dir)) / data[value["name"]]
                 band_indices = value["band_indices"] if "band_indices" in value else None
                 dtype_max = value["dtype_max"] if "dtype_max" in value else None
@@ -64,7 +58,6 @@ class UniversalPreProcessor:
                         dtype_max = DTYPE_MAX[dtype]
                     else:
                         raise KeyError(f'your dtype  {dtype} for key {key} in your input_fields is not compatible')
-
                 dtype_max = DTYPE_MAX[InputDType.UINT8.value] if dtype_max is None else dtype_max
                 output_dict[key] = self.apply_to_raster(path=path,
                                                         band_indices=band_indices,
@@ -72,14 +65,14 @@ class UniversalPreProcessor:
                                                         dtype_max=dtype_max,
                                                         mean=mean,
                                                         std=std)
-
             if value["type"] == "mask":
                 path = data[value["name"]] if self.root_dir is None else Path(str(self.root_dir)) / data[value["name"]]
                 band_indices = value["band_indices"] if "band_indices" in value else None
+                one_hot_encoding = value["one_hot_encoding"] if "one_hot_encoding" in value else False
                 output_dict[key] = self.apply_to_mask(path=path,
                                                       band_indices=band_indices,
-                                                      bounds=bounds)
-
+                                                      bounds=bounds,
+                                                      one_hot_encoding=one_hot_encoding)
             if "geometry" in data.keys():
                 output_dict["geometry"] = np.array(data["geometry"].bounds)
 
@@ -132,9 +125,11 @@ class UniversalPreProcessor:
         mask = read(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
         if self.cache_dataset is False:
             src.close()
-        mask = reshape_as_image(mask)
         if one_hot_encoding:
-            mask = np.argmax(a=mask, axis=0)
+            mask = np.argmax(mask, axis=0)
+            mask = np.expand_dims(mask, axis=0)
+        mask = reshape_as_image(mask)
+
         return mask
 
     def _get_dataset(self,
