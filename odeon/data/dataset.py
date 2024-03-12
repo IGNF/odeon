@@ -57,7 +57,7 @@ class UniversalDataset(Dataset):
             self.patch_size[1] * self.patch_resolution[1])
         self.random_window = random_window
         self.overlap = overlap if isinstance(overlap, tuple) else (overlap, overlap)
-        self._crs = self.data.crs
+        self._crs = self.data.crs if isinstance(self.data, gpd.GeoDataFrame) else None
         self._debug = debug
         # case inference by zone, we split
         # TODO this part should be in the DataFactory

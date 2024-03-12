@@ -11,7 +11,6 @@ CSV_SUFFIX = ".csv"
 
 def create_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> pd.DataFrame:
     """
-
     Parameters
     ----------
     path: Path or str, path of csv file
@@ -20,7 +19,7 @@ def create_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> pd.
     -------
      DataFrame
     """
-
+    print(f'path: {path}')
     if str(path).endswith(CSV_SUFFIX):
         return create_pandas_dataframe_from_file(path=path, options=options)
     else:
@@ -29,7 +28,6 @@ def create_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> pd.
 
 def create_pandas_dataframe_from_file(path: URI, options: Optional[Dict] = None) -> pd.DataFrame:
     """
-
     Parameters
     ----------
     path: Path or str, path of csv file
@@ -45,20 +43,19 @@ def create_pandas_dataframe_from_file(path: URI, options: Optional[Dict] = None)
         if 'header_list' not in options.keys():
             options['header_list'] = None
 
-        header_list = options['header'] if options['header'] is not None else None
-        header = None if options['has_header'] is False else options['header']
+        header_list = options['header_list']
+        len_header_list = len(header_list) if isinstance(header_list, list) else 0
+        header = None if options['header'] is False else options['header']
         del options['header']
         del options['header_list']
         df: pd.DataFrame = pd.read_csv(path, header=header, **options)
-        if header_list is not None:
+        if isinstance(header_list, list):
             error_message = f"""header list must have same length than csv columns,
-                                                but header has {len(options['header'])} and columns equals to
+                                                but header has {len_header_list} and columns equals to
                                                  {len(df.columns)}"""
             assert len(header_list) == len(df.columns), error_message
             df.columns = header_list
         return df
-
-
     else:
         return pd.read_csv(path)
 

@@ -25,7 +25,7 @@ class DataFactory:
     transforms: Union[List[Callable], None] = None
     dataloader_options: Dict = field(default_factory=lambda: {})
     root_dir: Optional[URI] = None
-    header: bool | str | None = True  # Rather input files have header or not
+    header: bool | str | None = 'infer'  # Rather input files have header or not
     header_list: List[str] | None = None
     patch_size: Union[int, Tuple[int, int], List[int]] = field(default_factory=lambda: DEFAULT_PATCH_SIZE)
     patch_resolution: Union[float, Tuple[float,
@@ -52,8 +52,8 @@ class DataFactory:
 
         self._inference_mode = False if self.stage in [Stages.FIT, Stages.FIT.value] else True
         self._dataframe = create_dataframe_from_file(path=self.input_file,
-                                                     options={'has_header': self.header,
-                                                              'header': self.header_list})
+                                                     options={'header': self.header,
+                                                              'header_list': self.header_list})
         self._transform = AlbuTransform(input_fields=self.input_fields,
                                         pipe=self.transforms)
         assert self._transform is not None
@@ -120,7 +120,7 @@ class DataFactory:
                    transform: Union[List[Callable], None] = None,
                    dataloader_options: Dict = None,
                    root_dir: Optional[URI] = None,
-                   header: bool | str | None = None,
+                   header: bool | str | None = "infer",
                    header_list: List[str] | None = None,
                    by_zone: bool = False,
                    patch_size: Union[int, Tuple[int, int], List[int]] = None,

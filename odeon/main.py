@@ -15,6 +15,7 @@ from sys import argv
 from typing import List
 
 from odeon.core.app import APP_REGISTRY, App
+from odeon import ENV
 
 AVAILABLE_APP = [f"app: {key}, \n doc: {value.__doc__} \n\n\n" for key, value in APP_REGISTRY.get_registry().items()]
 HELP_MESSAGE = f"""
@@ -41,10 +42,11 @@ def main():
         app_args: List = argv[2:]
         app: App = APP_REGISTRY.get(app_name)
         app_config = app.get_class_config()
-        parser, cfg, debug = app.parse_args(app_config, app_args, parser_mode=ENV.config.config_parser)
+        parser, cfg, debug = app.parse_args(app_config, app_args, parser_mode=ENV.config_parser)
         # logger = get_logger(__name__, debug=debug)
-        instance = app.get_instance(parser=parser, cfg=cfg)
-        instance()
+        instanciated_config = app.get_instance(parser=parser, cfg=cfg)
+        app_instance = app(config=instanciated_config)
+        app_instance()
 
 
 if __name__ == '__main__':

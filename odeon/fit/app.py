@@ -407,5 +407,6 @@ class FitApp(App, metaclass=Singleton):
             else:
                 self.config.trainer.predict(model=self.config.model, datamodule=self.config.data, **params)
 
-    def get_class_config(self) -> object:
+    @staticmethod
+    def get_class_config() -> type:
         return FitConfig
