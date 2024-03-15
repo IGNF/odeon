@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional
 
 from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
@@ -57,13 +57,13 @@ class Input(OdnData):
         if stage == Stages.FIT.value or stage == Stages.FIT:
             assert self.fit_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
                                     f'{self.fit_params}'
-            self._fit = {f'fit-{i+1}': self._instanciate_data(params=params, stage=Stages.FIT)
+            self._fit = {f'fit-{i+1}': Input._instantiate_data(params=params, stage=Stages.FIT)
                          for i, params in enumerate(list(self.fit_params))} if isinstance(self.fit_params, List)\
-                else self._instanciate_data(params=dict(self.fit_params), stage=Stages.FIT)
+                else Input._instantiate_data(params=dict(self.fit_params), stage=Stages.FIT)
             if self.validate_params:
-                self._validate = {f'validate-{i + 1}': self._instanciate_data(params=params, stage=Stages.VALIDATE)
+                self._validate = {f'validate-{i + 1}': Input._instantiate_data(params=params, stage=Stages.VALIDATE)
                                   for i, params in enumerate(list(self.validate_params))} \
-                    if isinstance(self.validate_params, List) else self._instanciate_data(
+                    if isinstance(self.validate_params, List) else Input._instantiate_data(
                     params=dict(self.validate_params),
                     stage=Stages.VALIDATE)
             else:
@@ -72,20 +72,21 @@ class Input(OdnData):
         if stage == Stages.VALIDATE.value or stage == Stages.VALIDATE:
             assert self.validate_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
                                          f'{self.validate_params}'
-            self._validate = {f'validate-{i + 1}': self._instanciate_data(params=params, stage=Stages.VALIDATE)
+            self._validate = {f'validate-{i + 1}': Input._instantiate_data(params=params, stage=Stages.VALIDATE)
                               for i, params in enumerate(list(self.validate_params))} \
                 if isinstance(self.validate_params, List)\
-                else self._instanciate_data(params=dict(self.validate_params), stage=Stages.VALIDATE)
+                else Input._instantiate_data(params=dict(self.validate_params), stage=Stages.VALIDATE)
         if stage == Stages.TEST.value or stage == Stages.TEST:
             assert self.test_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
                                      f'{self.test_params}'
-            self._test = self._instanciate_data(params=self.test_params, stage=Stages.TEST)
+            self._test = Input._instantiate_data(params=self.test_params, stage=Stages.TEST)
         if stage == Stages.PREDICT.value or stage == Stages.PREDICT:
             assert self.predict_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
                                         f'{self.predict_params}'
-            self._predict = self._instanciate_data(params=self.predict_params, stage=Stages.PREDICT)
+            self._predict = Input._instantiate_data(params=self.predict_params, stage=Stages.PREDICT)
 
-    def _instanciate_data(self, params: Dict, stage: STAGES_OR_VALUE) -> Data:
+    @staticmethod
+    def _instantiate_data(params: Dict, stage: STAGES_OR_VALUE) -> Data:
         logger.info(f'params: {params}')
         params['stage'] = stage
         dataloader, dataset, transform, dataframe = DataFactory.build_data(**params)
@@ -96,38 +97,49 @@ class Input(OdnData):
         return data
 
     @property
-    def fit(self) -> Union[Data, Dict[str, Data]]:
+    def fit(self) -> Data | Dict[str, Data] | None:
         return self._fit
 
     @property
-    def validate(self) -> Data | Dict[str, Data]:
+    def validate(self) -> Data | Dict[str, Data] | None:
         return self._validate
 
     @property
-    def test(self) -> Data:
+    def test(self) -> Data | None:
         return self._test
 
     @property
-    def predict(self) -> Data:
+    def predict(self) -> Data | None:
         return self._predict
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-
-        if isinstance(self._fit, Dict):
-            d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._fit.items()}
-            return d
+        if isinstance(self._fit, Data):
+            if isinstance(self._fit, Dict):
+                d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._fit.items()}
+                return d
+            else:
+                return self._fit.dataloader
         else:
-            return self._fit.dataloader
+            raise NotImplementedError('fit is not implemented yet, fit is None')
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        if isinstance(self._validate, Dict):
-            l: List = [v.dataloader for k, v in self._validate.items()]
-            return l
+        if isinstance(self._validate, Data):
+            if isinstance(self._validate, Dict):
+                l: List = [v.dataloader for k, v in self._validate.items()]
+                return l
+            else:
+                return self._validate.dataloader
         else:
-            return self._validate.dataloader
+            raise NotImplementedError('validate is not implemented yet, validate is None')
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return self._test.dataloader
+        if isinstance(self._test, Data):
+            return self._test.dataloader
+        else:
+            raise NotImplementedError('test is not implemented yet, test is None')
 
     def predict_dataloader(self) -> EVAL_DATALOADERS:
-        return self._predict.dataloader
+        if isinstance(self._predict, Data):
+            return self._predict.dataloader
+        else:
+            raise NotImplementedError('predict is not implemented yet, predict is None')
