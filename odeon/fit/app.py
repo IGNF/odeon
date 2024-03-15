@@ -300,6 +300,7 @@ class FitConfig:
                                                         f"declare a {Stages.FIT.value} stage, you need to"
                                                         f"use a dictionary with the ckpt_path parameter"
                                                         f"filled")
+
             _has_fit_stage = True
             stages = sorted(stages, key=lambda d: STAGE_ORDER[d])
         elif isinstance(stages, Dict):
