@@ -32,10 +32,15 @@ def is_running_in_jupyter_notebook():
         return False
 
 
-def debug_mode() -> bool:
+def get_debug_mode() -> bool:
+    """
+    Returns
+    -------
+     bool
+    """
     from os import environ
     return str(environ.get('ODEON_DEBUG')) == '1'
 
 
-debug_mode = debug_mode()
+debug_mode = get_debug_mode()
 RUNNING_IN_JUPYTER = is_running_in_jupyter_notebook()
