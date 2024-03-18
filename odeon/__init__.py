@@ -40,6 +40,20 @@ def store_resolver(store_name: str) -> str:
             return str(ENV.user_delivery_store)
         case 'user_log_store':
             return str(ENV.user_log_store)
+        case 'config_store':
+            return str(ENV.config_store)
+        case 'artefact_store':
+            return str(ENV.artefact_store)
+        case 'model_store':
+            return str(ENV.model_store)
+        case 'dataset_store':
+            return str(ENV.dataset_store)
+        case 'test_store':
+            return str(ENV.test_store)
+        case 'delivery_store':
+            return str(ENV.delivery_store)
+        case 'log_store':
+            return str(ENV.log_store)
         case _:
             raise ValueError(f'the store {store_name} is not a valid store name')
 

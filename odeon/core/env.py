@@ -216,35 +216,45 @@ class Env(metaclass=Singleton):
         self.user: User | None = config.user
         self.plugins: Dict[str, OdnPlugin | str] | List[OdnPlugin | str] | str | OdnPlugin | None = config.plugins
         self.debug_mode: bool = config.debug_mode
-
         if self.set_env_variables is not None:
             set_env_variables(variables=self.set_env_variables)
+        self.config_store: URI = config.config_store
+        self.model_store: URI = config.model_store
+        self.feature_store: URI = config.feature_store
+        self.artefact_store: URI = config.artefact_store
+        self.test_store: URI = config.test_store
+        self.log_store: URI = config.log_store
+        self.delivery_store: URI = config.delivery_store
+        self.dataset_store: URI = config.dataset_store
+
         self.user_path: URI | None = self._create_user_path()
-        self.user_config_store = Path(config.config_store) / self.user_path if self.user_path is not None\
-            else Path(config.config_store)
-        self.user_artefact_store = Path(config.artefact_store) / self.user_path if self.user_path is not None\
-            else Path(config.artefact_store)
-        self.user_feature_store = Path(config.feature_store) / self.user_path if self.user_path is not None\
-            else Path(config.feature_store)
-        self.user_dataset_store = Path(config.dataset_store) / self.user_path if self.user_path is not None\
-            else Path(config.dataset_store)
+        self.user_config_store = Path(self.config_store) / self.user_path if self.user_path is not None\
+            else Path(self.config_store)
+        self.user_artefact_store = Path(self.artefact_store) / self.user_path if self.user_path is not None\
+            else Path(self.artefact_store)
+        self.user_feature_store = Path(self.feature_store) / self.user_path if self.user_path is not None\
+            else Path(self.feature_store)
+        self.user_dataset_store = Path(self.dataset_store) / self.user_path if self.user_path is not None\
+            else Path(self.dataset_store)
         self.user_model_store = Path(config.model_store) / self.user_path if self.user_path is not None\
-            else Path(config.model_store)
-        self.user_test_store = Path(config.test_store) / self.user_path if self.user_path is not None\
-            else Path(config.test_store)
+            else Path(self.model_store)
+        self.user_test_store = Path(self.test_store) / self.user_path if self.user_path is not None\
+            else Path(self.test_store)
         self.user_delivery_store = Path(config.delivery_store) / self.user_path if self.user_path is not None\
             else Path(config.delivery_store)
         self.user_log_store = Path(config.log_store) / self.user_path if self.user_path is not None\
             else Path(config.log_store)
 
-        create_path_if_not_exists(config.config_store)
-        create_path_if_not_exists(config.artefact_store)
-        create_path_if_not_exists(config.feature_store)
-        create_path_if_not_exists(config.dataset_store)
-        create_path_if_not_exists(config.model_store)
-        create_path_if_not_exists(config.test_store)
-        create_path_if_not_exists(config.delivery_store)
-        create_path_if_not_exists(config.log_store)
+        create_path_if_not_exists(self.user_config_store)
+        create_path_if_not_exists(self.user_artefact_store)
+        create_path_if_not_exists(self.user_feature_store)
+        create_path_if_not_exists(self.user_dataset_store)
+        create_path_if_not_exists(self.user_.model_store)
+        create_path_if_not_exists(self.user_test_store)
+        create_path_if_not_exists(self.user_delivery_store)
+        create_path_if_not_exists(self.user_log_store)
+
+
 
 
     def _create_user_path(self) -> URI | None:

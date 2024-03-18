@@ -19,7 +19,7 @@ __all__ = ['pl_logger_plugin', 'pl_callback_plugin',
 """
 fit_plugin = OdnPlugin(name='fit',
                        author='samy KHELIFI-RICHARDS',
-                       plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                       plugin_maturity=PluginMaturity.DEVELOPMENT.value,
                        version='0.1',
                        elements={'fit': {'registry': APP_REGISTRY, 'class': FitApp}})
 
@@ -27,7 +27,7 @@ fit_plugin = OdnPlugin(name='fit',
 """
 pl_logger_plugin = OdnPlugin(name='pl_logger',
                              author='samy KHELIFI-RICHARDS',
-                             plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                             plugin_maturity=PluginMaturity.DEVELOPMENT.value,
                              version='0.1',
                              elements={'logger_registry': {'class': LOGGER_REGISTRY, 'registry': GENERIC_REGISTRY,
                                                            'aliases': ['logger_r']},
@@ -42,7 +42,7 @@ pl_logger_plugin = OdnPlugin(name='pl_logger',
 """
 pl_callback_plugin = OdnPlugin(name='pl_callback',
                                author='samy KHELIFI-RICHARDS',
-                               plugin_maturity=str(PluginMaturity.DEVELOPMENT.value),
+                               plugin_maturity=PluginMaturity.DEVELOPMENT.value,
                                version='0.1',
                                elements={'callback_registry': {'class': CALLBACK_REGISTRY,
                                                                'registry': GENERIC_REGISTRY,
