@@ -1,7 +1,7 @@
 # Changes
 
-## 0.4.0 (2024-03-20)
- ***V.0.4.0 first stable version of core API with plugins***
+## 0.5.0 (2024-03-20)
+ ***V.0.5.0 first stable version of core API with plugins***
 - Full oriented plugin architecture
 - Plugin system is stable
 ## 0.3.0 (2023-11-13)
