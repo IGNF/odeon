@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
 
+from pytorch_lightning.utilities import CombinedLoader
 from pytorch_lightning.utilities.types import (EVAL_DATALOADERS,
                                                TRAIN_DATALOADERS)
 from torch.utils.data import DataLoader, Dataset
@@ -40,8 +41,8 @@ class Input(OdnData):
     def __init__(self,
                  fit_params: List[Dict] | Dict | None = None,
                  validate_params: List[Dict] | Dict | None = None,
-                 test_params: Dict = None,
-                 predict_params: Dict = None):
+                 test_params: List[Dict] | Dict | None = None,
+                 predict_params: List[Dict] | Dict | None = None):
 
         super(Input, self).__init__()
         self.fit_params = fit_params
@@ -50,8 +51,8 @@ class Input(OdnData):
         self.predict_params = predict_params
         self._fit: Data | Dict[str, Data] | None = None
         self._validate: Data | Dict[str, Data] | None = None
-        self._test: Data | None = None
-        self._predict: Data | None = None
+        self._test: Data | Dict[str, Data] | None = None
+        self._predict: Data | Dict[str, Data] | None = None
 
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == Stages.FIT.value or stage == Stages.FIT:
@@ -77,13 +78,18 @@ class Input(OdnData):
                 if isinstance(self.validate_params, List)\
                 else Input._instantiate_data(params=dict(self.validate_params), stage=Stages.VALIDATE)
         if stage == Stages.TEST.value or stage == Stages.TEST:
-            assert self.test_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
-                                     f'{self.test_params}'
-            self._test = Input._instantiate_data(params=self.test_params, stage=Stages.TEST)
+            assert self.test_params, (f'you want to run a stage {stage} but you have not filled {stage}_params :'
+                                      f'{self.test_params}')
+            self._test = {f'test-{i + 1}': Input._instantiate_data(params=params, stage=Stages.TEST) for i, params
+                          in enumerate(list(self.test_params))} if isinstance(self.test_params, List)\
+                else Input._instantiate_data(params=dict(self.test_params), stage=Stages.TEST)
         if stage == Stages.PREDICT.value or stage == Stages.PREDICT:
             assert self.predict_params, f'you want to run a stage {stage} but you have not filled {stage}_params :' \
                                         f'{self.predict_params}'
-            self._predict = Input._instantiate_data(params=self.predict_params, stage=Stages.PREDICT)
+            self._predict = {f'predict-{i + 1}': Input._instantiate_data(params=params, stage=Stages.PREDICT)
+                             for i, params in enumerate(list(self.predict_params))} \
+                if isinstance(self.predict_params, List) else Input._instantiate_data(params=dict(self.predict_params),
+                                                                                      stage=Stages.PREDICT)
 
     @staticmethod
     def _instantiate_data(params: Dict, stage: STAGES_OR_VALUE) -> Data:
@@ -113,33 +119,41 @@ class Input(OdnData):
         return self._predict
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        if isinstance(self._fit, Data):
+        if isinstance(self._fit, Data | dict):
             if isinstance(self._fit, Dict):
                 d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._fit.items()}
-                return d
+                return CombinedLoader(d, mode='min_size')
             else:
                 return self._fit.dataloader
         else:
             raise NotImplementedError('fit is not implemented yet, fit is None')
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        if isinstance(self._validate, Data):
+        if isinstance(self._validate, Data | dict):
             if isinstance(self._validate, Dict):
-                l: List = [v.dataloader for k, v in self._validate.items()]
-                return l
+                d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._validate.items()}
+                return CombinedLoader(d, mode='min_size')
             else:
                 return self._validate.dataloader
         else:
             raise NotImplementedError('validate is not implemented yet, validate is None')
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        if isinstance(self._test, Data):
-            return self._test.dataloader
+        if isinstance(self._test, Data | dict):
+            if isinstance(self._test, Dict):
+                d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._test.items()}
+                return CombinedLoader(d, mode='min_size')
+            else:
+                return self._test.dataloader
         else:
             raise NotImplementedError('test is not implemented yet, test is None')
 
     def predict_dataloader(self) -> EVAL_DATALOADERS:
-        if isinstance(self._predict, Data):
-            return self._predict.dataloader
+        if isinstance(self._predict, Data | dict):
+            if isinstance(self._predict, Dict):
+                d: Dict[str, DataLoader] = {k: v.dataloader for k, v in self._predict.items()}
+                return CombinedLoader(d, mode='min_size')
+            else:
+                return self._predict.dataloader
         else:
             raise NotImplementedError('predict is not implemented yet, predict is None')

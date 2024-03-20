@@ -13,8 +13,11 @@ def is_running_from_ipython():
 
 
 def is_running_in_jupyter_notebook():
+    """
+    Returns
+    -------
+    """
     # TODO simplify code between functions is_running_in_jupyter_notebook and is_running_from_ipython
-
     if is_running_from_ipython() is False:
         return False
     try:
@@ -34,6 +37,7 @@ def is_running_in_jupyter_notebook():
 
 def get_debug_mode() -> bool:
     """
+
     Returns
     -------
      bool

@@ -1,19 +1,19 @@
 # Adapted code for Odeon, Originally from https://github.com/microsoft/torchgeo/blob/main/torchgeo
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-
 """Fully convolutional change detection (FCCD) implementations."""
-from typing import Any, Callable, Dict, Optional, Sequence, Union, List
-from copy import deepcopy
 
+from copy import deepcopy
+from typing import Any, Callable, Dict, Optional, Sequence, Union
+
+import einops
 # from typing introspection.py List
 import segmentation_models_pytorch as smp
 import torch
 from segmentation_models_pytorch import Unet
 from segmentation_models_pytorch.base.model import SegmentationModel
+from segmentation_models_pytorch.decoders.unet.decoder import UnetDecoder
 from torch import Tensor
-import einops
-
 
 Unet.__module__ = "segmentation_models_pytorch"
 
@@ -83,7 +83,6 @@ class FCSiamConc(SegmentationModel):  # type: ignore[misc]
         encoder_out_channels = [c * 2 for c in self.encoder.out_channels[1:]]
         encoder_out_channels.insert(0, self.encoder.out_channels[0])
 
-        UnetDecoder = Unet.decoder.UnetDecoder
         self.decoder = UnetDecoder(
             encoder_channels=encoder_out_channels,
             decoder_channels=decoder_channels,
@@ -179,7 +178,7 @@ class FCSiamDiff(Unet):  # type: ignore[misc]
                  **kwargs: Any) -> None:
 
         kwargs["aux_params"] = None
-        decoder_channels: List[int] = list(DEFAULT_DECODER_CHANNELS) if decoder_channels is None \
+        decoder_channels = list(DEFAULT_DECODER_CHANNELS) if decoder_channels is None \
             else list(decoder_channels)
         super().__init__(encoder_name,
                          encoder_depth,
@@ -409,7 +408,7 @@ class MultiTaskSiamDiff(FCSiamDiff):
                                encoder_weights=str(trunk_params['encoder_weights']),
                                in_channels=int(trunk_params['in_channels']),
                                classes=int(trunk_params['classes']))
-            
+
             trunk_model.load_state_dict(torch.load(str(segmentation_trunk)))
 
             self.segmentation_trunk = trunk_model.encoder
@@ -419,13 +418,12 @@ class MultiTaskSiamDiff(FCSiamDiff):
         self.pseudo_siamese = pseudo_siamese
 
         if self.pseudo_siamese:  # deep copy if none segmentation trunk at init
-            if self.segmentation_trunk is None:
+            if segmentation_trunk is None:
                 self.segmentation_trunk = deepcopy(self.encoder)
         else:
-
-            if self.segmentation_trunk:
-
+            if segmentation_trunk:
                 self.change_head = self.segmentation_trunk
+
     def build(self):
         ...
 
