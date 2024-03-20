@@ -5,20 +5,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from jsonargparse import set_config_read_mode, ArgumentParser
+from jsonargparse import ArgumentParser, set_config_read_mode
 
-from .default_path import ODEON_ENV
-from .io_utils import generate_yaml_with_doc
-from .default_path import ODEON_PATH
-from .io_utils import create_path_if_not_exists
+from .default_path import ODEON_ENV, ODEON_PATH
+from .io_utils import create_path_if_not_exists, generate_yaml_with_doc
 from .logger import get_logger
-from .plugins.plugin import OdnPlugin
+from .plugins.plugin import OdnPlugin, load_plugins
+from .python_env import debug_mode
 # from .logger introspection.py get_logger
 # from .types introspection.py PARSER
 from .singleton import Singleton
-from .types import PARAMS, URI, PARSER
-from .plugins.plugin import load_plugins
-from .python_env import debug_mode
+from .types import PARAMS, PARSER, URI
 
 # enable URL with Parser
 _URL_ENABLED: bool = True
@@ -72,8 +69,8 @@ DOC_ENV_CONF = '''
                 Here is a complete example of how to configure an Odeon environment with your env.yml.
                 By default, your env.yml will be loaded from $HOME, but you can also
                 configure your path with the following environment variable: ODEON_INSTALL_PATH.
-                
-                
+
+
                 set_env_variables:
                   API_KEY: "abc123"
                   ANOTHER_VAR: "xyz789"
@@ -249,13 +246,10 @@ class Env(metaclass=Singleton):
         create_path_if_not_exists(self.user_artefact_store)
         create_path_if_not_exists(self.user_feature_store)
         create_path_if_not_exists(self.user_dataset_store)
-        create_path_if_not_exists(self.user_.model_store)
+        create_path_if_not_exists(self.user_model_store)
         create_path_if_not_exists(self.user_test_store)
         create_path_if_not_exists(self.user_delivery_store)
         create_path_if_not_exists(self.user_log_store)
-
-
-
 
     def _create_user_path(self) -> URI | None:
         p: URI | None = None
@@ -264,7 +258,7 @@ class Env(metaclass=Singleton):
                 p = Path(str(self.project.name))
         if self.team is not None:
             if self.team.name != '':
-                p = Path(str(self.project.name)) if p is None else Path(p) / str(self.project.name)
+                p = Path(str(self.team.name)) if p is None else Path(p) / str(self.team.name)
         if self.user is not None:
             if self.user.name != '':
                 p = Path(str(self.user.name)) if p is None else Path(p) / str(self.user.name)

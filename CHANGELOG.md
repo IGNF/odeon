@@ -1,4 +1,9 @@
 # Changes
+
+## 0.4.0 (2024-03-20)
+ ***V.0.4.0 first stable version of core API with plugins***
+- Full oriented plugin architecture
+- Plugin system is stable
 ## 0.3.0 (2023-11-13)
  ***V.0.3.0 merge the new version of Odeon into the main code***
 - Old code has been totally removed excepted changelogs
