@@ -111,11 +111,11 @@ class Input(OdnData):
         return self._validate
 
     @property
-    def test(self) -> Data | None:
+    def test(self) -> Data | Dict[str, Data] | None:
         return self._test
 
     @property
-    def predict(self) -> Data | None:
+    def predict(self) -> Data | Dict[str, Data] | None:
         return self._predict
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
