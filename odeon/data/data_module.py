@@ -20,6 +20,66 @@ REVERSED_STAGES_D = {stage.value: stage for stage in Stages}
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=True)
 class Data:
+    """
+        A container for storing all necessary components for a single stage of data processing in
+        machine learning workflows. It encapsulates a DataLoader for batched data processing, a Dataset
+        for raw data management, an optional transformation function for data augmentation or preprocessing,
+        and a DataFrame for additional metadata or annotations related to the dataset.
+
+        Parameters
+        ----------
+        dataloader : DataLoader
+            The DataLoader object for iterating over the dataset in batches.
+        dataframe : DATAFRAME
+            A DataFrame containing metadata or annotations for the dataset. The specific type of
+            DATAFRAME should be defined according to the project's requirements, typically Pandas DataFrame.
+        dataset : Dataset
+            The Dataset object containing the raw data to be processed. This could be any object that
+            inherits from PyTorch's Dataset class.
+        transform : Optional[Callable], optional
+            An optional callable (function or object) for performing transformations or augmentations on
+            the data. This could be a composition of several transformations implemented with libraries
+            such as torchvision or albumentations. Defaults to None.
+
+        Attributes
+        ----------
+        dataloader : DataLoader
+            Provides an iterable over the dataset for batched processing.
+        dataframe : DATAFRAME
+            Stores metadata or annotations associated with the dataset.
+        dataset : Dataset
+            Holds the raw data for processing.
+        transform : Optional[Callable]
+            A function or callable object for data transformation.
+
+        Examples
+        --------
+        >>> from torch.utils.data import DataLoader, TensorDataset
+        >>> import pandas as pd
+        >>> import torch
+
+        # Create a simple dataset and dataloader for demonstration
+        >>> dataset = TensorDataset(torch.randn(100, 2), torch.randint(0, 2, (100,)))
+        >>> dataloader = DataLoader(dataset, batch_size=10)
+
+        # Example dataframe for metadata or annotations
+        >>> dataframe = pd.DataFrame({'id': range(100), 'label': torch.randint(0, 2, (100,)).numpy()})
+
+        # Instantiate the Data class without transformations
+        >>> data_instance = Data(dataloader=dataloader, dataframe=dataframe, dataset=dataset, transform=None)
+
+        # Accessing the DataLoader and DataFrame
+        >>> for batch in data_instance.dataloader:
+        ...     # Process each batch
+        ...     pass
+        >>> print(data_instance.dataframe.head())
+
+        Notes
+        -----
+        This class is designed to be immutable, meaning that once an instance is created, its attributes
+        cannot be modified. This design choice helps to ensure the consistency of data throughout the
+        processing stages.
+        """
     dataloader: DataLoader
     dataframe: DATAFRAME
     dataset: Dataset
@@ -27,16 +87,62 @@ class Data:
 
 
 class Input(OdnData):
-    """Input DataModule
-    Take a
-
-    Attributes
-    ----------
-
-    Methods
-    -------
-
     """
+        A PyTorch Lightning Module specialized for handling georeferenced data across various stages
+        of machine learning workflows, including fitting, validation, testing, and prediction, in the most genereic
+        way (multi instance, and coming soon multimodal with remote sensing time series and lidar. It is
+        capable of processing data with optional transformations and organizing data loaders for each
+        respective stage.
+
+        The `Input` class inherits from `odeon.data.core.OdnData`, integrating closely with the PyTorch Lightning
+        framework to facilitate efficient data handling and transformations within a geospatial
+        context.
+
+        Parameters
+        ----------
+        fit_params : List[Dict] | Dict | None, optional
+            Parameters for setting up the data during the fitting stage. It could be a list of
+            dictionaries, each representing parameters for a separate data instance, or a single
+            dictionary if only one instance is used. Defaults to None.
+        validate_params : List[Dict] | Dict | None, optional
+            Parameters for setting up the data during the validation stage, structured similarly
+            to `fit_params`. Defaults to None.
+        test_params : List[Dict] | Dict | None, optional
+            Parameters for setting up the data during the testing stage. Defaults to None.
+        predict_params : List[Dict] | Dict | None, optional
+            Parameters for setting up the data during the prediction stage. Defaults to None.
+
+
+        Methods
+        -------
+        setup(stage: Optional[str] = None) -> None
+            Prepares data for the specified stage. If `stage` is None, it sets up data for all stages
+            based on the provided parameters.
+        train_dataloader() -> TRAIN_DATALOADERS
+            Returns a dataloader or a combined dataloader for the training data.
+        val_dataloader() -> EVAL_DATALOADERS
+            Returns a dataloader or a combined dataloader for the validation data.
+        test_dataloader() -> EVAL_DATALOADERS
+            Returns a dataloader or a combined dataloader for the test data.
+        predict_dataloader() -> EVAL_DATALOADERS
+            Returns a dataloader or a combined dataloader for the prediction data.
+
+        Notes
+        -----
+        - This class requires specific parameters for setting up data for different stages, which are
+          encapsulated in `Data` instances. Each `Data` instance includes a `DataLoader`, a dataset,
+          an optional transformation function, and a dataframe.
+        - The actual data preparation logic, including instantiation of `Data` objects, is handled by
+          the `DataFactory.build_data` method, which is not detailed in this documentation.
+
+        Examples
+        --------
+        >>> fit_params = [{'data_param1': value1, 'data_param2': value2}, {'data_param1': value3}]
+        >>> validate_params = {'data_param1': value5, 'data_param2': value6}
+        >>> input_module = Input(fit_params=fit_params, validate_params=validate_params)
+        >>> input_module.setup('fit')
+        >>> train_loader = input_module.train_dataloader()
+        """
 
     def __init__(self,
                  fit_params: List[Dict] | Dict | None = None,

@@ -8,17 +8,67 @@ from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
 from torch import Tensor
 
+from odeon.core.types import URI
 from odeon.layers.data import DTYPE_MAX, InputDType
 from odeon.layers.raster import get_dataset, read
-from odeon.core.types import URI
 
 logger = getLogger(__name__)
 MEAN_DEFAULT_VALUE = 0.5
 STD_DEFAULT_VALUE = 0.5
 
 
-class UniversalPreProcessor:
+class PreProcessor:
+    """
+    A preprocessing module that handles data features within a Dataset class, particularly focusing
+    on raster and mask data. It supports operations like normalization, application of transformations,
+    and caching of datasets for optimized data handling.
 
+    Parameters
+    ----------
+    input_fields : Dict
+        A dictionary specifying the input fields and their attributes, such as name, type (e.g., 'raster'
+        or 'mask'), band indices, and normalization parameters.
+    patch_size : int, optional
+        The size of the patches to extract from raster data, defaults to 256.
+    root_dir : Union[None, Path, str], optional
+        The root directory from where to load the data files, defaults to None.
+    cache_dataset : bool, optional
+        If True, the dataset will be cached to improve performance, defaults to False.
+
+
+    Methods
+    -------
+    forward(data: Dict, bounds: Optional[List] = None) -> Dict
+        Processes the input data according to the configuration specified in `input_fields`. It
+        supports operations such as reading and normalizing raster data, reading mask data, and
+        optionally applying transformations.
+    apply_to_raster(path: URI, band_indices: Optional[List] = None, bounds: Optional[List] = None,
+                    dtype_max: float = DTYPE_MAX[InputDType.UINT8.value], mean: Optional[List] = None,
+                    std: Optional[List] = None) -> np.ndarray
+        Reads and processes raster data from a given path, applying normalization and returning
+        the processed numpy array.
+    apply_to_mask(path: URI, band_indices: Optional[List] = None, bounds: Optional[List] = None,
+                  one_hot_encoding: bool = False) -> np.ndarray
+        Reads and processes mask data from a given path, applying optional one-hot encoding and
+        returning the processed numpy array.
+
+    Examples
+    --------
+    >>> input_fields = {
+    ...     "raster1": {"name": "image.tif", "type": "raster", "band_indices": [1, 2, 3], "dtype": "uint8"},
+    ...     "mask1": {"name": "mask.tif", "type": "mask", "one_hot_encoding": True}
+    ... }
+    >>> preprocessor = PreProcessor(input_fields=input_fields, patch_size=512, root_dir="/path/to/data")
+    >>> data = {"image.tif": "image.tif", "mask.tif": "mask.tif"}
+    >>> processed_data = preprocessor(data)
+
+    Notes
+    -----
+    - The class is designed to work seamlessly within a dataset class like `OdnDataset` to handle
+      preprocessing of geospatial data for machine learning models.
+    - It supports flexible configurations through `input_fields` to accommodate various data types
+      and preprocessing needs.
+    """
     def __init__(self,
                  input_fields: Dict,
                  patch_size: int = 256,

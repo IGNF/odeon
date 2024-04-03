@@ -1,7 +1,5 @@
 from logging import getLogger
 
-from pytorch_lightning.utilities import CombinedLoader
-
 from odeon.data.data_module import Input
 
 logger = getLogger(__name__)
