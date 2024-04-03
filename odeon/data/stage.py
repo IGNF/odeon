@@ -10,14 +10,94 @@ from odeon.core.types import DATAFRAME, STAGES_OR_VALUE, URI, GeoTuple
 from odeon.data.core.dataloader_utils import (
     DEFAULT_DATALOADER_OPTIONS, DEFAULT_INFERENCE_DATALOADER_OPTIONS,
     DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION, DEFAULT_PATCH_SIZE)
+from odeon.layers.dataframe import create_dataframe_from_file
 
-from .dataset import UniversalDataset
+from .dataset import OdnDataset
 from .transform import AlbuTransform
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False, slots=True)
 class DataFactory:
+    """
+        A factory class for generating DataLoader, Dataset, transformation functions, and DataFrame
+        objects configured for different stages (fit, validate, test, predict) in a machine learning
+        workflow. It is specially designed for handling geospatial data and supports a wide range of
+        customization options for data loading and augmentation.
 
+        Parameters
+        ----------
+        stage : STAGES_OR_VALUE
+            The stage of the machine learning workflow for which data is being prepared. This affects
+            the inference mode and possibly other configurations.
+        input_file : URI
+            The file path or URI to the input data.
+        input_fields : Dict
+            A dictionary mapping from field names to data types or other relevant specifications, used
+            to structure the input data.
+        by_zone : bool, optional
+            Whether to process data by geographical zone, defaults to False.
+        transforms : Union[List[Callable], None], optional
+            A list of transformation functions or callables to be applied to the data, defaults to None.
+        dataloader_options : Dict, optional
+            Options and configurations for the DataLoader, defaults to an empty dictionary.
+        root_dir : Optional[URI], optional
+            The root directory for relative paths in the data, defaults to None.
+        header : bool | str | None, optional
+            Indicates if the input file has a header. Can be a boolean, a string specifying the header
+            line, or 'infer' to automatically detect, defaults to 'infer'.
+        header_list : List[str] | None, optional
+            A list of header names to use for the DataFrame, defaults to None.
+        patch_size : Union[int, Tuple[int, int], List[int]], optional
+            The size of patches to be extracted from the input images, defaults to DEFAULT_PATCH_SIZE.
+        patch_resolution : Union[float, Tuple[float, float], List[float]], optional
+            The resolution of patches to be extracted, defaults to DEFAULT_PATCH_RESOLUTION.
+        random_window : bool, optional
+            Whether to use random windows for patch extraction, defaults to True.
+        overlap : Union[GeoTuple], optional
+            The overlap between patches, if any, defaults to DEFAULT_OVERLAP.
+        cache_dataset : Union[bool], optional
+            Whether to cache the dataset, defaults to False.
+        debug : bool, optional
+            If True, enables debug mode with more verbose logging, defaults to False.
+
+        Attributes
+        ----------
+        dataloader : DataLoader
+            The DataLoader object created based on the provided configurations.
+        dataset : Dataset
+            The Dataset object created for the specified stage and configurations.
+        transform : Optional[Callable]
+            The transformation pipeline applied to the dataset.
+        dataframe : DATAFRAME
+            The DataFrame object created from the input file, containing data annotations or metadata.
+
+        Methods
+        -------
+        build_data(...)
+            A class method that instantiates a `DataFactory` object and returns DataLoader, Dataset,
+            transformation functions, and DataFrame objects configured according to the provided
+            parameters.
+
+        Examples
+        --------
+        >>> stage = Stages.FIT
+        >>> input_file = 'path/to/data.csv'
+        >>> input_fields = {'field1': 'float', 'field2': 'int'}
+        >>> transforms = [some_transform_function, another_transform_function]
+        >>> data_loader, dataset, transform, dataframe = DataFactory.build_data(
+        ...     stage=stage,
+        ...     input_file=input_file,
+        ...     input_fields=input_fields,
+        ...     transform=transforms
+        ... )
+
+        Notes
+        -----
+        This class provides a powerful interface for configuring and generating the data infrastructure
+        needed for training, validating, testing, and predicting in machine learning models, especially
+        those dealing with geospatial data. It allows for extensive customization to suit various data
+        formats, preprocessing needs, and workflow requirements.
+        """
     stage: STAGES_OR_VALUE
     input_file: URI
     input_fields: Dict
@@ -57,18 +137,18 @@ class DataFactory:
         self._transform = AlbuTransform(input_fields=self.input_fields,
                                         pipe=self.transforms)
         assert self._transform is not None
-        self._dataset = UniversalDataset(input_fields=self.input_fields,
-                                         data=self._dataframe,
-                                         transform=self._transform,
-                                         patch_resolution=self.patch_resolution,
-                                         patch_size=self._patch_size,
-                                         root_dir=self.root_dir,
-                                         by_zone=self.by_zone,
-                                         random_window=self.random_window,
-                                         inference_mode=self._inference_mode,
-                                         debug=self.debug,
-                                         cache_dataset=self.cache_dataset
-                                         )
+        self._dataset = OdnDataset(input_fields=self.input_fields,
+                                   data=self._dataframe,
+                                   transform=self._transform,
+                                   patch_resolution=self.patch_resolution,
+                                   patch_size=self._patch_size,
+                                   root_dir=self.root_dir,
+                                   by_zone=self.by_zone,
+                                   random_window=self.random_window,
+                                   inference_mode=self._inference_mode,
+                                   debug=self.debug,
+                                   cache_dataset=self.cache_dataset
+                                   )
         if self.dataloader_options == {}:
             self.dataloader_options = DEFAULT_INFERENCE_DATALOADER_OPTIONS if self._inference_mode \
                 else DEFAULT_DATALOADER_OPTIONS
