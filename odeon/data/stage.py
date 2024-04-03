@@ -4,6 +4,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from odeon.core.app_utils import Stages
+from odeon.layers.dataframe import create_dataframe_from_file
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.types import DATAFRAME, STAGES_OR_VALUE, URI, GeoTuple
 from odeon.data.core.dataloader_utils import (

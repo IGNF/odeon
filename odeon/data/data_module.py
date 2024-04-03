@@ -218,12 +218,12 @@ class Input(OdnData):
 
     @property
 
+
     def test(self) -> Data | Dict[str, Data] | None:
         return self._test
 
     @property
     def predict(self) -> Data | Dict[str, Data] | None:
-
         return self._predict
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
