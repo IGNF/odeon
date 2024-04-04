@@ -1,17 +1,13 @@
 from torchmetrics.classification import (BinaryAccuracy, BinaryAUROC,
                                          BinaryAveragePrecision,
                                          BinaryCalibrationError,
-                                         BinaryConfusionMatrix,
-                                         BinaryF1Score,
-                                         BinaryJaccardIndex,
-                                         BinaryPrecision,
+                                         BinaryConfusionMatrix, BinaryF1Score,
+                                         BinaryJaccardIndex, BinaryPrecision,
                                          BinaryPrecisionRecallCurve,
                                          BinaryRecall,
                                          BinaryRecallAtFixedPrecision,
-                                         BinaryROC,
-                                         BinarySpecificity,
-                                         MulticlassAccuracy,
-                                         MulticlassAUROC,
+                                         BinaryROC, BinarySpecificity,
+                                         MulticlassAccuracy, MulticlassAUROC,
                                          MulticlassAveragePrecision,
                                          MulticlassCalibrationError,
                                          MulticlassConfusionMatrix,
@@ -21,10 +17,8 @@ from torchmetrics.classification import (BinaryAccuracy, BinaryAUROC,
                                          MulticlassPrecisionRecallCurve,
                                          MulticlassRecall,
                                          MulticlassRecallAtFixedPrecision,
-                                         MulticlassROC,
-                                         MulticlassSpecificity,
-                                         MultilabelAccuracy,
-                                         MultilabelAUROC,
+                                         MulticlassROC, MulticlassSpecificity,
+                                         MultilabelAccuracy, MultilabelAUROC,
                                          MultilabelAveragePrecision,
                                          MultilabelConfusionMatrix,
                                          MultilabelF1Score,
@@ -33,13 +27,13 @@ from torchmetrics.classification import (BinaryAccuracy, BinaryAUROC,
                                          MultilabelPrecisionRecallCurve,
                                          MultilabelRecall,
                                          MultilabelRecallAtFixedPrecision,
-                                         MultilabelROC,
-                                         MultilabelSpecificity)
+                                         MultilabelROC, MultilabelSpecificity)
 
 from odeon.core.plugins.plugin import OdnPlugin, PluginMaturity
 from odeon.core.registry import GENERIC_REGISTRY
 
-from .metric import BINARY_METRIC_REGISTRY, MULTILABEL_METRIC_REGISTRY, MULTICLASS_METRIC_REGISTRY
+from .metric import (BINARY_METRIC_REGISTRY, MULTICLASS_METRIC_REGISTRY,
+                     MULTILABEL_METRIC_REGISTRY)
 
 __all__ = ['binary_metric_plugin', 'multiclass_metric_plugin', 'multilabel_metric_plugin',
            'MULTILABEL_METRIC_REGISTRY', 'MULTICLASS_METRIC_REGISTRY', 'BINARY_METRIC_REGISTRY']

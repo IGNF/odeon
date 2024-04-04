@@ -18,11 +18,12 @@ from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 from torchmetrics.classification import (  # type: ignore[attr-defined]
     BinaryAccuracy, BinaryF1Score, BinaryJaccardIndex, BinaryPrecision,
-    BinaryRecall, BinarySpecificity, MulticlassAccuracy, MulticlassRecall, MulticlassSpecificity,
-    MulticlassPrecision, MulticlassJaccardIndex, MulticlassF1Score)
+    BinaryRecall, BinarySpecificity, MulticlassAccuracy, MulticlassF1Score,
+    MulticlassJaccardIndex, MulticlassPrecision, MulticlassRecall,
+    MulticlassSpecificity)
 
-from odeon.metrics.types import OdnMetric
 from odeon.core.types import PARAMS, URI
+from odeon.metrics.types import OdnMetric
 from odeon.models.change.arch.change_unet import FCSiamDiff
 from odeon.models.core.models import MODEL_REGISTRY
 

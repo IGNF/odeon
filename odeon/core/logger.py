@@ -1,6 +1,8 @@
 """Logging helper module"""
 import logging
-from IPython.display import display, HTML
+
+from IPython.display import HTML, display
+
 from odeon.core.python_env import RUNNING_IN_JUPYTER
 
 DEFAULT_FORMAT = "'%(asctime)s \t %(name)s  \t [%(levelname)s | ''%(filename)s:%(lineno)s] > %(message)s'"

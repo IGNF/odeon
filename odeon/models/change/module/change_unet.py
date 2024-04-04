@@ -21,6 +21,7 @@ from torchmetrics.classification import (  # type: ignore[attr-defined]
 
 from odeon.metrics.types import OdnMetric
 from odeon.models.change.arch.change_unet import FCSiamConc, FCSiamDiff
+
 # from odeon.models.core.models import MODEL_REGISTRY
 
 # https://github.com/pytorch/pytorch/issues/60979

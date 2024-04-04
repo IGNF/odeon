@@ -10,13 +10,12 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from odeon.core.app import App
 from odeon.core.exceptions import MisconfigurationException
 from odeon.core.singleton import Singleton
-from odeon.core.types import (PARAMS, STAGES_OR_VALUE,
-                              Stages)
+from odeon.core.types import PARAMS, STAGES_OR_VALUE, Stages
 from odeon.data.core.registry import DATA_REGISTRY
 from odeon.models.core.models import MODEL_REGISTRY
 
-from .core.types import OdnCallback, OdnLogger
 from .callbacks import build_callbacks
+from .core.types import OdnCallback, OdnLogger
 from .logger import build_loggers
 from .trainer import OdnTrainer
 

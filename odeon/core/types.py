@@ -4,9 +4,11 @@ from typing import (Any, Callable, Dict, Iterable, List, Literal, Mapping,
 
 import geopandas as gpd
 import pandas as pd
-# from pytorch_lightning introspection.py LightningDataModule
 
 from .app_utils import Stages
+
+# from pytorch_lightning introspection.py LightningDataModule
+
 
 URI: TypeAlias = Union[str, Path]
 OPT_URI: TypeAlias = Optional[URI]

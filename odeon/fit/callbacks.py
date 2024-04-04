@@ -1,13 +1,12 @@
 from typing import Dict, List, Union
 
 from odeon.core.exceptions import MisconfigurationException
-from odeon.core.registry import GenericRegistry
-from odeon.core.types import PARAMS
 from odeon.core.logger import get_logger
 from odeon.core.python_env import debug_mode
+from odeon.core.registry import GenericRegistry
+from odeon.core.types import PARAMS
 
 from .core.types import OdnCallback
-
 
 logger = get_logger(__name__, debug=debug_mode)
 
