@@ -12,10 +12,9 @@ the how-to of the cli, and gives the list of the available Apps
 
 """
 from sys import argv
-from typing import List
 
 from odeon import ENV
-from odeon.core.app import APP_REGISTRY, App
+from odeon.core.app import APP_REGISTRY
 
 AVAILABLE_APP = [f"app: {key}, \n doc: {value.__doc__} \n\n\n" for key, value in APP_REGISTRY.get_registry().items()]
 HELP_MESSAGE = f"""
@@ -28,19 +27,19 @@ by example: `odeon fit --help`
 
 The available apps in your environment are \n {AVAILABLE_APP}
 """
-from jsonargparse import CLI, Namespace
+# from jsonargparse import CLI, Namespace
 
 
 def main():
 
-    app_name: str = argv[1]
+    app_name = argv[1]
     if argv[1] in ['--help', '-h']:
         return HELP_MESSAGE
     else:
         assert len(argv) > 2, ('your command line should '
                                'be of form `odeon app_name --conf my_conf_file` or `odeon --help`')
-        app_args: List = argv[2:]
-        app: App = APP_REGISTRY.get(app_name)
+        app_args = argv[2:]
+        app = APP_REGISTRY.get(app_name)
         app_config = app.get_class_config()
         parser, cfg, debug = app.parse_args(app_config, app_args, parser_mode=ENV.config_parser)
         # logger = get_logger(__name__, debug=debug)

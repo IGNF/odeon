@@ -20,7 +20,6 @@ class GenericRegistry(Generic[T]):
 
     __name__ = "generic_registry"
 
-
     @classmethod
     def get_registry(cls) -> Dict[str, T]:
         return cls._registry
@@ -114,7 +113,7 @@ class GenericRegistry(Generic[T]):
         --------
         You will need to implement this method in any registry
         """
-        logger.warning(f'to use a registry as factory, you need to implement this method in your own registry')
+        logger.warning('to use a registry as factory, you need to implement this method in your own registry')
         raise NotImplementedError('generic registry does not implement this method')
 
 
