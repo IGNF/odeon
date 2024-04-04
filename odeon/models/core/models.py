@@ -33,13 +33,12 @@ class ModelRegistry(GenericRegistry[LightningModule]):
         """
 
         if name not in cls._registry:
-            logger.error(f"{name} not registered in registry {str(name)}")
+            LOGGER.error(f"{name} not registered in registry {str(name)}")
             raise KeyError()
 
         _class = cls.get(name=name)
         _instance = _class(**kwargs)
         return _instance
-
 
 
 MODEL_REGISTRY = ModelRegistry
