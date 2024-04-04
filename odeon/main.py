@@ -14,8 +14,8 @@ the how-to of the cli, and gives the list of the available Apps
 from sys import argv
 from typing import List
 
-from odeon.core.app import APP_REGISTRY, App
 from odeon import ENV
+from odeon.core.app import APP_REGISTRY, App
 
 AVAILABLE_APP = [f"app: {key}, \n doc: {value.__doc__} \n\n\n" for key, value in APP_REGISTRY.get_registry().items()]
 HELP_MESSAGE = f"""

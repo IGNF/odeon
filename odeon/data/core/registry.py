@@ -1,8 +1,8 @@
 from typing import Dict, Type
 
-from odeon.core.registry import GenericRegistry
 from odeon.core.logger import get_logger
 from odeon.core.python_env import debug_mode
+from odeon.core.registry import GenericRegistry
 
 from .types import OdnData
 

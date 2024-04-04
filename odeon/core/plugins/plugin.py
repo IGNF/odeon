@@ -1,14 +1,14 @@
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Dict, List, Literal, Optional, Union, Callable, Any
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from odeon.core.exceptions import MisconfigurationException
-from odeon.core.registry import GenericRegistry
-from odeon.core.types import PARAMS
 from odeon.core.introspection import load_instance
 from odeon.core.logger import get_logger
 from odeon.core.python_env import debug_mode
+from odeon.core.registry import GenericRegistry
+from odeon.core.types import PARAMS
 
 logger = get_logger(logger_name=__name__, debug=debug_mode)
 

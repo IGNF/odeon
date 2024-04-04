@@ -1,11 +1,10 @@
 from typing import Dict, List
 
-from odeon.core.registry import GenericRegistry
 from odeon.core.logger import get_logger
 from odeon.core.python_env import debug_mode
+from odeon.core.registry import GenericRegistry
 
 from .types import OdnMetric
-
 
 logger = get_logger(__name__, debug=debug_mode)
 
