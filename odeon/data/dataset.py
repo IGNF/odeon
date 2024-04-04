@@ -65,11 +65,6 @@ class OdnDataset(Dataset):
         If True, enables debug mode, which might print additional information for debugging purposes.
         Defaults to False.
 
-    Attributes
-    ----------
-    get_zone : DATAFRAME
-        Returns the original input data, potentially useful for accessing metadata or annotations associated with
-         the dataset.
 
     Methods
     -------
