@@ -80,6 +80,7 @@ class Data:
     cannot be modified. This design choice helps to ensure the consistency of data throughout the
     processing stages.
     """
+
     dataloader: DataLoader
     dataframe: DATAFRAME
     dataset: Dataset
@@ -88,6 +89,7 @@ class Data:
 
 class Input(OdnData):
     """
+
     A PyTorch Lightning Module specialized for handling georeferenced data across various stages
     of machine learning workflows, including fitting, validation, testing, and prediction, in the most genereic
     way (multi instance, and coming soon multimodal with remote sensing time series and lidar. It is
@@ -137,12 +139,12 @@ class Input(OdnData):
 
     Examples
     --------
-        >>> fit_params = [{'data_param1': value1, 'data_param2': value2}, {'data_param1': value3}]
-        >>> validate_params = {'data_param1': value5, 'data_param2': value6}
-        >>> input_module = Input(fit_params=fit_params, validate_params=validate_params)
-        >>> input_module.setup('fit')
-        >>> train_loader = input_module.train_dataloader()
-        """
+
+      >>> fit_params = [{'data_param1': value1, 'data_param2': value2}, {'data_param1': value3}]
+      >>> validate_params = {'data_param1': value5, 'data_param2': value6}
+      >>> input_module = Input(fit_params=fit_params, validate_params=validate_params)
+      >>> input_module.setup('fit')
+      >>> train_loader = input_module.train_dataloader()
 
     def __init__(self,
                  fit_params: List[Dict] | Dict | None = None,
@@ -217,13 +219,11 @@ class Input(OdnData):
         return self._validate
 
     @property
-
     def test(self) -> Data | Dict[str, Data] | None:
         return self._test
 
     @property
     def predict(self) -> Data | Dict[str, Data] | None:
-
         return self._predict
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:

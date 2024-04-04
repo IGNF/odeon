@@ -65,7 +65,6 @@ class OdnDataset(Dataset):
         If True, enables debug mode, which might print additional information for debugging purposes.
         Defaults to False.
 
-
     Methods
     -------
     __len__(self)
