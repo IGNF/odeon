@@ -1,5 +1,5 @@
-from typing import (Any, Dict, Generic, List, Optional, TypeVar,
-                    Union, cast, Callable)
+from typing import (Any, Callable, Dict, Generic, List, Optional, TypeVar,
+                    Union, cast)
 
 from odeon.core.logger import get_logger
 

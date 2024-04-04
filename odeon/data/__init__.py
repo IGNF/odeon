@@ -3,7 +3,6 @@ import albumentations as A
 from odeon.core.plugins.plugin import OdnPlugin, PluginMaturity
 from odeon.core.registry import GENERIC_REGISTRY
 
-
 from .core.registry import DATA_REGISTRY
 from .core.transform import (ALBU_TRANSFORM_REGISTRY, ONE_OFF_ALIASES,
                              ONE_OFF_NAME)

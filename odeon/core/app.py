@@ -2,9 +2,9 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from jsonargparse import ArgumentParser, Namespace
 
-from .registry import GenericRegistry
 from .logger import get_logger
 from .python_env import debug_mode
+from .registry import GenericRegistry
 
 logger = get_logger(__name__, debug=debug_mode)
 

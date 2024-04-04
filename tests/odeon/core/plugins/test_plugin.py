@@ -1,7 +1,7 @@
 from typing import Callable
 
-from odeon.core.registry import GenericRegistry
 from odeon.core.plugins.plugin import Element
+from odeon.core.registry import GenericRegistry
 
 
 def my_dummy_function() -> bool:

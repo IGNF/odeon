@@ -4,7 +4,6 @@ from odeon.core.introspection import load_instance
 
 from .plugin import OdnPlugin
 
-
 PLUGIN_REGISTRY: Dict[str, OdnPlugin] = dict()
 
 
