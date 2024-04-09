@@ -35,7 +35,6 @@ class PreProcessor:
     cache_dataset : bool, optional
         If True, the dataset will be cached to improve performance, defaults to False.
 
-
     Methods
     -------
     forward(data: Dict, bounds: Optional[List] = None) -> Dict
@@ -76,7 +75,6 @@ class PreProcessor:
                  cache_dataset: bool = False,
                  *args,
                  **kwargs):
-
         self._input_fields: Dict = input_fields
         self._sanitize_input_fields()  # make sure input is compatible
         self.root_dir = root_dir
@@ -125,7 +123,6 @@ class PreProcessor:
                                                       one_hot_encoding=one_hot_encoding)
             if "geometry" in data.keys():
                 output_dict["geometry"] = np.array(data["geometry"].bounds)
-
         return output_dict
 
     def __call__(self, data: Dict, bounds: Optional[List] = None, *args, **kwargs) -> Dict:
