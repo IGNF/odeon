@@ -2,9 +2,6 @@ from pathlib import Path
 from typing import (Any, Callable, Dict, Iterable, List, Literal, Mapping,
                     Optional, Tuple, TypeAlias, Union)
 
-import geopandas as gpd
-import pandas as pd
-
 from .app_utils import Stages
 
 # from pytorch_lightning introspection.py LightningDataModule
@@ -23,8 +20,7 @@ STAGES_OR_ALL_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.
                                             'fit', 'validate', 'test', 'predict']
 STAGES_OR_VALUE: TypeAlias = Literal[Stages.FIT, Stages.VALIDATE, Stages.TEST, Stages.PREDICT,
                                      'fit', 'validate', 'test', 'predict']
-DATAFRAME = Union[pd.DataFrame, gpd.GeoDataFrame]
-GeoTuple = int | float | Tuple[float, float] | Tuple[int, int]  # used for stuf like patch size, overlap, etc.
+GeoTuple = Tuple[float, float] | Tuple[int, int]  # used for stuf like patch size, overlap, etc.
 OptionalGeoTuple = int | float | Tuple[float, float] | Tuple[int, int] | None
 NoneType = type(None)
 PARAMS: TypeAlias = Dict[str, Any]

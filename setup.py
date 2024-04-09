@@ -42,6 +42,7 @@ setup(
     install_requires=[
         'omegaconf',
         'jsonargparse',
+        'pandas',
         'geopandas>=0.10',
         'rasterio>=1.1.5',
         'torch>=1.6',
