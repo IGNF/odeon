@@ -10,7 +10,7 @@ from torch import Tensor
 
 from odeon.core.types import URI
 from odeon.layers.data import DTYPE_MAX, InputDType
-from odeon.layers.raster import get_dataset, read
+from odeon.layers.rio import get_dataset, read
 
 logger = getLogger(__name__)
 MEAN_DEFAULT_VALUE = 0.5
