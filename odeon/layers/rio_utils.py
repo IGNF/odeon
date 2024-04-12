@@ -1,39 +1,55 @@
 from math import isclose
-from typing import Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import rasterio
 from rasterio import features
+from rasterio.transform import from_bounds as trans_from_bounds
+from rasterio.windows import Window, from_bounds
 
-IMAGE_TYPE = {
-    "uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
-    "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]
-}
+from odeon.core.types import URI
+
+from .types import BOUNDS
+
+IMAGE_TYPE = {"uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
+              "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]}
 
 
 def get_center_from_bound(left, bottom, right, top):
-
     return abs(float((top + bottom) / 2)), abs(float((right + left)))
 
 
+def get_read_window(bounds: BOUNDS, transform: Tuple) -> Window:
+    return from_bounds(left=bounds[0],
+                       bottom=bounds[1],
+                       right=bounds[2],
+                       top=bounds[3],
+                       transform=transform)
+
+
+def get_write_transform(bounds: BOUNDS, width: int, height: int) -> Tuple:
+    return trans_from_bounds(west=bounds[0],
+                             south=bounds[1],
+                             east=bounds[2],
+                             north=bounds[3],
+                             width=width,
+                             height=height)
+
+
 def get_meta_for_img(img_path: str) -> Tuple[Dict, Dict]:
-
     with rasterio.open(img_path) as src:
-
         meta = src.meta
         profile = src.profile
-
     return meta, profile
 
 
-def save_mask_as_raster(mask, profile, output_path):
+def save_mask_as_raster(mask: np.ndarray, profile: Dict, output_path: URI):
 
     with rasterio.open(output_path, "w+", **profile) as dst:
-
         dst.write(mask.astype("uint8"))
 
 
-def rasterize_shape(tuples, meta, shape, fill=0, default_value=1):
+def rasterize_shape(tuples: List | Tuple, meta: Dict, shape: Any, fill: int = 0, default_value: int = 1):
     """
 
     Parameters
@@ -137,7 +153,6 @@ def get_scale_factor_and_img_size(target_raster, resolution, width, height):
      x_scale, y_scale, scaled_width, scaled_height
     """
     with rasterio.open(target_raster) as target:
-
         return get_scale_factor_and_img_size_from_dataset(target, resolution, width, height)
 
 
@@ -164,11 +179,8 @@ def get_scale_factor_and_img_size_from_dataset(target, resolution, width, height
     y_close = isclose(target.res[1], resolution[1], rel_tol=1e-04)
 
     if x_close and y_close:
-
         return 1, 1, width, height
-
     else:
-
         x_scale = target.res[0] / resolution[0]
         y_scale = target.res[1] / resolution[1]
         scaled_width = width / x_scale
@@ -266,7 +278,7 @@ def count_band_for_stacking(dict_of_raster):
     """
 
     nb_of_necessary_band = 0
-    rasters: dict = dict_of_raster.copy()
+    rasters = dict_of_raster.copy()
 
     if ("DSM" and "DTM") in rasters:
 
@@ -393,14 +405,11 @@ def get_number_of_band(dict_of_raster, dem):
     """
     num_band = 0
     for _, value in dict_of_raster.items():
-
         num_band += len(value["bands"])
 
     if dem and ("DSM" in dict_of_raster.keys() and "DTM" in dict_of_raster.keys()):
-
         num_band -= 1
         # LOGGER.debug(num_band)
-
     return num_band
 
 
@@ -424,30 +433,21 @@ def affine_to_tuple(affine):
 class RIODatasetCollection:
 
     def __init__(self):
-
         self.collection = {}
 
     def add_rio_dataset(self, key, rio_ds):
-
         self.collection[key] = rio_ds
 
     def get_rio_dataset(self, key):
-
         if self.collection_has_key(key):
-
             return self.collection[key]
-
         else:
-
             return None
 
     def collection_has_key(self, key):
-
         return key in self.collection
 
     def delete_key(self, key):
-
         if self.collection_has_key(key):
-
             self.collection[key].close()
             del self.collection[key]
