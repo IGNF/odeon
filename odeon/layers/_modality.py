@@ -4,7 +4,7 @@ from odeon.core.types import PARAMS
 
 
 @runtime_checkable
-class Modality(Protocol):
+class GeoIO(Protocol):
 
     def is_geo_referenced(self) -> bool:
         ...
@@ -14,7 +14,52 @@ class Modality(Protocol):
              **kwargs,) -> Any:
         ...
 
+    def write(self, data: Any, *args, **kwargs):
+        ...
+
+
+@runtime_checkable
+class Modality(Protocol):
+
+    def is_geo_referenced(self) -> bool:
+        ...
+
+    def read(self,
+             *args,
+             **kwargs, ) -> Any:
+        ...
+
     def write(self, *args, **kwargs):
+        ...
+
+
+@runtime_checkable
+class NormalizableModality(Protocol):
+
+    def norm(self, *args, **kwargs) -> Any:
+        ...
+
+    def can_denormalize(self) -> bool:
+        ...
+
+    def denorm(self, *args, **kwargs) -> Any:
+        ...
+
+
+@runtime_checkable
+class TransformableModality(NormalizableModality, Protocol):
+
+    def transform(self) -> Any:
+        ...
+
+
+@runtime_checkable
+class AlbumentationModality(TransformableModality, Protocol):
+
+    def is_albu_transform(self) -> bool:
+        ...
+
+    def has_albu_pipeline(self) -> bool:
         ...
 
 

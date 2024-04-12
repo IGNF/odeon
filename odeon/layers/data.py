@@ -6,7 +6,7 @@ class InputFormat(str, Enum):
 
     FOLDERS = "folders"
     CSV = "csv"
-    VECTORFILE = "vector_file"
+    VECTOR_FILE = "vector_file"
 
 
 class InputDataKeys(str, Enum):

@@ -1,4 +1,7 @@
 import importlib
+import inspect
+from functools import partial
+from typing import Any, Callable
 
 
 def load_instance(path):
@@ -35,3 +38,59 @@ def load_instance(path):
     module = importlib.import_module(module_path)
     instance = getattr(module, instance_name)
     return instance
+
+
+def instanciate_class_or_partial(c: Callable[..., Any], *args, **kwargs) -> Any:
+    """
+    Instanciate a callable object from the given arguments and return partial if it's a function
+    or a class instance if not.
+
+    Parameters
+    ----------
+    c: Callable[..., Any]
+    args:
+    kwargs:
+
+    Returns
+    -------
+     a partial or a class instance
+
+    Raises
+    ------
+    AssertionError
+     if c is not a callable
+
+    Examples
+    --------
+     To instantiate a callable function
+     >>> instance = instanciate_class_or_partial(lambda x: x+2, 3)
+    """
+    assert callable(c), f'only callable objects are allowed, but  {str(c)} is not'
+    if inspect.isfunction(c):
+        return partial(c, *args, **kwargs)
+    else:
+        return c(*args, **kwargs)
+
+
+def instanciate_class(c: Callable[..., Any], *args, **kwargs) -> Any:
+    """
+    Instanciate a callable object from the given arguments a class instance if not.
+    Parameters
+    ----------
+    c: Callable[..., Any]
+    args:
+    kwargs:
+
+    Returns
+    -------
+     a partial or a class instance
+
+    Raises
+    ------
+    AssertionError
+     if c is not a callable
+
+    """
+    assert callable(c), f'only callable objects are allowed, but  {str(c)} is not'
+    assert inspect.isclass(c), f'only callable class objects are allowed, but  {str(c)} is not'
+    return c(*args, **kwargs)
