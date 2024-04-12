@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
-import rasterio as rio
 
 from odeon.core.types import URI
 
@@ -10,6 +9,8 @@ from ._engine import Engine
 from .data import DTYPE_MAX, InputDType
 # from .rio import RioEngine
 from .types import BOUNDS
+
+# import rasterio as rio
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
@@ -21,7 +22,7 @@ class Raster:
     dtype_max: float = DTYPE_MAX[InputDType.UINT8.value]
     mean: Optional[List] = field(default=None)
     std: Optional[List] = field(default=None)
-    resampling: rio.enums.Resampling = rio.enums.Resampling.nearest
+    # resampling: rio.enums.Resampling = rio.enums.Resampling.nearest
     _engine: Engine = field(init=False)
     _is_albu_transform: bool = field(init=False, default=True)
     _is_geo_referenced: bool = field(init=False, default=True)
@@ -34,10 +35,19 @@ class Raster:
              bounds: Optional[BOUNDS] = None,
              *args,
              **kwargs, ) -> np.ndarray:
-        ...
+        raise NotImplementedError('Not implemented yet')
 
     def write(self, data: np.ndarray, bounds: Optional[BOUNDS], *args, **kwargs):
-        ...
+        raise NotImplementedError('Not implemented yet')
 
     def is_albu_transform(self) -> bool:
         return self._is_albu_transform
+
+    def norm(self, *args, **kwargs) -> Any:
+        raise NotImplementedError('Not implemented yet')
+
+    def can_denormalize(self) -> bool:
+        raise NotImplementedError('Not implemented yet')
+
+    def denorm(self, *args, **kwargs) -> Any:
+        raise NotImplementedError('Not implemented yet')
