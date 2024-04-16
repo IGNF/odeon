@@ -4,12 +4,15 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import rasterio
 from rasterio import features
+from rasterio.features import geometry_window
+from rasterio.io import DatasetReaderBase
 from rasterio.transform import from_bounds as trans_from_bounds
 from rasterio.windows import Window, from_bounds
 
 from odeon.core.types import URI
 
 from .types import BOUNDS
+from .vector import create_polygon_from_bounds
 
 IMAGE_TYPE = {"uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],
               "uint16": [1, 0, 2**16 - 1, np.uint16, rasterio.uint16]}
@@ -25,6 +28,28 @@ def get_read_window(bounds: BOUNDS, transform: Tuple) -> Window:
                        right=bounds[2],
                        top=bounds[3],
                        transform=transform)
+
+
+def get_write_window(src: DatasetReaderBase, bounds: BOUNDS, pixel_precision: int = 6) -> Window:
+    """
+    Get a window from a rasterio DatasetReader and bounds
+    Parameters
+    ----------
+    src
+    bounds
+    pixel_precision
+
+    Returns
+    -------
+
+    """
+    geometry = create_polygon_from_bounds(x_min=bounds[0],
+                                          y_min=bounds[1],
+                                          x_max=bounds[2],
+                                          y_max=bounds[3])
+    window = geometry_window(dataset=src, shapes=[geometry], pixel_precision=pixel_precision)
+    window = window.round_shape(op='ceil', pixel_precision=max(pixel_precision - 2, 4))
+    return window
 
 
 def get_write_transform(bounds: BOUNDS, width: int, height: int) -> Tuple:
