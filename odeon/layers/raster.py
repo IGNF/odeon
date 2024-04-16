@@ -3,23 +3,20 @@ from typing import Any, List, Optional
 
 import numpy as np
 
-from odeon.core.types import URI
+from odeon.core.types import PARAMS, URI
 
 from ._engine import Engine
-from .data import DTYPE_MAX, InputDType
+from .data import InputDType
+from .rio import RioEngine
 # from .rio import RioEngine
 from .types import BOUNDS
-
-# import rasterio as rio
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
 class Raster:
-    band_indices = None
-    boundless: bool = True
-    height: Optional[int] = None
-    width: Optional[int] = None
-    dtype_max: float = DTYPE_MAX[InputDType.UINT8.value]
+    engine: str = 'rio'
+    engine_params: PARAMS = field(default_factory=lambda: dict())
+    dtype: str = field(default=str(InputDType.UINT8.value))
     mean: Optional[List] = field(default=None)
     std: Optional[List] = field(default=None)
     # resampling: rio.enums.Resampling = rio.enums.Resampling.nearest
@@ -27,18 +24,32 @@ class Raster:
     _is_albu_transform: bool = field(init=False, default=True)
     _is_geo_referenced: bool = field(init=False, default=True)
 
+    def __post_init__(self):
+        if self.engine == 'rio':
+            self._engine = RioEngine(**self.engine_params)
+        else:
+            raise ValueError(f'engine {self.engine} not supported')
+
     def is_geo_referenced(self) -> bool:
         return self._is_geo_referenced
 
     def read(self,
-             path: URI,
+             path: Optional[URI] = None,
              bounds: Optional[BOUNDS] = None,
-             *args,
-             **kwargs, ) -> np.ndarray:
-        raise NotImplementedError('Not implemented yet')
+             options: Optional[PARAMS] = None) -> np.ndarray:
+        if options:
+            return self._engine.read(path, bounds, **options)
+        else:
+            return self._engine.read(path, bounds)
 
-    def write(self, data: np.ndarray, bounds: Optional[BOUNDS], *args, **kwargs):
-        raise NotImplementedError('Not implemented yet')
+    def write(self,
+              data: np.ndarray,
+              bounds: Optional[BOUNDS] = None,
+              options: Optional[PARAMS] = None):
+        if options:
+            self._engine.write(data, bounds, **options)
+        else:
+            self._engine.write(data, bounds)
 
     def is_albu_transform(self) -> bool:
         return self._is_albu_transform
