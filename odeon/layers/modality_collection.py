@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from layers.core.modality import Modality
+from layers.core.registry import ModalityRegistry
+from layers.core.types import BOUNDS
+
 from odeon.core.logger import get_logger
 from odeon.core.types import PARAMS
-
-from ._modality import Modality
-from .registry import ModalityRegistry
-from .types import BOUNDS
 
 logger = get_logger(__name__)
 
@@ -58,10 +58,10 @@ class ModalityCollection:
                 self.data[k] = v.read(*args, **kwargs)
         return self.data
 
-    def write(self, data: Dict[str, Any], bounds: Optional[BOUNDS] = None, *args, **kwargs):
+    def write(self, data: Dict[str, Any], bounds: Optional[BOUNDS] = None, **kwargs):
         for k, v in data.items():
             assert k in self.modalities
             if self.is_geo_referenced() and self.modalities[k].is_geo_referenced():
-                self.modalities[k].write(data=v, bounds=bounds, *args, **kwargs)
+                self.modalities[k].write(data=v, bounds=bounds, **kwargs)
             else:
-                self.modalities[k].write(data=v, *args, **kwargs)
+                self.modalities[k].write(data=v, **kwargs)

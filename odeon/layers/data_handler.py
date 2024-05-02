@@ -3,20 +3,22 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 from geopandas import GeoDataFrame
+from layers.core.types import BOUNDS, DATAFRAME
 from pandas import DataFrame
 
 from odeon.core.types import PARAMS, URI
 
-from ._modality import Modality, Sample
+from .core.modality import Modality, Sample
 from .dataframe import create_dataframe_from_file
 from .modality_collection import ModalityCollection
-from .types import BOUNDS, DATAFRAME
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
 class DataHandler:
     """Dataclass to handle dataframe and Layer Collection in a pythonic way"""
     dataframe: DATAFRAME | URI
+    """dictionary where k is the field name of the corresponding column in the dataframe and v
+     the params of the modality"""
     modality_params: Dict[str, PARAMS | Modality]
     dataframe_options: PARAMS | None = None
     _geo_referenced_dataframe: bool = field(init=False)
@@ -48,22 +50,21 @@ class DataHandler:
     def read(self,
              bounds: Optional[BOUNDS] = None,
              as_dict: bool = False,
-             *args,
              **kwargs,) -> Sample | PARAMS:
         if self.is_geo_referenced() and self.modality_collection.is_geo_referenced():
-            data = self.modality_collection.read(bounds=bounds, *args, **kwargs)
+            data = self.modality_collection.read(bounds=bounds, **kwargs)
         else:
-            data = self.modality_collection.read(*args, **kwargs)
+            data = self.modality_collection.read(**kwargs)
         if as_dict:
             return Sample(data=data)
         else:
             return data
 
-    def write(self, data: Dict[str, Any], bounds: Optional[BOUNDS] = None, *args, **kwargs):
+    def write(self, data: Dict[str, Any], bounds: Optional[BOUNDS] = None, **kwargs):
         if self.is_geo_referenced() and self.modality_collection.is_geo_referenced():
-            self.modality_collection.write(data=data, bounds=bounds, *args, **kwargs)
+            self.modality_collection.write(data=data, bounds=bounds, **kwargs)
         else:
-            self.modality_collection.read(data=data, *args, **kwargs)
+            self.modality_collection.read(data=data, **kwargs)
 
     def is_geo_referenced(self) -> bool:
         return self.geo_referenced_dataframe

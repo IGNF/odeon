@@ -1,10 +1,10 @@
 from typing import Dict, Type
 
+from layers.core.modality import Modality
+
 from odeon.core.introspection import instanciate_class
 from odeon.core.logger import get_logger
 from odeon.core.registry import GenericRegistry
-
-from ._modality import Modality
 
 logger = get_logger(__name__)
 

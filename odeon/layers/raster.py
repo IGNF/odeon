@@ -2,21 +2,22 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 import numpy as np
+# from .rio import RioEngine
+from layers.core.types import BOUNDS
 
+from odeon.core.dtype import DType
 from odeon.core.types import PARAMS, URI
 
-from ._engine import Engine
-from .data import InputDType
+from .core.engine import Engine
+from .core.modality import AbsModality
 from .rio import RioEngine
-# from .rio import RioEngine
-from .types import BOUNDS
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
-class Raster:
+class Raster(AbsModality):
     engine: str = 'rio'
     engine_params: PARAMS = field(default_factory=lambda: dict())
-    dtype: str = field(default=str(InputDType.UINT8.value))
+    dtype: str | DType = field(default='uint8')
     mean: Optional[List] = field(default=None)
     std: Optional[List] = field(default=None)
     # resampling: rio.enums.Resampling = rio.enums.Resampling.nearest
@@ -36,29 +37,30 @@ class Raster:
     def read(self,
              path: Optional[URI] = None,
              bounds: Optional[BOUNDS] = None,
-             options: Optional[PARAMS] = None) -> np.ndarray:
+             options: Optional[PARAMS] = None,) -> np.ndarray:
         if options:
-            return self._engine.read(path, bounds, **options)
+            return self._engine.read(path=path, bounds=bounds, **options)
         else:
-            return self._engine.read(path, bounds)
+            return self._engine.read(path=path, bounds=bounds)
 
     def write(self,
               data: np.ndarray,
+              path: Optional[URI] = None,
               bounds: Optional[BOUNDS] = None,
-              options: Optional[PARAMS] = None):
+              options: Optional[PARAMS] = None,):
         if options:
-            self._engine.write(data, bounds, **options)
+            self._engine.write(data=data, bounds=bounds, path=path, **options)
         else:
             self._engine.write(data, bounds)
 
     def is_albu_transform(self) -> bool:
         return self._is_albu_transform
 
-    def norm(self, *args, **kwargs) -> Any:
+    def norm(self, data: np.ndarray, *args, **kwargs,) -> Any:
         raise NotImplementedError('Not implemented yet')
 
     def can_denormalize(self) -> bool:
         raise NotImplementedError('Not implemented yet')
 
-    def denorm(self, *args, **kwargs) -> Any:
+    def denorm(self, *args, **kwargs,) -> Any:
         raise NotImplementedError('Not implemented yet')
