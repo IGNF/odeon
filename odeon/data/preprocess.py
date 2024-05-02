@@ -4,17 +4,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+from layers.core.data import DTYPE_MAX, InputDType
 from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
-from torch import Tensor
 
 from odeon.core.types import URI
-from odeon.layers.data import DTYPE_MAX, InputDType
-from odeon.layers.rio import get_dataset, read
+from odeon.layers.norm import MEAN_DEFAULT_VALUE, STD_DEFAULT_VALUE, normalize
+from odeon.layers.rio import get_dataset, read_raster
 
 logger = getLogger(__name__)
-MEAN_DEFAULT_VALUE = 0.5
-STD_DEFAULT_VALUE = 0.5
 
 
 class PreProcessor:
@@ -135,14 +133,13 @@ class PreProcessor:
                         dtype_max: float = DTYPE_MAX[InputDType.UINT8.value],
                         mean: Optional[List] = None,
                         std: Optional[List] = None) -> np.ndarray:
-
         # TODO Could be interesting to optimize window computation (DON'T REPEAT COMPUTATION FOR EACH MODALITY)
         # TODO But it could bring side effect, needs reflection
         src, window = self._get_dataset(path=path, bounds=bounds)
-        raster = read(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
+        raster = read_raster(src, band_indices=band_indices, window=window, height=self.patch_size,
+                             width=self.patch_size)
         if self.cache_dataset is False:
             src.close()
-
         # add axe if raster has only two dimensions
         if raster.ndim == 2:
             raster = raster[..., np.newaxis]
@@ -152,9 +149,8 @@ class PreProcessor:
             # to apply centering between -1 and 1, replace change MEAN_DEFAULT_VALUE value to 0.5
             mean = [float(MEAN_DEFAULT_VALUE) for _ in range(raster.shape[0])]
             assert mean is not None
-            std = [float(MEAN_DEFAULT_VALUE) for _ in range(raster.shape[0])]
+            std = [float(STD_DEFAULT_VALUE) for _ in range(raster.shape[0])]
             assert std is not None
-
         return normalize(img=img,
                          mean=mean,
                          std=std,
@@ -169,21 +165,19 @@ class PreProcessor:
         # TODO Could be interesting to optimize window computation (DON'T REPEAT COMPUTATION FOR EACH MODALITY)
         # TODO but it bring side effect
         src, window = self._get_dataset(path=path, bounds=bounds)
-        mask = read(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
+        mask = read_raster(src, band_indices=band_indices, window=window, height=self.patch_size, width=self.patch_size)
         if self.cache_dataset is False:
             src.close()
         if one_hot_encoding:
             mask = np.argmax(mask, axis=0)
             mask = np.expand_dims(mask, axis=0)
         mask = reshape_as_image(mask)
-
         return mask
 
     def _get_dataset(self,
                      path: Union[str, Path],
                      bounds: Optional[List] = None
                      ) -> Tuple[Any, Any]:
-
         src = get_dataset(src=str(path), cached=self.cache_dataset)
         meta = src.meta
         window = None if bounds is None else window_from_bounds(bounds[0],
@@ -203,50 +197,3 @@ class UniversalDeProcessor:
     def __init__(self,
                  input_fields: Dict):
         self._input_fields = input_fields
-
-
-def normalize(img: np.ndarray,
-              mean: List[float],
-              std: List[float],
-              max_pixel_value: float = float(DTYPE_MAX[InputDType.UINT8.value])) -> np.ndarray:
-    """
-    Normalize an image with mean and std
-    Parameters
-    ----------
-    img : np.ndarray
-    mean : List[float]
-    std : List[float]
-    max_pixel_value : float
-
-    Returns
-    -------
-
-    """
-    mean_np = np.array(mean, dtype=np.float32)
-    mean_np *= max_pixel_value
-    std_np = np.array(std, dtype=np.float32)
-    std_np *= max_pixel_value
-    denominator = np.reciprocal(std_np, dtype=np.float32)
-    img = img.astype(np.float32)
-    img -= mean_np
-    img *= denominator
-    return img
-
-
-def denormalize_tensor(image: Tensor, mean: List[float], std: List[float]):
-    """
-    Denormalize a tensor image with mean and standard deviation.
-    Parameters
-    ----------
-    image : Tensor
-    mean : List[float]
-    std : List[float]
-
-    Returns
-    -------
-    Tensor
-    """
-    for t, m, s in zip(image, mean, std):
-        t.mul_(s).add_(m)
-
-    return image

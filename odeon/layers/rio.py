@@ -3,15 +3,15 @@ from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import rasterio as rio
+from layers.core.engine import Engine
+from layers.core.types import BOUNDS
 from rasterio.io import DatasetReaderBase, DatasetWriterBase
 from rasterio.plot import reshape_as_raster
 from rasterio.windows import Window
 
 from odeon.core.types import PARAMS, URI
 
-from ._engine import Engine
 from .rio_utils import get_read_window, get_write_transform, get_write_window
-from .types import BOUNDS
 
 
 def _write_data(dst: DatasetWriterBase, data: np.ndarray, bounds: Optional[BOUNDS], masked: bool = True,
@@ -72,9 +72,9 @@ def write_raster(data: np.ndarray,
         Dimensions of the raster.
     count : int
         Number of bands in the raster.
-    crs :
+    crs : rasterio.crs.CRS
         Coordinate reference system of the raster.
-    transform :
+    transform : tuple
         Affine transform for the raster (georeferencing).
     compression : str
         Compression type for the file.
@@ -265,8 +265,8 @@ class RioEngine(Engine):
 
     def write(self,
               data: np.ndarray,
-              bbox: BOUNDS,
-              path: URI = None,
+              bbox: Optional[BOUNDS] = None,
+              path: Optional[URI] = None,
               bounds: Optional[BOUNDS] = None,
               width: Optional[int] = None,
               height: Optional[int] = None,
@@ -276,6 +276,7 @@ class RioEngine(Engine):
         Parameters
         ----------
         data: np.ndarray, data to write in rio raster
+        path
         bbox: Bounding box, bounds of the output raster if no destination dataset has been set or cached
         path: URI, optional, path to write the output raster
         bounds: BOUNDS, optional, bounds of the data into the raster if we append data (engine must be in w+ mode)

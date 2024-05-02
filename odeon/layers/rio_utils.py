@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import rasterio
+from layers.core.types import BOUNDS
 from rasterio import features
 from rasterio.features import geometry_window
 from rasterio.io import DatasetReaderBase
@@ -11,7 +12,6 @@ from rasterio.windows import Window, from_bounds
 
 from odeon.core.types import URI
 
-from .types import BOUNDS
 from .vector import create_polygon_from_bounds
 
 IMAGE_TYPE = {"uint8": [0, 0, 2**8 - 1, np.uint8, rasterio.uint8],

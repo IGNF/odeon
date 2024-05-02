@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+from layers.core.types import DATAFRAME
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from odeon.core.app_utils import Stages
 from odeon.core.exceptions import MisconfigurationException
-from odeon.core.types import DATAFRAME, STAGES_OR_VALUE, URI, GeoTuple
+from odeon.core.types import STAGES_OR_VALUE, URI, GeoTuple
 from odeon.data.core.dataloader_utils import (
     DEFAULT_DATALOADER_OPTIONS, DEFAULT_INFERENCE_DATALOADER_OPTIONS,
     DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION, DEFAULT_PATCH_SIZE)
@@ -59,17 +60,6 @@ class DataFactory:
         debug : bool, optional
             If True, enables debug mode with more verbose logging, defaults to False.
 
-        Attributes
-        ----------
-        dataloader : DataLoader
-            The DataLoader object created based on the provided configurations.
-        dataset : Dataset
-            The Dataset object created for the specified stage and configurations.
-        transform : Optional[Callable]
-            The transformation pipeline applied to the dataset.
-        dataframe : DATAFRAME
-            The DataFrame object created from the input file, containing data annotations or metadata.
-
         Methods
         -------
         build_data(...)
@@ -82,7 +72,7 @@ class DataFactory:
         >>> stage = Stages.FIT
         >>> input_file = 'path/to/data.csv'
         >>> input_fields = {'field1': 'float', 'field2': 'int'}
-        >>> transforms = [some_transform_function, another_transform_function]
+        >>> transforms = [lambda x: x + 1, lambda x: x + 2]
         >>> data_loader, dataset, transform, dataframe = DataFactory.build_data(
         ...     stage=stage,
         ...     input_file=input_file,
@@ -107,8 +97,8 @@ class DataFactory:
     header: bool | str | None = 'infer'  # Rather input files have header or not
     header_list: List[str] | None = None
     patch_size: Union[int, Tuple[int, int], List[int]] = field(default_factory=lambda: DEFAULT_PATCH_SIZE)
-    patch_resolution: Union[float, Tuple[float,
-                                         float], List[float]] = field(default_factory=lambda: DEFAULT_PATCH_RESOLUTION)
+    patch_resolution: Union[float, Tuple[float, float], List[float]] = field(
+        default_factory=lambda: DEFAULT_PATCH_RESOLUTION)
     random_window: bool = True
     overlap: Union[GeoTuple] = field(default_factory=lambda: DEFAULT_OVERLAP)
     cache_dataset: Union[bool] = False
@@ -128,7 +118,6 @@ class DataFactory:
             self._patch_size = (self.patch_size[0], self.patch_size[1])
         else:
             self._patch_size = (self.patch_size, self.patch_size)
-
         self._inference_mode = False if self.stage in [Stages.FIT, Stages.FIT.value] else True
         self._dataframe = create_dataframe_from_file(path=self.input_file,
                                                      options={'header': self.header,
