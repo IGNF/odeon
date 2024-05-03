@@ -8,8 +8,9 @@ from torch.utils.data import DataLoader, Dataset
 
 from odeon.core.app_utils import Stages
 from odeon.core.logger import get_logger
-from odeon.core.types import DATAFRAME, STAGES_OR_VALUE
+from odeon.core.types import STAGES_OR_VALUE
 from odeon.data.stage import DataFactory
+from odeon.layers.core.types import DATAFRAME
 
 from .core.types import OdnData
 

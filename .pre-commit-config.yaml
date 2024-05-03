@@ -1,3 +1,4 @@
+default_stages: [commit]
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
@@ -32,3 +33,13 @@ repos:
     hooks:
       - id: isort
         name: Format imports
+-   repo: local
+    hooks:
+    -   id: pytest-check
+        stages: [push]
+        types: [python]
+        name: pytest-check
+        entry: python -m pytest -v tests/
+        language: system
+        pass_filenames: false
+        always_run: true

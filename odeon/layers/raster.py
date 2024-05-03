@@ -2,10 +2,10 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 import numpy as np
+from layers.core.dtype import DType
 # from .rio import RioEngine
 from layers.core.types import BOUNDS
 
-from odeon.core.dtype import DType
 from odeon.core.types import PARAMS, URI
 
 from .core.engine import Engine

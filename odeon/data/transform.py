@@ -3,9 +3,9 @@ from typing import Callable, Dict, List, Union
 import albumentations as A
 import numpy as np
 import torch
-from layers.core.data import IMAGE_MODALITY
 
 from odeon.core.types import PARAMS
+from odeon.layers.core.data import IMAGE_MODALITY
 
 from .core.transform import build_transform
 

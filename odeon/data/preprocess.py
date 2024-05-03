@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from layers.core.data import DTYPE_MAX, InputDType
 from rasterio.plot import reshape_as_image
 from rasterio.windows import from_bounds as window_from_bounds
 
 from odeon.core.types import URI
+from odeon.layers.core.data import DTYPE_MAX, InputDType
 from odeon.layers.norm import MEAN_DEFAULT_VALUE, STD_DEFAULT_VALUE, normalize
 from odeon.layers.rio import get_dataset, read_raster
 
@@ -154,7 +154,7 @@ class PreProcessor:
         return normalize(img=img,
                          mean=mean,
                          std=std,
-                         max_pixel_value=dtype_max)
+                         max_value=dtype_max)
 
     def apply_to_mask(self,
                       path: URI,
