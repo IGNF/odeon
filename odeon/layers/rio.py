@@ -252,8 +252,8 @@ class RioEngine(Engine):
         ----------
         path: str or PathLike, optional, path of readable raster
         src: DatasetReaderBase, optional, data where to read data
-        band_indices:
-        bounds
+        band_indices: BOUNDS or None
+        bounds:  tuple[float, float, float, float] | tuple[int, int, int, int] | list[int] | list[float] | None
 
         Returns
         -------
@@ -298,8 +298,12 @@ class RioEngine(Engine):
             dst = self._cache[geo_id]
             transform = None
         else:
-            transform = get_write_transform(bounds=bbox, width=width, height=height)
             dst = None
+            if bbox is not None and width is not None and height is not None:
+                transform = get_write_transform(bounds=bbox, width=width, height=height)
+                dst = None
+            else:
+                transform = None
         # write data into dataset
         dst = write_raster(data=data, path=path, dst=dst, bounds=bounds, driver=self.driver, mode=self.mode,
                            dtype=self.dtype, width=width, height=height, count=self.count, crs=self.crs,
