@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from layers.core.types import DATAFRAME
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from odeon.core.app_utils import Stages
@@ -10,6 +9,7 @@ from odeon.core.types import STAGES_OR_VALUE, URI, GeoTuple
 from odeon.data.core.dataloader_utils import (
     DEFAULT_DATALOADER_OPTIONS, DEFAULT_INFERENCE_DATALOADER_OPTIONS,
     DEFAULT_OVERLAP, DEFAULT_PATCH_RESOLUTION, DEFAULT_PATCH_SIZE)
+from odeon.layers.core.types import DATAFRAME
 from odeon.layers.dataframe import create_dataframe_from_file
 
 from .dataset import OdnDataset

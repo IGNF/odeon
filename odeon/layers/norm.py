@@ -1,8 +1,9 @@
 from typing import List, Union
 
 import numpy as np
-from layers.core.data import DTYPE_MAX, InputDType
 from torch import Tensor
+
+from .core.data import DTYPE_MAX, InputDType
 
 MEAN_DEFAULT_VALUE = 0.5
 STD_DEFAULT_VALUE = 0.5

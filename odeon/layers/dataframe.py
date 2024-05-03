@@ -3,9 +3,10 @@ from typing import Dict, Optional, Tuple
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from layers.core.types import DATAFRAME
 
 from odeon.core.types import URI
+
+from .core.types import DATAFRAME
 
 CSV_SUFFIX = ".csv"
 

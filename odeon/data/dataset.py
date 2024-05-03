@@ -10,7 +10,6 @@ from logging import getLogger
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from layers.core.types import DATAFRAME
 from torch.utils.data import Dataset
 
 from odeon.core.types import OptionalGeoTuple
@@ -18,6 +17,7 @@ from odeon.data.core.dataloader_utils import (DEFAULT_OVERLAP,
                                               DEFAULT_PATCH_RESOLUTION,
                                               DEFAULT_PATCH_SIZE)
 from odeon.data.preprocess import PreProcessor
+from odeon.layers.core.types import DATAFRAME
 from odeon.layers.tile import tile
 from odeon.layers.vector import create_gdf_from_list, gpd
 

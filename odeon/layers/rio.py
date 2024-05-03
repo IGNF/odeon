@@ -3,14 +3,15 @@ from typing import Callable, Dict, List, Optional
 
 import numpy as np
 import rasterio as rio
-from layers.core.engine import Engine
-from layers.core.types import BOUNDS
 from rasterio.io import DatasetReaderBase, DatasetWriterBase
 from rasterio.plot import reshape_as_raster
 from rasterio.windows import Window
 
 from odeon.core.types import PARAMS, URI
 
+from .core.dtype import DType
+from .core.engine import Engine
+from .core.types import BOUNDS
 from .rio_utils import get_read_window, get_write_transform, get_write_window
 
 
@@ -34,7 +35,7 @@ def write_raster(data: np.ndarray,
                  bounds: Optional[BOUNDS] = None,
                  driver: str = 'GTiff',
                  mode: str = 'w',
-                 dtype: rio.dtypes | str = rio.uint8,
+                 dtype: DType | str = 'uint8',
                  width: int = None,
                  height: int = None,
                  count: int = None,
@@ -198,7 +199,7 @@ class RioEngine(Engine):
     def __init__(self,
                  driver: str = 'GTiff',
                  mode: str = 'w',
-                 dtype: rio.dtypes | str = rio.uint8,
+                 dtype: DType | str = 'uint8',
                  width: int = None,
                  height: int = None,
                  count: int = None,
@@ -292,7 +293,7 @@ class RioEngine(Engine):
         width = width if width is not None else self.width
         height = height if height is not None else self.height
         # compute transform from bbox
-        geo_id = f'{bbox[0]}_{bbox[1]}_{bbox[2]}_{bbox[3]}'
+        geo_id = str(path)
         if geo_id in self._cache:
             dst = self._cache[geo_id]
             transform = None
