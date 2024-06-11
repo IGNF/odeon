@@ -47,10 +47,11 @@ def test_dataloader_factory_by_patch(path_to_test_data):
     n_cycle = 2
     for idx, batch in enumerate(data_loader):
         logger.info(idx)
+        assert "zone_type" in batch.keys()
         if int(idx) > n_cycle:
             logger.info("exit")
             break
-        logger.info(f"id: {idx}, batch: {batch.keys()}")
+        logger.debug(f"id: {idx}, batch: {batch.keys()}")
 
 
 def test_dataloader_factory_by_zone_random_window(path_to_test_data):
@@ -92,7 +93,7 @@ def test_dataloader_factory_by_zone_random_window(path_to_test_data):
         if int(idx) > n_cycle:
             logger.info("exit")
             break
-        logger.info(f"id: {idx}, batch: {batch.keys()}")
+        # logger.info(f"id: {idx}, batch: {batch.keys()}")
         for patch_bounds, windows_bounds in zip(batch['geometry'], batch['bounds']):
 
             assert patch_bounds[0] <= windows_bounds[0]
@@ -140,7 +141,7 @@ def test_dataloader_factory_by_zone_center_window(path_to_test_data):
         if int(idx) > n_cycle:
             logger.info("exit")
             break
-        logger.info(f"id: {idx}, batch: {batch.keys()}")
+        # logger.info(f"id: {idx}, batch: {batch.keys()}")
         for patch_bounds, windows_bounds in zip(batch['geometry'], batch['bounds']):
 
             assert patch_bounds[0] <= windows_bounds[0]
@@ -195,7 +196,7 @@ def test_dataloader_factory_by_zone_random_window_cache_dataset(path_to_test_dat
             if int(idx) > n_cycle:
                 logger.info("exit")
                 break
-            logger.info(f"id: {idx}, batch: {batch.keys()}")
+            # logger.info(f"id: {idx}, batch: {batch.keys()}")
             for patch_bounds, windows_bounds in zip(batch['geometry'], batch['bounds']):
 
                 assert patch_bounds[0] <= windows_bounds[0]

@@ -111,6 +111,7 @@ class PreProcessor:
                                                         dtype_max=dtype_max,
                                                         mean=mean,
                                                         std=std)
+                del data[value["name"]]
             if value["type"] == "mask":
                 path = data[value["name"]] if self.root_dir is None else Path(str(self.root_dir)) / data[value["name"]]
                 band_indices = value["band_indices"] if "band_indices" in value else None
@@ -119,8 +120,11 @@ class PreProcessor:
                                                       band_indices=band_indices,
                                                       bounds=bounds,
                                                       one_hot_encoding=one_hot_encoding)
-            if "geometry" in data.keys():
-                output_dict["geometry"] = np.array(data["geometry"].bounds)
+                del data[value["name"]]
+        if "geometry" in data.keys():
+            output_dict["geometry"] = np.array(data["geometry"].bounds)
+            del data["geometry"]
+        output_dict = {**data, **output_dict} # last is the last merged when 2 values are equals
         return output_dict
 
     def __call__(self, data: Dict, bounds: Optional[List] = None, *args, **kwargs) -> Dict:
