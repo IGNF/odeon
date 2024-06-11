@@ -24,11 +24,11 @@ def test_data_module_only_one_fit_minimal_config(path_to_test_data):
     n_cycle = 2
     for i in range(n_cycle):
         for idx, batch in enumerate(data_loader):
-            logger.info(idx)
+            logger.debug(idx)
             if int(idx) > n_cycle:
                 logger.info("exit")
                 break
-            logger.info(f"id: {idx}, batch: {batch.keys()}")
+            logger.debug(f"id: {idx}, batch: {batch.keys()}")
 
 
 def test_data_module_multi_fit(path_to_test_data):
@@ -50,7 +50,7 @@ def test_data_module_multi_fit(path_to_test_data):
     n_cycle = 2
     for i in range(n_cycle):
         for batch, batch_idx, dataloader_idx in data_loader:
-            logger.info(f"batch: {batch}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
+            logger.debug(f"batch: {batch}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
 
 
 def test_data_module_multi_stage(path_to_test_data):
@@ -78,11 +78,11 @@ def test_data_module_multi_fit_multi_stage(path_to_test_data):
     data_module.setup(stage='test')
     data_module.setup(stage='predict')
     data_loader = data_module.train_dataloader()
-    logger.info(f'data loaders: {data_loader}')
+    logger.debug(f'data loaders: {data_loader}')
     n_cycle = 2
     for i in range(n_cycle):
         for batch, batch_idx, dataloader_idx in data_loader:
-            logger.info(f"batch: {batch['fit-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
+            logger.debug(f"batch: {batch['fit-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
 
             # logger.info(f"id: {idx}, batch: {batch1.keys()}")
             # logger.info(f"id: {idx}, batch: {batch2.keys()}")
@@ -92,7 +92,7 @@ def test_data_module_multi_fit_multi_stage(path_to_test_data):
     n_cycle = 2
     for i in range(n_cycle):
         for batch, batch_idx, dataloader_idx in data_loader:
-            logger.info(f"batch: {batch['validate-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
+            logger.debug(f"batch: {batch['validate-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
 
 
     # test dataloader
@@ -101,8 +101,7 @@ def test_data_module_multi_fit_multi_stage(path_to_test_data):
 
     for i in range(n_cycle):
         for batch, batch_idx, dataloader_idx in data_loader:
-            logger.info(f"batch: {batch['test-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
-
+            logger.debug(f"batch: {batch['test-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
 
     # predict dataloader
     data_loader = data_module.predict_dataloader()
@@ -110,4 +109,4 @@ def test_data_module_multi_fit_multi_stage(path_to_test_data):
 
     for i in range(n_cycle):
         for batch, batch_idx, dataloader_idx in data_loader:
-            logger.info(f"batch: {batch['predict-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")
+            logger.debug(f"batch: {batch['predict-1']}, batch idx: {batch_idx}, dataloader idx: {dataloader_idx}")

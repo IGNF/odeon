@@ -25,14 +25,12 @@ logger = get_logger(__name__, debug=debug_mode)
 ENV_VARIABLE = 'env_variables'
 ODEON_DEBUG_MODE_ENV_VARIABLE = 'ODEON_DEBUG_MODE'
 
-
 DEFAULT_PARSER: PARSER = 'omegaconf'
 ODEON_PARSE_ENV_VARIABLE = 'ODEON_PARSER'
 ODEON_PARSER_AVAILABLE: List[PARSER] = ['yaml', 'jsonnet', 'omegaconf']
 
 DEFAULT_CONFIG_STORE = ODEON_PATH / 'config_store'
 DEFAULT_ARTEFACT_STORE = ODEON_PATH / 'artefact_store'
-
 DEFAULT_FEATURE_STORE = ODEON_PATH / 'feature_store'
 DEFAULT_DATASET_STORE = ODEON_PATH / 'dataset_store'
 
@@ -88,29 +86,26 @@ DOC_ENV_CONF = '''
                 log_store: "file:///path/to/log/store"
                 debug_mode: true
                 user:
-                  name: "John Doe"
-                  email: "john.doe@example.com"
-                  role: "Data Scientist"
-                  id: "123456"
-                  microsoft_teams_id: "78910"
-                  current_user: true
+                    name: "John Doe"
+                    email: "john.doe@example.com"
+                    role: "Data Scientist"
+                    id: "123456"
+                    microsoft_teams_id: "78910"
+                    current_user: true
                 team:
-                  name: "Data Team"
-                  email: "data.team@example.com"
-                  members:
-                    - name: "Jane Smith"
-                      email: "jane.smith@example.com"
-                      role: "Analyst"
-                      id: "234567"
-                      microsoft_teams_id: "891011"
-                      current_user: false
-                  current_team: true
+                    name: "Data Team"
+                    email: "data.team@example.com"
+                members:
+                    - name: "John Doe"
+                    email: "john.doe@example.com"
+                    role: "Data Scientist"
+                    id: "123456"
+                    microsoft_teams_id: "78910"
+                    current_user: true
+                    current_team: true
                 project:
-                  name: "Remote Sensing Project"
-                  email: "project@example.com"
-                  teams:
-                    - name: "Research Team"
-                      email: "research.team@example.com"
+                    name: "Remote Sensing Project"
+                    email: "project@example.com"
                 plugins: 'albu_transform': 'odeon.data:albu_transform_plugin',
                          'data': 'odeon.data:data_plugin',
                          'model': 'odeon.models:model_plugin',
@@ -182,7 +177,6 @@ class Project:
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
 class EnvConf:
-
     set_env_variables: Optional[PARAMS] = None
     get_env_variables: Optional[List[str]] = None
     config_parser: str = DEFAULT_PARSER
