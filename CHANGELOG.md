@@ -1,5 +1,9 @@
 # Changes
 
+## 0.5.1 (2024-06-11)
+ ***V.0.5.1 issue 25 Add meta data input fields***
+- Add meta data input fields in preprocessing class
+
 ## 0.5.0 (2024-03-20)
  ***V.0.5.0 first stable version of core API with plugins***
 - Full oriented plugin architecture
