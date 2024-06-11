@@ -1,7 +1,8 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 
+from odeon.core.abstract_interface import AbstractDataclass
 from odeon.core.types import PARAMS
 
 
@@ -90,7 +91,7 @@ class ModalityCollectionFactory:
 
 
 @dataclass
-class AbsModality(ABC):
+class AbsModality(AbstractDataclass):
     name: str
     field_name: str
 

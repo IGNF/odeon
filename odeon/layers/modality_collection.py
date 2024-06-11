@@ -6,15 +6,15 @@ from layers.core.registry import ModalityRegistry
 from layers.core.types import BOUNDS
 
 from odeon.core.logger import get_logger
-from odeon.core.types import PARAMS
+from odeon.core.types import PARAMS, URI
 
 logger = get_logger(__name__)
 
 
 @dataclass(init=True, repr=True, eq=True, order=True, unsafe_hash=True, frozen=False)
 class ModalityCollection:
-
     modality_params: Dict[str, PARAMS | Modality]
+    prefix: URI | None = None
     geo_referenced: bool = False
     _modalities: Dict[str, Modality] = field(init=False)
     _data: PARAMS = field(init=False)

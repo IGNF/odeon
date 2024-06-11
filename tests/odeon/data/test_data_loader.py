@@ -197,7 +197,6 @@ def test_dataloader_factory_by_zone_random_window_cache_dataset(path_to_test_dat
                 break
             logger.info(f"id: {idx}, batch: {batch.keys()}")
             for patch_bounds, windows_bounds in zip(batch['geometry'], batch['bounds']):
-
                 assert patch_bounds[0] <= windows_bounds[0]
                 assert patch_bounds[1] <= windows_bounds[1]
                 assert patch_bounds[2] >= windows_bounds[2]
