@@ -1,27 +1,27 @@
-default_stages: [commit]
+default_stages: [pre-commit]
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
     -   id: check-yaml
     -   id: end-of-file-fixer
     -   id: trailing-whitespace
 
 -   repo: https://github.com/psf/black
-    rev: 24.4.2
+    rev: 24.10.0
     hooks:
     -   id: black
         files: ^odeon/
         args: [--diff]
 
 -   repo: https://github.com/PyCQA/flake8
-    rev: 7.0.0
+    rev: 7.1.1
     hooks:
       - id: flake8
         files: ^odeon/
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.11.2
     hooks:
     -   id: mypy
         verbose: true
@@ -36,7 +36,7 @@ repos:
 -   repo: local
     hooks:
     -   id: pytest-check
-        stages: [push]
+        stages: [pre-push]
         types: [python]
         name: pytest-check
         entry: python -m pytest -v tests/
