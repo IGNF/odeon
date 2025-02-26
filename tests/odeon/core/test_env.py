@@ -1,7 +1,7 @@
 import os
 from logging import getLogger
 
-from odeon.core.env import Env, EnvConf, set_env_variables
+from odeon.core.env import set_env_variables
 
 logger = getLogger(__name__)
 
