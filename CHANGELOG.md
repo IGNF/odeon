@@ -1,5 +1,9 @@
 # Changes
 
+## 0.5.2 (2025-02-28)
+ ***V.0.5.2 issue 25 Add data callback class***
+- Add data callback class (pytorch lightning callback extension) to bring more flexibility for data pipeline built.
+
 ## 0.5.1 (2024-06-11)
  ***V.0.5.1 issue 25 Add meta data input fields***
 - Add meta data input fields in preprocessing class
