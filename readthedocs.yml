@@ -4,7 +4,7 @@ build:
   tools:
     python: "mambaforge-4.10"
 conda:
-  environment: packaging/doc_env.yml
+  environment: packaging/test_env_cpu_py312_torch260.yaml
 sphinx:
   builder: html
   configuration: docs/conf.py

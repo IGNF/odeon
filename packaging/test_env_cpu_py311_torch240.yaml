@@ -4,7 +4,7 @@ channels:
 dependencies:
   # Core dependencies
   - conda-forge::pip
-  - conda-forge::python
+  - conda-forge::python >=3.11.0, <3.12
   - conda-forge::tqdm
   - conda-forge::numpy >=1.17.2
   - conda-forge::omegaconf >=2.1
@@ -25,10 +25,10 @@ dependencies:
   - conda-forge::seaborn
   - conda-forge::matplotlib-base >=3.3,<4
   - conda-forge::pillow
-  - conda-forge::py-opencv=4.7.0
+  - conda-forge::py-opencv==4.10.*
 
   # Deep Learning / Pytorch ecosystem
-  - conda-forge::pytorch
+  - conda-forge::pytorch=2.4.0
   - conda-forge::torchvision
   - conda-forge::pytorch-lightning
   - conda-forge::segmentation-models-pytorch

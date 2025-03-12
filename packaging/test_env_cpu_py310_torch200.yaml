@@ -1,0 +1,74 @@
+channels:
+  - conda-forge
+
+dependencies:
+  # Core dependencies
+  - conda-forge::pip
+  - conda-forge::python=3.10
+  - conda-forge::tqdm
+  - conda-forge::numpy >=1.17.2
+  - conda-forge::omegaconf >=2.1
+  - conda-forge::jsonargparse
+
+  # Geo Dependencies
+  - conda-forge::geopandas>=0.10
+  - conda-forge::fiona >=1.8
+  - conda-forge::pyproj >=2.2
+  - conda-forge::rasterio >=1.0.20
+  - conda-forge::rtree >=1
+  - conda-forge::shapely >=1.3
+  - conda-forge::pyogrio
+
+  # Machine Learning / Dataviz / Computer Vision
+  - conda-forge::matplotlib
+  - conda-forge::scikit-learn >=0.21
+  - conda-forge::seaborn
+  - conda-forge::matplotlib-base >=3.3,<4
+  - conda-forge::pillow
+  - conda-forge::py-opencv=4.7.0
+
+  # Deep Learning / Pytorch ecosystem
+  - conda-forge::pytorch=2.0.0
+  - conda-forge::torchvision
+  - conda-forge::pytorch-lightning
+  - conda-forge::segmentation-models-pytorch
+  - conda-forge::timm
+  - conda-forge::torchmetrics
+  - conda-forge::tensorboard
+  - conda-forge::tensorboardx
+  - conda-forge::albumentations
+  - conda-forge::kornia >=0.7
+  - conda-forge::einops
+
+  # DOC DEPENDENCIES
+  - conda-forge::setuptools
+  - conda-forge::sphinx>=4.4.0
+  - conda-forge::sphinx-panels
+  - conda-forge::sphinx-tabs
+  - conda-forge::numpydoc
+  - conda-forge::nbsphinx
+  - conda-forge::sphinx-tabs
+  - conda-forge::myst-parser
+  - conda-forge::sphinx-autodoc-typehints>=1.0
+  - conda-forge::sphinx-copybutton>=0.3
+  - conda-forge::PyYAML>=5.1,<6.1.0
+  - conda-forge::furo
+  - conda-forge::sphinx-design
+  - conda-forge::sphinx-autobuild
+  - conda-forge::sphinx_rtd_theme
+  - conda-forge::sphinx-intl
+
+  # TEST DEPENDENCIES
+  - conda-forge::pytest
+  - conda-forge::pytest-flake8==1.0.7
+  - conda-forge::flake8==3.9.2  # flake8==4.0.1 is buggy
+  - conda-forge::pytest-cov==3.0.0
+  # pytest-mypy==0.9.1
+  - conda-forge::pylint
+  - conda-forge::flake8==3.9.2
+  - conda-forge::mypy
+  - conda-forge::pre-commit>=2.0
+  - conda-forge::jupyter
+  - conda-forge::jupyterlab
+  - conda-forge::voila
+  - conda-forge::conda-build
