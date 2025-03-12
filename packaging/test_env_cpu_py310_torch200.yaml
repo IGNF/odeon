@@ -39,6 +39,7 @@ dependencies:
   - conda-forge::albumentations
   - conda-forge::kornia >=0.7
   - conda-forge::einops
+  - conda-forge::pycocotools
 
   # DOC DEPENDENCIES
   - conda-forge::setuptools
@@ -58,6 +59,7 @@ dependencies:
   - conda-forge::sphinx_rtd_theme
   - conda-forge::sphinx-intl
 
+
   # TEST DEPENDENCIES
   - conda-forge::pytest
   - conda-forge::pytest-flake8==1.0.7
@@ -72,3 +74,4 @@ dependencies:
   - conda-forge::jupyterlab
   - conda-forge::voila
   - conda-forge::conda-build
+  - conda-forge::twine>=5.0

@@ -39,6 +39,7 @@ dependencies:
   - conda-forge::albumentations
   - conda-forge::kornia >=0.7
   - conda-forge::einops
+  - conda-forge::pycocotools
 
   # DOC DEPENDENCIES
   - conda-forge::setuptools
@@ -72,3 +73,4 @@ dependencies:
   - conda-forge::jupyterlab
   - conda-forge::voila
   - conda-forge::conda-build
+  - conda-forge::twine>=5.0

@@ -3,39 +3,40 @@ channels:
 
 dependencies:
   # Core dependencies
-  - conda-forge::pip
-  - conda-forge::python>=3.10,<3.14.0
-  - conda-forge::tqdm
-  - conda-forge::numpy >=1.17.2
-  - conda-forge::omegaconf >=2.1
-  - conda-forge::jsonargparse
+  - pip
+  - python>=3.10,<3.14.0
+  - tqdm
+  - numpy >=1.17.2
+  - omegaconf >=2.1
+  - jsonargparse
 
   # Geo Dependencies
-  - conda-forge::geopandas>=0.10
-  - conda-forge::fiona >=1.8
-  - conda-forge::pyproj >=2.2
-  - conda-forge::rasterio >=1.0.20
-  - conda-forge::rtree >=1
-  - conda-forge::shapely >=1.3
-  - conda-forge::pyogrio
+  - geopandas>=0.10
+  - fiona >=1.8
+  - pyproj >=2.2
+  - rasterio >=1.0.20
+  - rtree >=1
+  - shapely >=1.3
+  - pyogrio
 
   # Machine Learning / Dataviz / Computer Vision
-  - conda-forge::matplotlib
-  - conda-forge::scikit-learn >=0.21
-  - conda-forge::seaborn
-  - conda-forge::matplotlib-base >=3.3,<4
-  - conda-forge::pillow
-  - conda-forge::py-opencv>=4.7.0
+  - matplotlib
+  - scikit-learn >=0.21
+  - seaborn
+  - matplotlib-base >=3.3,<4
+  - pillow
+  - py-opencv>=4.7.0
 
   # Deep Learning / Pytorch ecosystem
-  - conda-forge::pytorch>=2.0.0
-  - conda-forge::torchvision
-  - conda-forge::pytorch-lightning
-  - conda-forge::segmentation-models-pytorch
-  - conda-forge::timm
-  - conda-forge::torchmetrics
-  - conda-forge::tensorboard
-  - conda-forge::tensorboardx
-  - conda-forge::albumentations
-  - conda-forge::kornia >=0.7
-  - conda-forge::einops
+  - pytorch>=2.0.0
+  - torchvision
+  - pytorch-lightning
+  - segmentation-models-pytorch
+  - timm
+  - torchmetrics
+  - tensorboard
+  - tensorboardx
+  - albumentations
+  - kornia >=0.7
+  - einops
+  - pycocotools
