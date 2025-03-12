@@ -1,0 +1,10 @@
+line-length = 120  # custom, default is 88
+
+[lint]
+select = ["E", "F", "I", "B"]  # Enable errors, formatting issues, import sorting, and bugbear checks
+ignore = ["E501"]  # Ignore line length violations (since Black handles formatting)
+exclude = [".*", "__pycache__", "docs/source/conf.py"]
+
+[lint.isort]
+known-first-party = ["odeon"]  # Customize for internal imports
+combine-as-imports = true
